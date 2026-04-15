@@ -1,0 +1,40 @@
+# --- Личные файлы домашней директории (не часть репозитория) ---
+.bash_history
+.bashrc
+.bash_logout
+.profile
+.ssh/
+.config/
+
+# Кэш и состояние Cursor (транскрипты, MCP, терминалы)
+.cursor/
+
+# Секреты и локальный env
+config/.env
+.env
+.env.*
+!.env.example
+
+# Зависимости и сборка
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/.turbo/
+
+# Кэши
+.cache/
+.npm/
+
+# Сервер Cursor (если когда-то окажется в каталоге)
+.cursor-server/
+
+# Архивы
+*.zip
+
+# Локальные бэкапы
+backups/
+
+# OS
+.DS_Store
+Thumbs.db

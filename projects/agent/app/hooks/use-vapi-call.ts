@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Vapi from "@vapi-ai/web";
-import type { Turn, UiState, VapiMessage } from "@/types/voice";
+import type { ChatMessage, ChatVideoMessage, Turn, UiState, VapiMessage, VideoCaseKey } from "@/types/voice";
 import { isTranscriptMessage, isSpeechUpdateMessage, isToolCallsMessage } from "@/types/voice";
 import { useTranscriptHistory } from "./use-transcript-history";
+import { isVideoCaseKey } from "@/lib/video-case-map";
 
 function classifyError(err: unknown): string {
   if (typeof err !== "object" || err === null) return "Ошибка соединения";
@@ -26,7 +27,7 @@ interface UseVapiCallOptions {
 export type TranscriptProbe = {
   seq: number;
   ts: string;
-  source: "vapi-message" | "call-start" | "call-end" | "speech-update" | "tool-calls";
+  source: "vapi-message" | "call-start" | "call-end" | "speech-update" | "tool-calls" | "ui" | "error";
   eventType: string;
   role?: "user" | "assistant";
   transcriptType?: "partial" | "final";
@@ -164,6 +165,7 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
   });
   const [transcriptLogs, setTranscriptLogs] = useState<TranscriptProbe[]>([]);
   const [conversationTurns, setConversationTurns] = useState<Turn[]>([]);
+  const [videoMessages, setVideoMessages] = useState<ChatVideoMessage[]>([]);
 
   const {
     turns: userTranscriptTurns,
@@ -181,6 +183,7 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
   const prevConversationRef = useRef<Turn[]>([]);
   const lastConvUpdateAtRef = useRef(0);
   const liveUserDraftRef = useRef<Turn | null>(null);
+  const videoCounterRef = useRef(0);
 
   const appendEventLog = useCallback((entry: Omit<TranscriptProbe, "seq" | "ts">) => {
     eventLogSeqRef.current += 1;
@@ -227,6 +230,84 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
     if (activeSpeakerRef.current === role) activeSpeakerRef.current = null;
     setUiState((prev) => (prev.activeSpeaker === role ? { ...prev, activeSpeaker: null } : prev));
   }, [scheduleFinalizeRole]);
+
+  const normalizeToolName = useCallback((name: unknown): string => {
+    if (typeof name !== "string") return "";
+    return name.trim().toLowerCase();
+  }, []);
+
+  const normalizeVideoKey = useCallback((value: unknown): VideoCaseKey | null => {
+    if (typeof value !== "string") return null;
+    const normalized = value.trim().toLowerCase();
+    const aliases: Record<string, VideoCaseKey> = {
+      inspectra: "inspectra",
+      anna: "anna",
+      polevoy: "polevoy",
+      metallica: "metallica",
+      agent1: "inspectra",
+      agent2: "anna",
+      agent3: "polevoy",
+      agent4: "metallica",
+      "ivan polevoy": "polevoy",
+      "иван полевой": "polevoy",
+    };
+    const mapped = aliases[normalized];
+    if (mapped) return mapped;
+    if (isVideoCaseKey(normalized)) return normalized;
+    return null;
+  }, []);
+
+  const parseArgsObject = useCallback((args: unknown): Record<string, unknown> => {
+    if (!args) return {};
+    if (typeof args === "string") {
+      try {
+        const parsed = JSON.parse(args) as unknown;
+        return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+      } catch {
+        return { video: args };
+      }
+    }
+    return typeof args === "object" ? (args as Record<string, unknown>) : {};
+  }, []);
+
+  const getVideoFromPayload = useCallback((args: unknown): VideoCaseKey | null => {
+    const obj = parseArgsObject(args);
+    const candidate =
+      obj.video ??
+      obj.videoId ??
+      obj.video_id ??
+      obj.case ??
+      obj.caseId ??
+      obj.name;
+    return normalizeVideoKey(candidate);
+  }, [normalizeVideoKey, parseArgsObject]);
+
+  const appendVideoMessage = useCallback((video: VideoCaseKey) => {
+    const now = Date.now();
+    setVideoMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.video === video && now - last.timestamp < 1400) return prev;
+      videoCounterRef.current += 1;
+      return [
+        ...prev,
+        {
+          id: `video-${videoCounterRef.current}-${now}`,
+          type: "video",
+          video,
+          timestamp: now,
+        },
+      ];
+    });
+  }, []);
+
+  const hideLatestVideoMessage = useCallback(() => {
+    setVideoMessages((prev) => {
+      for (let i = prev.length - 1; i >= 0; i -= 1) {
+        if (prev[i].type === "video") return [...prev.slice(0, i), ...prev.slice(i + 1)];
+      }
+      return prev;
+    });
+  }, []);
 
   const handleMessage = useCallback(
     (rawMsg: unknown) => {
@@ -317,22 +398,105 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
           raw: msg,
         });
         for (const toolCall of msg.toolCalls) {
-          if (toolCall.name === "show_video") {
-            const videoId = (toolCall.arguments?.videoId as string | undefined) ?? "";
-            if (videoId) onShowVideo?.(videoId);
-          } else if (toolCall.name === "hide_video") {
+          const fn = (toolCall as unknown as { function?: { name?: string; arguments?: unknown } }).function;
+          const rawName = (toolCall as { name?: string }).name ?? fn?.name;
+          const rawArgs = (toolCall as { arguments?: unknown }).arguments ?? fn?.arguments;
+          const toolName = normalizeToolName(rawName);
+          if (toolName === "show_video" || toolName === "showvideo") {
+            const video = getVideoFromPayload(rawArgs);
+            if (!video) {
+              appendEventLog({
+                source: "error",
+                eventType: "invalid-video-payload",
+                raw: toolCall,
+              });
+              continue;
+            }
+            appendVideoMessage(video);
+            appendEventLog({
+              source: "ui",
+              eventType: "video-shown",
+              raw: { video },
+            });
+            onShowVideo?.(video);
+          } else if (toolName === "hide_video" || toolName === "hidevideo") {
+            hideLatestVideoMessage();
+            appendEventLog({
+              source: "ui",
+              eventType: "video-hidden",
+              raw: toolCall,
+            });
             onHideVideo?.();
           }
         }
         return;
       }
 
+      if ((msg as { type?: string }).type === "tool-call") {
+        const single = msg as { toolCall?: { name?: string; arguments?: Record<string, unknown> } };
+        const toolCall = single.toolCall;
+        const toolName = normalizeToolName(toolCall?.name);
+        if (toolName === "show_video" || toolName === "showvideo") {
+          const video = getVideoFromPayload(toolCall.arguments);
+          if (!video) {
+            appendEventLog({
+              source: "error",
+              eventType: "invalid-video-payload",
+              raw: toolCall,
+            });
+            return;
+          }
+          appendVideoMessage(video);
+          appendEventLog({
+            source: "ui",
+            eventType: "video-shown",
+            raw: { video },
+          });
+          onShowVideo?.(video);
+        } else if (toolName === "hide_video" || toolName === "hidevideo") {
+          hideLatestVideoMessage();
+          appendEventLog({
+            source: "ui",
+            eventType: "video-hidden",
+            raw: toolCall,
+          });
+          onHideVideo?.();
+        }
+        appendEventLog({
+          source: "tool-calls",
+          eventType: "tool-call",
+          raw: rawMsg,
+        });
+        return;
+      }
+
       const extracted = extractToolCalls(rawMsg);
       for (const toolCall of extracted) {
-        if (toolCall.name === "show_video") {
-          const videoId = (toolCall.arguments?.videoId as string | undefined) ?? "";
-          if (videoId) onShowVideo?.(videoId);
-        } else if (toolCall.name === "hide_video") {
+        const toolName = normalizeToolName(toolCall.name);
+        if (toolName === "show_video" || toolName === "showvideo") {
+          const video = getVideoFromPayload(toolCall.arguments);
+          if (!video) {
+            appendEventLog({
+              source: "error",
+              eventType: "invalid-video-payload",
+              raw: toolCall,
+            });
+            continue;
+          }
+          appendVideoMessage(video);
+          appendEventLog({
+            source: "ui",
+            eventType: "video-shown",
+            raw: { video },
+          });
+          onShowVideo?.(video);
+        } else if (toolName === "hide_video" || toolName === "hidevideo") {
+          hideLatestVideoMessage();
+          appendEventLog({
+            source: "ui",
+            eventType: "video-hidden",
+            raw: toolCall,
+          });
           onHideVideo?.();
         }
       }
@@ -345,9 +509,13 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
     },
     [
       appendEventLog,
+      appendVideoMessage,
+      getVideoFromPayload,
       handleSpeechEnd,
       handleSpeechStart,
       handleTranscriptMessage,
+      hideLatestVideoMessage,
+      normalizeToolName,
       onHideVideo,
       onShowVideo,
       scheduleFinalizeRole,
@@ -377,9 +545,11 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
     try {
       clearTranscript();
       setConversationTurns([]);
+      setVideoMessages([]);
       prevConversationRef.current = [];
       lastConvUpdateAtRef.current = 0;
       liveUserDraftRef.current = null;
+      videoCounterRef.current = 0;
       setTranscriptLogs([]);
       eventLogSeqRef.current = 0;
       setUiState({ callStatus: "connecting", activeSpeaker: null });
@@ -487,8 +657,27 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
     return base;
   }, [conversationTurns, draftByRole, userTranscriptTurns]);
 
+  const messages = useMemo<ChatMessage[]>(() => {
+    const textMessages: ChatMessage[] = turns.map((turn) => ({
+      id: turn.id,
+      type: "text",
+      role: turn.role,
+      text: turn.text,
+      isFinal: turn.isFinal,
+      timestamp: turn.updatedAt,
+    }));
+
+    return [...textMessages, ...videoMessages]
+      .filter((msg) => (msg.type === "video" ? !msg.hidden : true))
+      .sort((a, b) => {
+        if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+        return a.id.localeCompare(b.id);
+      });
+  }, [turns, videoMessages]);
+
   return {
     uiState,
+    messages,
     turns,
     transcriptLogs,
     showDebugLogs: true,

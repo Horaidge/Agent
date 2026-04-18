@@ -3,35 +3,12 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { gsap } from 'gsap';
 import './magic-bento.css';
+import { DEFAULT_PRODUCT_BENTO, type ProductBentoCard } from '@/lib/product-bento-data';
 
 const DEFAULT_PARTICLE_COUNT = 12;
 const DEFAULT_SPOTLIGHT_RADIUS = 300;
 const DEFAULT_GLOW_COLOR = '124, 58, 237';
 const MOBILE_BREAKPOINT = 768;
-
-const dzenCardData = [
-  {
-    color: '#0F0D17',
-    title: 'Platform',
-    description: 'Multi-agent AI system',
-    label: 'Smart Knowledge Base',
-    fullText: 'Agents execute tasks, not just respond'
-  },
-  {
-    color: '#0F0D17',
-    title: 'Use Cases',
-    description: 'Customer support automation',
-    label: 'Enterprise Ready',
-    fullText: 'Works across voice, text, and systems'
-  },
-  {
-    color: '#0F0D17',
-    title: 'How It Works',
-    description: 'Router Agent orchestrates logic',
-    label: 'AI Orchestration',
-    fullText: 'Multi-level RAG system'
-  }
-];
 
 const createParticleElement = (x, y, color = DEFAULT_GLOW_COLOR) => {
   const el = document.createElement('div');
@@ -469,11 +446,27 @@ export function MagicBento({
   glowColor = DEFAULT_GLOW_COLOR,
   clickEffect = true,
   enableMagnetism = true,
-  onCardClick
+  onCardClick,
+  cards,
+}: {
+  textAutoHide?: boolean;
+  enableStars?: boolean;
+  enableSpotlight?: boolean;
+  enableBorderGlow?: boolean;
+  disableAnimations?: boolean;
+  spotlightRadius?: number;
+  particleCount?: number;
+  enableTilt?: boolean;
+  glowColor?: string;
+  clickEffect?: boolean;
+  enableMagnetism?: boolean;
+  onCardClick?: (title: string) => void;
+  cards?: ProductBentoCard[];
 }) {
   const gridRef = useRef(null);
   const isMobile = useMobileDetection();
   const shouldDisableAnimations = disableAnimations || isMobile;
+  const cardData = cards ?? DEFAULT_PRODUCT_BENTO;
 
   return (
     <>
@@ -488,7 +481,7 @@ export function MagicBento({
       )}
 
       <BentoCardGrid gridRef={gridRef}>
-        {dzenCardData.map((card, index) => {
+        {cardData.map((card, index) => {
           const baseClassName = `magic-bento-card ${textAutoHide ? 'magic-bento-card--text-autohide' : ''} ${enableBorderGlow ? 'magic-bento-card--border-glow' : ''}`;
           const cardProps = {
             className: baseClassName,

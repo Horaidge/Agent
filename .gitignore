@@ -15,6 +15,16 @@ config/.env
 .env.*
 !.env.example
 
+# Проекты на одном сервере: отдельные env для «Агент» и «Контент»
+projects/agent/config/.env
+projects/agent/app/.env
+projects/agent/app/.env.local
+projects/agent/app/.env.*.local
+projects/content/config/.env
+projects/content/app/.env
+projects/content/app/.env.local
+projects/content/app/.env.*.local
+
 # Зависимости и сборка
 **/node_modules/
 **/.next/

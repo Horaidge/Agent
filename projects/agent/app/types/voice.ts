@@ -9,6 +9,27 @@ export type Turn = {
   updatedAt: number;
 };
 
+export type VideoCaseKey = "inspectra" | "anna" | "polevoy" | "metallica";
+
+export type ChatTextMessage = {
+  id: string;
+  type: "text";
+  role: "user" | "assistant";
+  text: string;
+  isFinal: boolean;
+  timestamp: number;
+};
+
+export type ChatVideoMessage = {
+  id: string;
+  type: "video";
+  video: VideoCaseKey;
+  timestamp: number;
+  hidden?: boolean;
+};
+
+export type ChatMessage = ChatTextMessage | ChatVideoMessage;
+
 export type UiState = {
   callStatus: "idle" | "connecting" | "in-call" | "ended" | "error";
   activeSpeaker: "user" | "assistant" | null;

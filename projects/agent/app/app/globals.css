@@ -5,7 +5,7 @@
 
 :root {
   /* Voice AI — deep dark theme, always-on */
-  --background: #05060A;
+  --background: #05070A;
   --foreground: #E8EAF0;
 
   --card: #0C0D14;
@@ -85,11 +85,11 @@
     @apply border-border outline-ring/50;
   }
   html {
-    background-color: #05060A;
+    background-color: #05070A;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-color: #05060A;
+    background-color: #05070A;
   }
 }
 
@@ -215,4 +215,8 @@
 
 .chat-scroll-area::-webkit-scrollbar-thumb:hover {
   background: rgba(124, 58, 237, 0.40);
+}
+
+.chat-panel-glass {
+  scrollbar-gutter: stable;
 }

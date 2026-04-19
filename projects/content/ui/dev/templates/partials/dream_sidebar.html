@@ -1,0 +1,25 @@
+<div class="dream-sidebar-inner">
+  <h3 class="dream-sidebar-title">Запуски</h3>
+  <ul class="dream-run-list">
+    {% for r in runs %}
+    <li class="dream-run-item">
+      <button
+        type="button"
+        class="dream-run-btn"
+        hx-get="/dev/partials/dream/pipeline?run_id={{ r._id }}"
+        hx-target="#dream-pipeline-detail"
+        hx-swap="innerHTML"
+      >
+        <span class="dream-run-status status-{{ r.status }}">{{ r.status }}</span>
+        <span class="dream-run-meta mono">{{ (r.trace_id or '')[:10] }}…</span>
+        <span class="muted">u{{ r.telegram_user_id or r.user_id }}</span>
+      </button>
+      <div class="dream-run-sub muted">
+        {{ (r.dream_text or '')[:72] }}{% if (r.dream_text or '')|length > 72 %}…{% endif %}
+      </div>
+    </li>
+    {% else %}
+    <li class="muted">Нет запусков</li>
+    {% endfor %}
+  </ul>
+</div>

@@ -1,0 +1,12 @@
+<div class="video-status-card">
+  <h4 class="video-block-title">Статус задачи</h4>
+  <dl class="video-dl">
+    <div><dt>job_id</dt><dd class="mono">{{ job._id }}</dd></div>
+    <div><dt>provider_task_id</dt><dd class="mono">{{ job.provider_task_id or "—" }}</dd></div>
+    <div><dt>Статус</dt><dd><span class="video-st video-st-{{ job.status }}">{{ job.status }}</span></dd></div>
+    <div><dt>Создано</dt><dd class="mono">{{ job.created_at or "—" }}</dd></div>
+    <div><dt>Обновлено</dt><dd class="mono">{{ job.updated_at or "—" }}</dd></div>
+    {% if job.error %}<div class="video-err-row"><dt>Ошибка</dt><dd class="err">{{ job.error }}</dd></div>{% endif %}
+  </dl>
+  <p class="muted video-wait-msg">Ожидаем провайдера… (опрос каждые 4 с)</p>
+</div>

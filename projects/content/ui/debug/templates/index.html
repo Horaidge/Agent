@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/dev/debug/static/style.css"/>
+</head>
+<body>
+  <header class="hdr">
+    <h1>Dream Viz — локальная dev-консоль</h1>
+    <p class="muted">Только localhost · read-only · polling {{ poll_interval_ms }} ms</p>
+  </header>
+
+  <section class="filters">
+    <label>user_id <input type="text" id="f_user" placeholder="Telegram user id"/></label>
+    <label>chat_id <input type="text" id="f_chat" placeholder="chat id"/></label>
+    <label>event type <input type="text" id="f_etype" placeholder="telegram.update, ..."/></label>
+    <label>trace_id <input type="text" id="f_trace" placeholder="uuid"/></label>
+    <button type="button" id="btn_apply">Применить фильтры</button>
+  </section>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="events" class="on">Events</button>
+    <button data-tab="messages">Messages (Mongo)</button>
+    <button data-tab="traces">Traces</button>
+    <button data-tab="telegram">Telegram webhook</button>
+    <button data-tab="summary">Mongo summary</button>
+    <button data-tab="detail">Detail JSON</button>
+  </nav>
+
+  <main>
+    <div id="panel-events" class="panel active">
+      <h2>События observability</h2>
+      <div id="out-events" class="mono"></div>
+    </div>
+    <div id="panel-messages" class="panel">
+      <h2>inbound_messages</h2>
+      <div id="out-messages" class="mono"></div>
+    </div>
+    <div id="panel-traces" class="panel">
+      <h2>Последние trace_id</h2>
+      <div id="out-traces" class="mono"></div>
+    </div>
+    <div id="panel-telegram" class="panel">
+      <h2>getWebhookInfo (живой бот)</h2>
+      <div id="out-telegram" class="mono"></div>
+    </div>
+    <div id="panel-summary" class="panel">
+      <h2>Коллекции</h2>
+      <div id="out-summary" class="mono"></div>
+    </div>
+    <div id="panel-detail" class="panel">
+      <h2>Выберите событие или введите JSON</h2>
+      <textarea id="detail-json" rows="20" class="mono full" placeholder="{}"></textarea>
+    </div>
+  </main>
+
+  <footer class="muted">
+    Включите <code>DEV_DEBUG_UI=true</code> в ENV. Секреты из env в UI не попадают.
+  </footer>
+
+  <script>
+    window.__POLL_MS__ = {{ poll_interval_ms }};
+  </script>
+  <script src="/dev/debug/static/debug_app.js"></script>
+</body>
+</html>

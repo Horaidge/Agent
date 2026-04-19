@@ -1,0 +1,17 @@
+{% if user_ids %}
+<ul class="user-pick">
+  {% for uid in user_ids %}
+  <li>
+    <button type="button"
+      class="user-pick-btn"
+      hx-get="/dev/partials/dream_assets/for_user?uid={{ uid }}"
+      hx-target="#dream-assets-detail"
+      hx-swap="innerHTML">
+      user_id {{ uid }}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Пока нет dream_assets в MongoDB.</p>
+{% endif %}

@@ -1,0 +1,112 @@
+<div class="video-tab">
+  <p class="video-lead muted">Image-to-video (Wan): выберите кадр → задайте промпт → запустите задачу и дождитесь <code>video_url</code>.</p>
+
+  <section class="video-step">
+    <h3 class="video-step-title"><span class="video-step-num">A</span> Источник изображения</h3>
+    <div class="video-src-split">
+      <div class="video-src-block">
+        <h4 class="video-subh">Dream assets</h4>
+        <p class="muted">Пользователи с материалами в MongoDB</p>
+        <div
+          class="table-wrap video-user-wrap"
+          hx-get="/dev/partials/video/users"
+          hx-trigger="load"
+          hx-target="#video-user-list-inner"
+          hx-swap="innerHTML">
+          <div id="video-user-list-inner"><p class="muted">Загрузка…</p></div>
+        </div>
+        <div id="video-asset-picker" class="video-asset-picker"></div>
+      </div>
+      <div class="video-src-block">
+        <h4 class="video-subh">Загрузка файла</h4>
+        <p class="muted">Файл сохраняется в <code>data/dev_uploads/video_inputs/</code></p>
+        <form
+          class="video-upload-form"
+          hx-post="/dev/api/video/upload"
+          hx-encoding="multipart/form-data"
+          hx-target="#video-upload-result"
+          hx-swap="innerHTML">
+          <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" required/>
+          <button type="submit" class="btn-ghost">Загрузить</button>
+        </form>
+        <div id="video-upload-result" class="video-upload-result"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="video-step">
+    <h3 class="video-step-title"><span class="video-step-num">B</span> Параметры видео</h3>
+    <form
+      id="form-video-job"
+      class="video-job-form"
+      hx-post="/dev/api/video/jobs"
+      hx-target="#video-job-live"
+      hx-swap="innerHTML">
+      <label class="block">Режим источника</label>
+      <select name="source_mode" class="video-select">
+        <option value="dream_asset">Dream asset (радиокнопка выше)</option>
+        <option value="upload">Загруженный файл (сначала «Загрузить»)</option>
+      </select>
+
+      <label class="block">Prompt</label>
+      <textarea name="prompt" rows="4" placeholder="Опишите движение и сцену…" required></textarea>
+
+      <div class="video-params-row">
+        <label>Model
+          <select name="model" class="video-select">
+            <option value="wan2.7-i2v" selected>Wan 2.7 i2v (wan2.7-i2v)</option>
+            <option value="wan2.6-i2v-flash">wan2.6-i2v-flash</option>
+            <option value="wan2.2-i2v-plus">wan2.2-i2v-plus</option>
+          </select>
+        </label>
+        <label>Resolution
+          <select name="resolution" class="video-select">
+            <option value="480p">480p</option>
+            <option value="720p" selected>720p</option>
+            <option value="1080p">1080p</option>
+          </select>
+        </label>
+        <label>Duration (сек)
+          <input type="number" name="duration" value="4" min="2" max="10" class="video-num"/>
+        </label>
+      </div>
+
+      <button type="submit" class="btn-primary video-submit">Запустить image-to-video</button>
+    </form>
+  </section>
+
+  <section class="video-step">
+    <h3 class="video-step-title"><span class="video-step-num">C</span> Статус и <span class="video-step-num">D</span> результат</h3>
+    <div id="video-job-live" class="video-job-live">
+      <p class="muted">После запуска здесь появится job и прогресс.</p>
+    </div>
+  </section>
+
+  <section class="video-step video-history">
+    <h3 class="video-step-title">Последние video jobs</h3>
+    <div class="split video-history-split">
+      <div class="table-wrap video-jobs-table-wrap">
+        <table class="msg-table video-jobs-table">
+          <thead>
+            <tr>
+              <th>Статус</th>
+              <th>Время</th>
+              <th>Источник</th>
+              <th>Prompt</th>
+              <th>Model</th>
+            </tr>
+          </thead>
+          <tbody id="video-jobs-tbody"
+            hx-get="/dev/partials/video/jobs_rows"
+            hx-trigger="load, every 6s"
+            hx-swap="innerHTML">
+            <tr><td colspan="5" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-detail video-job-detail-wrap" id="video-job-detail">
+        <p class="muted">Выберите задачу в списке слева.</p>
+      </div>
+    </div>
+  </section>
+</div>

@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Vapi from "@vapi-ai/web";
+import type { AddMessageMessage } from "@vapi-ai/web";
 import type { ChatMessage, ChatVideoMessage, Turn, UiState, VapiMessage, VideoCaseKey } from "@/types/voice";
+import { extractLooseToolCallsFromRaw, normalizeIncomingToolCall } from "@/lib/vapi-tool-calls";
 import { isTranscriptMessage, isSpeechUpdateMessage, isToolCallsMessage } from "@/types/voice";
 import { useTranscriptHistory } from "./use-transcript-history";
 import { isVideoCaseKey } from "@/lib/video-case-map";
@@ -118,37 +120,6 @@ function normalizeConversationTurns(raw: unknown): Turn[] {
     });
   }
   return result;
-}
-
-function extractToolCalls(raw: unknown): Array<{ name?: string; arguments?: Record<string, unknown> }> {
-  if (!raw || typeof raw !== "object") return [];
-  const obj = raw as Record<string, unknown>;
-
-  if (Array.isArray(obj.toolCalls)) {
-    return obj.toolCalls as Array<{ name?: string; arguments?: Record<string, unknown> }>;
-  }
-
-  if (Array.isArray(obj.tool_calls)) {
-    return (obj.tool_calls as Array<Record<string, unknown>>).map((item) => ({
-      name: (item.function as Record<string, unknown> | undefined)?.name as string | undefined,
-      arguments:
-        typeof (item.function as Record<string, unknown> | undefined)?.arguments === "string"
-          ? (() => {
-              try {
-                return JSON.parse((item.function as Record<string, unknown>).arguments as string) as Record<string, unknown>;
-              } catch {
-                return {};
-              }
-            })()
-          : ((item.function as Record<string, unknown> | undefined)?.arguments as Record<string, unknown> | undefined),
-    }));
-  }
-
-  if (obj.type === "tool-calls" && Array.isArray(obj.toolCalls)) {
-    return obj.toolCalls as Array<{ name?: string; arguments?: Record<string, unknown> }>;
-  }
-
-  return [];
 }
 
 export function useVapiCall(options: UseVapiCallOptions = {}) {
@@ -309,6 +280,65 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
     });
   }, []);
 
+  const sendToolOutput = useCallback((toolCallId: string | undefined, body: Record<string, unknown>) => {
+    const vapi = vapiRef.current;
+    if (!toolCallId || !vapi) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[vapi] skip tool result: missing tool_call_id or client", body);
+      }
+      return;
+    }
+    try {
+      vapi.send({
+        type: "add-message",
+        message: {
+          role: "tool",
+          tool_call_id: toolCallId,
+          content: JSON.stringify(body),
+        } as AddMessageMessage["message"],
+        triggerResponseEnabled: true,
+      });
+    } catch (e) {
+      console.warn("[vapi] send tool result failed", e);
+    }
+  }, []);
+
+  const applyVideoTool = useCallback(
+    (toolCall: unknown) => {
+      const { toolCallId, rawName, rawArgs } = normalizeIncomingToolCall(toolCall);
+      const toolName = normalizeToolName(rawName);
+      if (toolName === "show_video" || toolName === "showvideo") {
+        const video = getVideoFromPayload(rawArgs);
+        if (!video) {
+          appendEventLog({ source: "error", eventType: "invalid-video-payload", raw: toolCall });
+          sendToolOutput(toolCallId, { ok: false, error: "invalid_video_payload" });
+          return;
+        }
+        appendVideoMessage(video);
+        appendEventLog({ source: "ui", eventType: "video-shown", raw: { video } });
+        onShowVideo?.(video);
+        sendToolOutput(toolCallId, { ok: true, video, action: "show_video" });
+        return;
+      }
+      if (toolName === "hide_video" || toolName === "hidevideo") {
+        hideLatestVideoMessage();
+        appendEventLog({ source: "ui", eventType: "video-hidden", raw: toolCall });
+        onHideVideo?.();
+        sendToolOutput(toolCallId, { ok: true, action: "hide_video" });
+      }
+    },
+    [
+      appendEventLog,
+      appendVideoMessage,
+      getVideoFromPayload,
+      hideLatestVideoMessage,
+      normalizeToolName,
+      onHideVideo,
+      onShowVideo,
+      sendToolOutput,
+    ]
+  );
+
   const handleMessage = useCallback(
     (rawMsg: unknown) => {
       if (typeof rawMsg !== "object" || rawMsg === null) return;
@@ -398,70 +428,14 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
           raw: msg,
         });
         for (const toolCall of msg.toolCalls) {
-          const fn = (toolCall as unknown as { function?: { name?: string; arguments?: unknown } }).function;
-          const rawName = (toolCall as { name?: string }).name ?? fn?.name;
-          const rawArgs = (toolCall as { arguments?: unknown }).arguments ?? fn?.arguments;
-          const toolName = normalizeToolName(rawName);
-          if (toolName === "show_video" || toolName === "showvideo") {
-            const video = getVideoFromPayload(rawArgs);
-            if (!video) {
-              appendEventLog({
-                source: "error",
-                eventType: "invalid-video-payload",
-                raw: toolCall,
-              });
-              continue;
-            }
-            appendVideoMessage(video);
-            appendEventLog({
-              source: "ui",
-              eventType: "video-shown",
-              raw: { video },
-            });
-            onShowVideo?.(video);
-          } else if (toolName === "hide_video" || toolName === "hidevideo") {
-            hideLatestVideoMessage();
-            appendEventLog({
-              source: "ui",
-              eventType: "video-hidden",
-              raw: toolCall,
-            });
-            onHideVideo?.();
-          }
+          applyVideoTool(toolCall);
         }
         return;
       }
 
       if ((msg as { type?: string }).type === "tool-call") {
-        const single = msg as { toolCall?: { name?: string; arguments?: Record<string, unknown> } };
-        const toolCall = single.toolCall;
-        const toolName = normalizeToolName(toolCall?.name);
-        if (toolName === "show_video" || toolName === "showvideo") {
-          const video = getVideoFromPayload(toolCall.arguments);
-          if (!video) {
-            appendEventLog({
-              source: "error",
-              eventType: "invalid-video-payload",
-              raw: toolCall,
-            });
-            return;
-          }
-          appendVideoMessage(video);
-          appendEventLog({
-            source: "ui",
-            eventType: "video-shown",
-            raw: { video },
-          });
-          onShowVideo?.(video);
-        } else if (toolName === "hide_video" || toolName === "hidevideo") {
-          hideLatestVideoMessage();
-          appendEventLog({
-            source: "ui",
-            eventType: "video-hidden",
-            raw: toolCall,
-          });
-          onHideVideo?.();
-        }
+        const single = msg as { toolCall?: unknown };
+        if (single.toolCall) applyVideoTool(single.toolCall);
         appendEventLog({
           source: "tool-calls",
           eventType: "tool-call",
@@ -470,35 +444,9 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
         return;
       }
 
-      const extracted = extractToolCalls(rawMsg);
-      for (const toolCall of extracted) {
-        const toolName = normalizeToolName(toolCall.name);
-        if (toolName === "show_video" || toolName === "showvideo") {
-          const video = getVideoFromPayload(toolCall.arguments);
-          if (!video) {
-            appendEventLog({
-              source: "error",
-              eventType: "invalid-video-payload",
-              raw: toolCall,
-            });
-            continue;
-          }
-          appendVideoMessage(video);
-          appendEventLog({
-            source: "ui",
-            eventType: "video-shown",
-            raw: { video },
-          });
-          onShowVideo?.(video);
-        } else if (toolName === "hide_video" || toolName === "hidevideo") {
-          hideLatestVideoMessage();
-          appendEventLog({
-            source: "ui",
-            eventType: "video-hidden",
-            raw: toolCall,
-          });
-          onHideVideo?.();
-        }
+      const loose = extractLooseToolCallsFromRaw(rawMsg);
+      for (const tc of loose) {
+        applyVideoTool(tc);
       }
 
       appendEventLog({
@@ -507,19 +455,7 @@ export function useVapiCall(options: UseVapiCallOptions = {}) {
         raw: rawMsg,
       });
     },
-    [
-      appendEventLog,
-      appendVideoMessage,
-      getVideoFromPayload,
-      handleSpeechEnd,
-      handleSpeechStart,
-      handleTranscriptMessage,
-      hideLatestVideoMessage,
-      normalizeToolName,
-      onHideVideo,
-      onShowVideo,
-      scheduleFinalizeRole,
-    ]
+    [appendEventLog, applyVideoTool, handleSpeechEnd, handleSpeechStart, handleTranscriptMessage, scheduleFinalizeRole]
   );
 
   const stopCall = useCallback(() => {

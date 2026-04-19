@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/dev/static/dev.css?v={{ assets_version }}"/>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script defer src="/dev/static/dev_ui.js?v={{ assets_version }}"></script>
+</head>
+<body>
+  <header class="hdr">
+    <h1>{{ title }}</h1>
+    <p class="muted">Только localhost · polling сообщений каждые {{ poll_interval_sec }} с</p>
+  </header>
+
+  <div class="tabs">
+    <input type="radio" name="tab" id="tab-msg" checked/>
+    <input type="radio" name="tab" id="tab-gen"/>
+    <input type="radio" name="tab" id="tab-assets"/>
+    <input type="radio" name="tab" id="tab-video"/>
+    <input type="radio" name="tab" id="tab-dream"/>
+    <input type="radio" name="tab" id="tab-workspaces"/>
+    <div class="tab-labels">
+      <label for="tab-msg">Messages</label>
+      <label for="tab-gen">Generation</label>
+      <label for="tab-assets">Dream assets</label>
+      <label for="tab-video">Video</label>
+      <label for="tab-dream">Dream Pipeline</label>
+      <label for="tab-workspaces">Workspaces</label>
+    </div>
+
+    <section class="tab-panel" id="panel-msg">
+      <div class="split">
+        <div class="col-list">
+          <h2>Входящие</h2>
+          <div class="msg-toolbar">
+            <button
+              type="button"
+              class="btn-ghost btn-msg-clear"
+              hx-post="/dev/api/messages/clear"
+              hx-vals='{"scope": "messages"}'
+              hx-confirm="Удалить все входящие сообщения из MongoDB? Действие необратимо."
+              hx-swap="none"
+            >Очистить сообщения</button>
+            <button
+              type="button"
+              class="btn-ghost btn-msg-clear-all"
+              hx-post="/dev/api/messages/clear"
+              hx-vals='{"scope": "all"}'
+              hx-confirm="Удалить все сообщения, события observability и трейсы чата (model/tool calls)? Действие необратимо."
+              hx-swap="none"
+            >Очистить всё</button>
+          </div>
+          <div
+            class="table-wrap"
+            hx-get="/dev/partials/messages/rows"
+            hx-trigger="load, every {{ poll_interval_sec }}s"
+            hx-target="#message-rows"
+            hx-swap="innerHTML">
+            <table class="msg-table">
+              <thead>
+                <tr>
+                  <th class="th-ico" title="Вид"> </th>
+                  <th>Время</th>
+                  <th>user_id</th>
+                  <th>chat_id</th>
+                  <th>Тип</th>
+                  <th>Статус</th>
+                  <th>Текст</th>
+                </tr>
+              </thead>
+              <tbody id="message-rows">
+                <tr><td colspan="7" class="muted">Загрузка…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="col-detail" id="detail-panel">
+          <h2>Карточка сообщения</h2>
+          <p class="muted">Клик по сообщению слева открывает контекст диалога, execution path модели и advanced-детали.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-gen">
+      <h2>Генерация изображений (Qwen)</h2>
+      <p class="muted gen-tab-hint">Последние генерации сохраняются в этом браузере (localStorage).</p>
+      <form class="gen-form"
+        hx-post="/dev/api/generate"
+        hx-target="#gen-result"
+        hx-swap="innerHTML"
+        hx-indicator="#gen-spinner">
+        <label class="block">Prompt</label>
+        <textarea name="prompt" rows="5" placeholder="Описание сцены…" required></textarea>
+        <div class="row">
+          <label>Size
+            <select name="size">
+              <option value="1024*1024">1024×1024</option>
+              <option value="1024*1536" selected>1024×1536</option>
+              <option value="1536*1024">1536×1024</option>
+            </select>
+          </label>
+          <label>Model
+            <select name="model">
+              <option value="qwen-image-2.0" selected>qwen-image-2.0</option>
+              <option value="qwen-image-2.0-pro">qwen-image-2.0-pro</option>
+            </select>
+          </label>
+          <label>n
+            <input type="number" name="n" value="1" min="1" max="6"/>
+          </label>
+        </div>
+        <button type="submit" class="btn-primary">Generate</button>
+        <span id="gen-spinner" class="htmx-indicator muted"> Генерация…</span>
+      </form>
+      <div id="gen-result" class="gen-result"></div>
+      <section class="gen-history-section" aria-label="История генераций">
+        <h3 class="gen-history-title">Последние генерации</h3>
+        <div id="gen-history" class="gen-history"></div>
+      </section>
+    </section>
+
+    <section class="tab-panel" id="panel-assets">
+      <h2>Dream assets (MongoDB)</h2>
+      <div class="split dream-assets-split">
+        <div class="col-list">
+          <h3>Пользователи</h3>
+          <div
+            class="table-wrap"
+            hx-get="/dev/partials/dream_assets/users"
+            hx-trigger="load, every 5s"
+            hx-target="#dream-user-list"
+            hx-swap="innerHTML">
+            <div id="dream-user-list"><p class="muted">Загрузка…</p></div>
+          </div>
+        </div>
+        <div class="col-detail" id="dream-assets-detail">
+          <p class="muted">Выберите user_id слева.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-video">
+      <h2>Image-to-video (Wan)</h2>
+      {% include "partials/video_panel.html" %}
+    </section>
+
+    <section class="tab-panel" id="panel-dream">
+      <h2>Dream Pipeline</h2>
+      <p class="muted">Intent-driven визуализация сна в Telegram (без обязательной команды). Слева — запуски, справа — пошаговый pipeline по сценам. Обновление каждые {{ poll_interval_sec }} с (как Messages).</p>
+      <div class="split dream-pipeline-split">
+        <div class="col-list dream-pipeline-sidebar">
+          <div
+            hx-get="/dev/partials/dream/sidebar"
+            hx-trigger="load, every {{ poll_interval_sec }}s"
+            hx-target="#dream-sidebar-inner"
+            hx-swap="innerHTML">
+            <div id="dream-sidebar-inner"><p class="muted">Загрузка…</p></div>
+          </div>
+        </div>
+        <div class="col-detail dream-pipeline-main" id="dream-pipeline-detail">
+          <p class="muted">Выберите запуск слева — здесь появится визуальный pipeline (сцены → промпты → кадры → Wan).</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-workspaces">
+      <h2>User Workspaces (Mongo)</h2>
+      <p class="muted">Изолированные пользовательские пространства данных. Один user_id = отдельный workspace с собственными сообщениями, артефактами и pipeline-активностью.</p>
+      <div class="workspace-controls">
+        <form
+          hx-get="/dev/partials/workspaces/list"
+          hx-target="#workspace-list"
+          hx-swap="innerHTML"
+          class="workspace-filters">
+          <label>Период
+            <select name="period">
+              <option value="all" selected>За всё время</option>
+              <option value="day">За день</option>
+              <option value="week">За неделю</option>
+              <option value="month">За месяц</option>
+              <option value="custom">Custom range</option>
+            </select>
+          </label>
+          <label>Сортировка
+            <select name="sort_by">
+              <option value="last_activity" selected>Последняя активность</option>
+              <option value="messages">Количество сообщений</option>
+              <option value="artifacts">Количество артефактов</option>
+              <option value="generations">Количество генераций</option>
+              <option value="created">Дата первого появления</option>
+              <option value="size">Размер пространства</option>
+            </select>
+          </label>
+          <label>Поиск
+            <input type="text" name="search" placeholder="user_id / chat_id / trace_id"/>
+          </label>
+          <label>Custom start
+            <input type="date" name="custom_start"/>
+          </label>
+          <label>Custom end
+            <input type="date" name="custom_end"/>
+          </label>
+          <button type="submit" class="btn-ghost">Применить</button>
+        </form>
+      </div>
+
+      <div class="split workspace-split">
+        <div class="col-list workspace-list-pane">
+          <div
+            hx-get="/dev/partials/workspaces/list"
+            hx-trigger="load, every 15s"
+            hx-target="#workspace-list"
+            hx-swap="innerHTML">
+            <div id="workspace-list"><p class="muted">Загрузка…</p></div>
+          </div>
+        </div>
+        <div class="col-detail workspace-detail-pane" id="workspace-detail">
+          <p class="muted">Выберите workspace слева.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="muted">
+    <code>DEV_DEBUG_UI=true</code> · ключи API в UI не передаются
+  </footer>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{% if error %}
+<p class="error">{{ error }}</p>
+{% else %}
+<div class="dream-detail">
+  <h3>Запуск</h3>
+  <dl class="kv">
+    <dt>trace_id</dt><dd class="mono">{{ run.trace_id }}</dd>
+    <dt>status</dt><dd>{{ run.status }}</dd>
+    <dt>user_id</dt><dd>{{ run.user_id }}</dd>
+    <dt>сцен (план)</dt><dd>{{ run.scene_count or 0 }}</dd>
+    {% if run.error %}<dt>ошибка</dt><dd class="error">{{ run.error }}</dd>{% endif %}
+  </dl>
+  <h4>Текст сна</h4>
+  <pre class="dream-text">{{ run.dream_text or '' }}</pre>
+  {% if run.scene_plan %}
+  <h4>План сцен (фрагмент)</h4>
+  <pre class="json-snippet">{{ run.scene_plan | tojson(indent=2) }}</pre>
+  {% endif %}
+  <h4>Кадры</h4>
+  <ul class="frame-list">
+    {% for f in frames %}
+    <li>#{{ f.scene_index }} {{ f.title }} — <span class="muted">{{ f.status }}</span>
+      {% if f.video_job_id %}<code>{{ f.video_job_id[:10] }}…</code>{% endif %}
+    </li>
+    {% else %}
+    <li class="muted">Нет кадров</li>
+    {% endfor %}
+  </ul>
+  <h4>События dream.*</h4>
+  <ul class="event-list">
+    {% for e in events %}
+    <li><code>{{ e.event_type }}</code>
+      <span class="muted">{{ e.created_at }}</span>
+      <pre class="payload-snippet">{{ e.payload | tojson(indent=2) }}</pre>
+    </li>
+    {% else %}
+    <li class="muted">Нет событий</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}

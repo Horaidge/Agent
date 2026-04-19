@@ -1,0 +1,72 @@
+{% if detail %}
+<div class="workspace-detail-head">
+  <h3>Workspace пользователя {{ detail.user_id }}</h3>
+  <p class="muted">Изолированное Mongo-пространство пользователя. Данные других пользователей сюда не попадают.</p>
+</div>
+
+<div class="workspace-summary-grid">
+  <div class="workspace-summary-item"><span class="workspace-summary-label">user_id</span><span class="workspace-summary-value mono">{{ detail.user_id }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">chat_id</span><span class="workspace-summary-value mono">{{ detail.chat_id or '—' }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">first seen</span><span class="workspace-summary-value mono">{{ detail.first_seen or '—' }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">last activity</span><span class="workspace-summary-value mono">{{ detail.last_seen or '—' }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">messages</span><span class="workspace-summary-value">{{ detail.summary.messages_total }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">assistant responses</span><span class="workspace-summary-value">{{ detail.summary.assistant_responses }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">model calls</span><span class="workspace-summary-value">{{ detail.summary.model_calls }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">tool calls</span><span class="workspace-summary-value">{{ detail.summary.tool_calls }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">dream assets</span><span class="workspace-summary-value">{{ detail.summary.dream_assets }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">generated images</span><span class="workspace-summary-value">{{ detail.summary.generated_images }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">generated frames</span><span class="workspace-summary-value">{{ detail.summary.generated_frames }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">video jobs</span><span class="workspace-summary-value">{{ detail.summary.video_jobs }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">dream runs</span><span class="workspace-summary-value">{{ detail.summary.dream_runs }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">scene videos</span><span class="workspace-summary-value">{{ detail.summary.scene_videos }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">story videos</span><span class="workspace-summary-value">{{ detail.summary.story_videos }}</span></div>
+  <div class="workspace-summary-item"><span class="workspace-summary-label">failed jobs</span><span class="workspace-summary-value">{{ detail.summary.failed_jobs }}</span></div>
+</div>
+
+<section class="workspace-section">
+  <h4>История сообщений (inbound)</h4>
+  <div class="workspace-list-mini">
+    {% for m in detail.messages %}
+    <div class="workspace-row-mini">
+      <strong>{{ m.message_type }}</strong> · <span class="mono">{{ m.created_at }}</span> · trace <span class="mono">{{ m.trace_id or '—' }}</span><br/>
+      {{ m.text or '—' }}
+    </div>
+    {% else %}
+    <p class="muted">Нет inbound сообщений.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="workspace-section">
+  <h4>Диалог (conversation)</h4>
+  <div class="workspace-list-mini">
+    {% for m in detail.conversation %}
+    <div class="workspace-row-mini">
+      <strong>{{ m.role or 'unknown' }}</strong> · <span class="mono">{{ m.created_at or '—' }}</span> · trace <span class="mono">{{ m.trace_id or '—' }}</span><br/>
+      {{ m.text or '—' }}
+    </div>
+    {% else %}
+    <p class="muted">Нет записей conversation.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="workspace-section">
+  <h4>Media и артефакты</h4>
+  <details><summary>Dream assets ({{ detail.dream_assets|length }})</summary><pre class="mono box box-raw">{{ detail.dream_assets | tojson(indent=2) }}</pre></details>
+  <details><summary>Generated images ({{ detail.generated_images|length }})</summary><pre class="mono box box-raw">{{ detail.generated_images | tojson(indent=2) }}</pre></details>
+  <details><summary>Generated frames ({{ detail.generated_frames|length }})</summary><pre class="mono box box-raw">{{ detail.generated_frames | tojson(indent=2) }}</pre></details>
+  <details><summary>Video jobs ({{ detail.video_jobs|length }})</summary><pre class="mono box box-raw">{{ detail.video_jobs | tojson(indent=2) }}</pre></details>
+</section>
+
+<section class="workspace-section">
+  <h4>Generation/Pipeline</h4>
+  <details><summary>Dream runs ({{ detail.dream_runs|length }})</summary><pre class="mono box box-raw">{{ detail.dream_runs | tojson(indent=2) }}</pre></details>
+  <details><summary>Scene videos ({{ detail.scene_videos|length }})</summary><pre class="mono box box-raw">{{ detail.scene_videos | tojson(indent=2) }}</pre></details>
+  <details><summary>Story videos ({{ detail.story_videos|length }})</summary><pre class="mono box box-raw">{{ detail.story_videos | tojson(indent=2) }}</pre></details>
+  <details><summary>Model calls ({{ detail.model_calls|length }})</summary><pre class="mono box box-raw">{{ detail.model_calls | tojson(indent=2) }}</pre></details>
+  <details><summary>Tool calls ({{ detail.tool_calls|length }})</summary><pre class="mono box box-raw">{{ detail.tool_calls | tojson(indent=2) }}</pre></details>
+</section>
+{% else %}
+<p class="muted">Workspace не найден.</p>
+{% endif %}

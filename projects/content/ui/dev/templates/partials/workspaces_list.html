@@ -1,0 +1,35 @@
+{% if items %}
+<div class="workspace-grid">
+  {% for w in items %}
+  <article class="workspace-card">
+    <div class="workspace-card-head">
+      <span class="workspace-user">user {{ w.user_id }}</span>
+      <span class="workspace-last">last: {{ w.last_activity or '—' }}</span>
+    </div>
+    <p class="muted">chat_id: <span class="mono">{{ w.chat_id or '—' }}</span></p>
+    <div class="workspace-kpis">
+      <span>messages: {{ w.message_count }}</span>
+      <span>assistant: {{ w.assistant_count }}</span>
+      <span>model: {{ w.model_calls_count }}</span>
+      <span>tools: {{ w.tool_calls_count }}</span>
+      <span>assets: {{ w.dream_assets_count }}</span>
+      <span>gen img: {{ w.generated_images_count }}</span>
+      <span>gen frames: {{ w.generated_frames_count }}</span>
+      <span>video jobs: {{ w.video_jobs_count }}</span>
+      <span>dream runs: {{ w.dream_runs_count }}</span>
+      <span>story videos: {{ w.story_videos_count }}</span>
+      <span>failed jobs: {{ w.failed_jobs_count }}</span>
+      <span>errors: {{ w.error_events_count }}</span>
+    </div>
+    <button
+      class="btn-ghost workspace-open-btn"
+      hx-get="/dev/partials/workspaces/{{ w.user_id }}/detail"
+      hx-target="#workspace-detail"
+      hx-swap="innerHTML"
+      type="button">Открыть workspace</button>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">По текущим фильтрам workspace-данные не найдены.</p>
+{% endif %}

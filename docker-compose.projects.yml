@@ -1,0 +1,48 @@
+# Сборка agent: NEXT_PUBLIC_* подставляются в build args только если задать env для compose, например:
+#   docker-compose --env-file ./projects/agent/config/.env -f docker-compose.projects.yml build agent
+# (одного env_file у сервиса для рантайма недостаточно — см. документацию Compose 1.x)
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.projects.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - agent
+      - content
+    restart: unless-stopped
+
+  agent:
+    build:
+      context: ./projects/agent/app
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_VAPI_PUBLIC_KEY: ${NEXT_PUBLIC_VAPI_PUBLIC_KEY:-}
+        NEXT_PUBLIC_VAPI_ASSISTANT_ID: ${NEXT_PUBLIC_VAPI_ASSISTANT_ID:-}
+    env_file:
+      - ./projects/agent/config/.env
+    ports:
+      # Системный nginx (sites-available/voice) проксирует HTTPS → этот порт
+      - "127.0.0.1:3001:3000"
+    restart: unless-stopped
+
+  content:
+    build:
+      context: ./projects/content
+      dockerfile: Dockerfile
+    env_file:
+      - ./projects/content/.env
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - content_mongo_data:/data/db
+
+volumes:
+  content_mongo_data:

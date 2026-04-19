@@ -13,9 +13,22 @@ import { VapiDebugConsole } from "@/components/vapi-debug-console";
 import { useVapiCall } from "@/hooks/use-vapi-call";
 import type { TranscriptProbe } from "@/hooks/use-vapi-call";
 
-export function MainVoicePage() {
+export type MainVoicePageProps = {
+  /** Пробрасываются с серверного page.tsx (env из .env.local / Docker) */
+  vapiPublicKey?: string;
+  vapiAssistantId?: string;
+};
+
+export function MainVoicePage({
+  vapiPublicKey = "",
+  vapiAssistantId = "",
+}: MainVoicePageProps) {
   const [activeSection, setActiveSection] = useState<string | null>(null);
-  const { uiState, messages, transcriptLogs, showDebugLogs, clearTranscriptLogs, toggleCall } = useVapiCall();
+  const { uiState, messages, transcriptLogs, showDebugLogs, clearTranscriptLogs, toggleCall } =
+    useVapiCall({
+      publicKey: vapiPublicKey,
+      assistantId: vapiAssistantId,
+    });
   const { callStatus, errorMessage } = uiState;
 
   const isIdle = callStatus === "idle";

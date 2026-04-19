@@ -1,0 +1,33 @@
+<div class="table-wrap">
+  <table class="msg-table">
+    <thead>
+      <tr>
+        <th>trace_id</th>
+        <th>user</th>
+        <th>status</th>
+        <th>сцен</th>
+        <th>время</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td class="mono">{{ (r.trace_id or '')[:12] }}…</td>
+        <td>{{ r.user_id }}</td>
+        <td>{{ r.status }}</td>
+        <td>{{ r.scene_count or 0 }}</td>
+        <td class="muted">{{ r.created_at }}</td>
+        <td>
+          <button type="button" class="btn-link"
+            hx-get="/dev/partials/dream/run_detail?run_id={{ r._id }}"
+            hx-target="#dream-run-detail"
+            hx-swap="innerHTML">Детали</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">Пока нет запусков dream pipeline</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

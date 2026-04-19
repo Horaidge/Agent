@@ -1,0 +1,9 @@
+{% if error %}
+<p class="err">{{ error }}</p>
+{% else %}
+<div class="video-upload-ok">
+  <p class="muted">Файл сохранён: <code>{{ filename }}</code></p>
+  <input type="hidden" name="upload_id" value="{{ upload_id }}" form="form-video-job"/>
+  <p class="muted video-hint">Теперь нажмите «Запустить видео» в форме ниже (режим «Загрузка файла»).</p>
+</div>
+{% endif %}

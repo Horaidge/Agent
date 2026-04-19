@@ -1,0 +1,245 @@
+{% if error %}
+<h2 class="detail-title">Карточка сообщения</h2>
+<p class="err">{{ error }}</p>
+{% elif detail %}
+{% set tid = detail.trace_id %}
+{% set dialog = detail.agent_dialog | sort(attribute='created_at') %}
+{% set models = (detail.agent_model_calls | selectattr('trace_id', 'equalto', tid) | list | sort(attribute='turn_index')) if tid else [] %}
+{% set tools = (detail.agent_tool_calls | selectattr('trace_id', 'equalto', tid) | list | sort(attribute='created_at')) if tid else [] %}
+{% set final_assistant = (dialog | selectattr('trace_id', 'equalto', tid) | selectattr('role', 'equalto', 'assistant') | list | sort(attribute='created_at') | last) if tid and (dialog | length) else none %}
+{% set final_text = final_assistant.text if final_assistant else none %}
+{% set anchor_candidates = (dialog | selectattr('trace_id', 'equalto', tid) | selectattr('role', 'equalto', 'user') | list | sort(attribute='created_at')) if tid else [] %}
+{% set anchor_entry = (anchor_candidates | last) if anchor_candidates else none %}
+{% set has_error = (detail.errors | length) > 0 %}
+{% set model_name = (models | last).model_name if (models | length) > 0 else none %}
+{% set decision_excerpt = (models | last).raw_response_excerpt if (models | length) > 0 else none %}
+
+{# Системный промпт: самый длинный system-фрагмент из request_messages или preview #}
+{% set ns_sys = namespace(best = (detail.system_prompt_preview or "")) %}
+{% for mc in detail.agent_model_calls %}
+  {% for rm in (mc.request_messages or []) %}
+    {% if rm.role == 'system' and rm.content and (rm.content | length > ns_sys.best | length) %}
+      {% set ns_sys.best = rm.content %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+<h2 class="detail-title">Карточка сообщения</h2>
+<p class="muted detail-subtitle">Сначала контекст диалога и результат, затем технические детали.</p>
+
+<div class="detail-meta detail-meta--compact">
+  <div class="detail-meta-item"><span class="detail-meta-label">Время</span><span class="mono">{{ detail.created_at_iso }}</span></div>
+  <div class="detail-meta-item"><span class="detail-meta-label">user / chat</span><span class="mono">{{ detail.telegram_user_id }} / {{ detail.telegram_chat_id }}</span></div>
+  <div class="detail-meta-item"><span class="detail-meta-label">Тип</span><span class="tag">{{ detail.message_type }}</span></div>
+  <div class="detail-meta-item"><span class="detail-meta-label">Статус</span><span class="tag st-{{ detail.status }}">{{ detail.status }}</span></div>
+  {% if tid %}<div class="detail-meta-item detail-meta-full"><span class="detail-meta-label">trace_id</span><code class="mono">{{ tid }}</code></div>{% endif %}
+</div>
+
+<section class="clean-block" aria-label="Диалог">
+  <header class="clean-block-head">
+    <h3 class="clean-block-title">Диалог</h3>
+    <span class="muted">Лента целиком, текущая точка входа подсвечена</span>
+  </header>
+  <div class="dialog-feed" id="dialog-feed" role="list">
+    {% if dialog %}
+      {% for msg in dialog %}
+      {% set is_anchor = anchor_entry and msg._id == anchor_entry._id %}
+      {% set role = msg.role or 'unknown' %}
+      <article
+        class="dialog-entry role-{{ role }}{% if is_anchor %} dialog-entry--anchor{% endif %}"
+        role="listitem"
+        {% if is_anchor %}id="dialog-anchor-msg"{% endif %}>
+        <div class="dialog-entry-head">
+          <span class="dialog-role role-badge role-badge-{{ role }}">{{ role }}</span>
+          <span class="mono dialog-time">{{ msg.created_at or "—" }}</span>
+          {% if msg.trace_id %}<span class="dialog-trace mono">trace: {{ msg.trace_id }}</span>{% endif %}
+          {% if is_anchor %}<span class="dialog-anchor-badge">точка входа</span>{% endif %}
+        </div>
+        <p class="dialog-text">{{ msg.text or "—" }}</p>
+        <details class="dialog-debug">
+          <summary>Debug для этого сообщения</summary>
+          <div class="dialog-debug-inner">
+            <pre class="mono box box-raw">{{ msg | tojson(indent=2) }}</pre>
+          </div>
+        </details>
+      </article>
+      {% endfor %}
+    {% else %}
+      <p class="muted">В коллекции conversation_messages пока нет данных по этому пользователю.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="clean-block" aria-label="Что сделала модель">
+  <header class="clean-block-head">
+    <h3 class="clean-block-title">Что сделала модель</h3>
+    <span class="muted">Execution path по выбранному сообщению</span>
+  </header>
+
+  <div class="exec-kpis">
+    <span class="exec-pill{% if (models | length) > 0 %} ok{% else %} skip{% endif %}">model: {% if (models | length) > 0 %}called{% else %}not called{% endif %}</span>
+    <span class="exec-pill{% if (tools | length) > 0 %} ok{% else %} skip{% endif %}">tools: {{ tools | length }}</span>
+    <span class="exec-pill{% if final_text %} ok{% else %} warn{% endif %}">final response: {% if final_text %}yes{% else %}no{% endif %}</span>
+    <span class="exec-pill{% if has_error %} err{% else %} ok{% endif %}">errors: {{ detail.errors | length }}</span>
+  </div>
+
+  <ol class="exec-flow exec-flow-chain">
+    <li class="exec-step exec-step-user ok">
+      <div class="exec-step-head">
+        <strong><span class="exec-ico">👤</span> User message</strong>
+        <span class="exec-status">received</span>
+      </div>
+      <p class="exec-step-body">{{ detail.full_text or "—" }}</p>
+      <details class="exec-inline-details">
+        <summary>Raw entry fields</summary>
+        <pre class="mono tl-pre">{{ detail.extracted | tojson(indent=2) }}</pre>
+      </details>
+    </li>
+
+    <li class="exec-step exec-step-model{% if (models | length) > 0 %} ok{% else %} skip{% endif %}">
+      <div class="exec-step-head">
+        <strong><span class="exec-ico">🧠</span> Model decision</strong>
+        <span class="exec-status">{% if (models | length) > 0 %}done{% else %}skipped{% endif %}</span>
+      </div>
+      <p class="exec-step-body">
+        {% if (models | length) > 0 %}
+          model: <code>{{ model_name or "unknown" }}</code> · turns: {{ models | length }}
+        {% else %}
+          Нет model_calls для выбранного trace.
+        {% endif %}
+      </p>
+      {% if decision_excerpt %}
+      <details class="exec-inline-details">
+        <summary>Краткий raw excerpt</summary>
+        <pre class="mono tl-pre">{{ decision_excerpt }}</pre>
+      </details>
+      {% endif %}
+      {% if (models | length) > 0 %}
+      <details class="exec-inline-details">
+        <summary>Model steps (raw per turn)</summary>
+        {% for mc in models %}
+        <details class="raw-json-nested">
+          <summary>turn {{ mc.turn_index }} · {{ mc.model_name or "model" }}</summary>
+          <pre class="mono box box-raw">{{ mc | tojson(indent=2) }}</pre>
+        </details>
+        {% endfor %}
+      </details>
+      {% endif %}
+    </li>
+
+    {% if tools %}
+      {% for tc in tools %}
+      <li class="exec-step exec-step-tools{% if tc.success %} ok{% else %} err{% endif %}">
+        <div class="exec-step-head">
+          <strong><span class="exec-ico">🛠</span> Tool call {{ loop.index }}</strong>
+          <span class="exec-status">{% if tc.success %}success{% else %}fail{% endif %}</span>
+        </div>
+        <p class="exec-step-body"><strong>{{ tc.tool_name or "tool" }}</strong> · {{ tc.created_at or "—" }}</p>
+        <p class="exec-step-body muted">Краткий результат: {% if tc.tool_result %}получен{% else %}нет payload{% endif %}</p>
+        <details class="exec-inline-details">
+          <summary>Tool call debug (args/result)</summary>
+          <details class="raw-json-nested">
+            <summary>Args</summary>
+            <pre class="mono box box-raw">{{ tc.tool_args | tojson(indent=2) }}</pre>
+          </details>
+          <details class="raw-json-nested">
+            <summary>Result</summary>
+            <pre class="mono box box-raw">{{ tc.tool_result | tojson(indent=2) }}</pre>
+          </details>
+          <details class="raw-json-nested">
+            <summary>Event raw</summary>
+            <pre class="mono box box-raw">{{ tc | tojson(indent=2) }}</pre>
+          </details>
+        </details>
+      </li>
+      {% endfor %}
+    {% else %}
+      <li class="exec-step exec-step-tools skip">
+        <div class="exec-step-head">
+          <strong><span class="exec-ico">🛠</span> Tool calls</strong>
+          <span class="exec-status">none</span>
+        </div>
+        <p class="exec-step-body">Инструменты не вызывались.</p>
+      </li>
+    {% endif %}
+
+    <li class="exec-step exec-step-final{% if final_text %} ok{% else %} warn{% endif %}">
+      <div class="exec-step-head">
+        <strong><span class="exec-ico">✉</span> Final response</strong>
+        <span class="exec-status">{% if final_text %}sent{% else %}missing{% endif %}</span>
+      </div>
+      <p class="exec-step-body">{{ final_text or "Нет assistant-сообщения с тем же trace_id в выборке диалога." }}</p>
+      {% if final_assistant %}
+      <details class="exec-inline-details">
+        <summary>Final response debug</summary>
+        <pre class="mono box box-raw">{{ final_assistant | tojson(indent=2) }}</pre>
+      </details>
+      {% endif %}
+    </li>
+
+    {% if has_error %}
+    <li class="exec-step exec-step-error err">
+      <div class="exec-step-head">
+        <strong><span class="exec-ico">⚠</span> Error</strong>
+        <span class="exec-status">detected</span>
+      </div>
+      <p class="exec-step-body">{{ (detail.errors | first).error or (detail.errors | first).message or "См. Advanced -> Ошибки" }}</p>
+    </li>
+    {% endif %}
+  </ol>
+</section>
+
+<section class="clean-block" aria-label="Детали (advanced)">
+  <header class="clean-block-head">
+    <h3 class="clean-block-title">Детали</h3>
+    <span class="muted">Raw/low-level данные для глубокого дебага</span>
+  </header>
+
+  <details class="raw-json-block advanced-block">
+    <summary>Advanced JSON и технические логи</summary>
+    <div class="raw-json-inner">
+      <details class="raw-json-nested">
+        <summary>System prompt excerpt</summary>
+        <div class="sys-prompt-actions">
+          <button type="button" class="btn-ghost" data-copy-target="sys-prompt-body">Копировать</button>
+        </div>
+        <pre id="sys-prompt-body" class="mono box box-raw">{{ ns_sys.best or "—" }}</pre>
+      </details>
+      <details class="raw-json-nested"><summary>Извлечённые поля</summary><pre class="mono box box-raw">{{ detail.extracted | tojson(indent=2) }}</pre></details>
+      <details class="raw-json-nested"><summary>Raw Telegram update</summary><pre class="mono box box-raw">{{ detail.raw_telegram_json }}</pre></details>
+      <details class="raw-json-nested"><summary>Observability: tool.call</summary><pre class="mono box box-raw">{% if detail.tool_calls %}{{ detail.tool_calls | tojson(indent=2) }}{% else %}[]{% endif %}</pre></details>
+      <details class="raw-json-nested"><summary>Observability: model.call</summary><pre class="mono box box-raw">{% if detail.model_calls %}{{ detail.model_calls | tojson(indent=2) }}{% else %}[]{% endif %}</pre></details>
+      <details class="raw-json-nested"><summary>Агент: conversation_messages (полный JSON)</summary><pre class="mono box box-raw">{% if detail.agent_dialog %}{{ detail.agent_dialog | tojson(indent=2) }}{% else %}[]{% endif %}</pre></details>
+      <details class="raw-json-nested"><summary>Агент: model_calls (полный JSON)</summary><pre class="mono box box-raw">{% if detail.agent_model_calls %}{{ detail.agent_model_calls | tojson(indent=2) }}{% else %}[]{% endif %}</pre></details>
+      <details class="raw-json-nested"><summary>Агент: tool_calls (полный JSON)</summary><pre class="mono box box-raw">{% if detail.agent_tool_calls %}{{ detail.agent_tool_calls | tojson(indent=2) }}{% else %}[]{% endif %}</pre></details>
+      <details class="raw-json-nested"><summary>Ошибки</summary><pre class="mono box box-raw err-json">{% if detail.errors %}{{ detail.errors | tojson(indent=2) }}{% else %}[]{% endif %}</pre></details>
+      <details class="raw-json-nested">
+        <summary>Model request_messages (по шагам)</summary>
+        {% if models %}
+          {% for mc in models %}
+          <details class="raw-json-nested">
+            <summary>turn {{ mc.turn_index }} · {{ mc.model_name or "model" }}</summary>
+            <pre class="mono box box-raw">{{ (mc.request_messages or []) | tojson(indent=2) }}</pre>
+          </details>
+          {% endfor %}
+        {% else %}
+          <p class="muted">Нет model_calls для выбранного trace.</p>
+        {% endif %}
+      </details>
+    </div>
+  </details>
+</section>
+
+<script>
+(function(){
+  var anchor = document.getElementById("dialog-anchor-msg");
+  if (anchor) {
+    anchor.classList.add("dialog-entry--flash");
+    anchor.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(function(){
+      anchor.classList.remove("dialog-entry--flash");
+    }, 1400);
+  }
+})();
+</script>
+{% endif %}

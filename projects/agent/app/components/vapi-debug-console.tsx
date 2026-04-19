@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranscriptProbe } from "@/hooks/use-vapi-call";
+import { normalizeIncomingToolCall } from "@/lib/vapi-tool-calls";
 
 type Tab = "timeline" | "tools" | "speech" | "raw";
 type Filter = "All" | "Messages" | "Tools" | "Speech" | "Errors";
@@ -72,14 +73,14 @@ function extractToolCalls(raw: unknown): Array<{ name: string; args: unknown }> 
   const obj = raw as Record<string, unknown>;
 
   if (Array.isArray(obj.toolCalls)) {
-    return (obj.toolCalls as Array<Record<string, unknown>>).map((c) => ({
-      name: typeof c.name === "string" ? c.name : "unknown",
-      args: c.arguments ?? {},
-    }));
+    return (obj.toolCalls as unknown[]).map((c) => {
+      const n = normalizeIncomingToolCall(c);
+      return { name: n.rawName ?? "unknown", args: n.rawArgs };
+    });
   }
   if (obj.type === "tool-call" && obj.toolCall && typeof obj.toolCall === "object") {
-    const c = obj.toolCall as Record<string, unknown>;
-    return [{ name: typeof c.name === "string" ? c.name : "unknown", args: c.arguments ?? {} }];
+    const n = normalizeIncomingToolCall(obj.toolCall);
+    return [{ name: n.rawName ?? "unknown", args: n.rawArgs }];
   }
   return [];
 }

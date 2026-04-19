@@ -1,0 +1,8 @@
+{% if not job %}
+<p class="muted">Задача не найдена</p>
+{% else %}
+<div class="video-detail-panel">
+  <h4 class="video-block-title">Job {{ job._id }}</h4>
+  {% include "partials/video_job_result_inner.html" %}
+</div>
+{% endif %}

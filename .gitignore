@@ -21,9 +21,11 @@ projects/agent/app/.env
 projects/agent/app/.env.local
 projects/agent/app/.env.*.local
 projects/content/config/.env
+projects/content/.env
 projects/content/app/.env
 projects/content/app/.env.local
 projects/content/app/.env.*.local
+envforcontent*
 
 # Зависимости и сборка
 **/node_modules/

@@ -1,0 +1,24 @@
+<div class="video-result-block">
+  <h4 class="video-block-title">Результат</h4>
+  <dl class="video-dl">
+    <div><dt>Статус</dt><dd><span class="video-st video-st-{{ job.status }}">{{ job.status }}</span></dd></div>
+    <div><dt>job_id</dt><dd class="mono">{{ job._id }}</dd></div>
+    <div><dt>Модель</dt><dd>{{ job.model }}</dd></div>
+    <div><dt>Разрешение / длительность</dt><dd>{{ job.resolution }} · {{ job.duration }} с</dd></div>
+    <div><dt>Источник</dt><dd>{{ job.source_type or "—" }}{% if job.source_label %} — {{ job.source_label }}{% endif %}</dd></div>
+    <div><dt>Prompt</dt><dd class="video-prompt-dd">{{ job.prompt }}</dd></div>
+    {% if job.error and job.status == 'failed' %}
+    <div><dt>Ошибка</dt><dd class="err">{{ job.error }}</dd></div>
+    {% endif %}
+  </dl>
+  {% if job.status == 'succeeded' and job.video_url %}
+  <div class="video-preview-wrap">
+    <video class="video-preview" controls preload="metadata" src="{{ job.video_url }}"></video>
+    <p><a href="{{ job.video_url }}" target="_blank" rel="noopener" class="video-open-link">Открыть video_url в новой вкладке</a></p>
+  </div>
+  {% endif %}
+  <details class="video-raw">
+    <summary>Raw JSON (job)</summary>
+    <pre class="mono box box-raw">{{ job | tojson(indent=2) }}</pre>
+  </details>
+</div>

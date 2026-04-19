@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+ENV
+.env
+env
+*.log
+
+# IDE / локальные артефакты
+.idea/
+
+# Данные рантайма и загрузки (не версионировать)
+data/dev_uploads/
+data/runtime/*
+!data/runtime/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep

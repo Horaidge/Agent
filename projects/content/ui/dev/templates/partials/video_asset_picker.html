@@ -1,0 +1,26 @@
+{% if error %}
+<p class="err">{{ error }}</p>
+{% else %}
+<p class="muted video-picker-hint">User <strong>{{ uid }}</strong> — выберите один asset:</p>
+<input type="hidden" name="owner_user_id" value="{{ uid }}" form="form-video-job"/>
+<div class="video-asset-grid">
+  {% for a in assets %}
+  <label class="video-asset-card">
+    <input type="radio" name="dream_asset_id" value="{{ a._id }}" form="form-video-job"/>
+    <span class="video-asset-card-inner">
+      {% set at = (a.asset_type or '') | lower %}
+      {% if at == 'face' %}<span class="dab">🧑 Лицо</span>
+      {% elif at == 'environment' %}<span class="dab">🌍 Окружение</span>
+      {% elif at == 'dream_object' %}<span class="dab">🧱 Объект</span>
+      {% elif at == 'character' %}<span class="dab">🎭 Персонаж</span>
+      {% else %}<span class="dab">📦 {{ a.asset_type or "—" }}</span>{% endif %}
+      <span class="mono video-asset-meta">file_id: {{ (a.telegram_file_id or "")[:28] }}…</span>
+      <span class="mono video-asset-meta">msg: {{ a.source_message_id or "—" }}</span>
+      <span class="mono video-asset-meta">{{ a.created_at[:19] if a.created_at else "—" }}</span>
+    </span>
+  </label>
+  {% else %}
+  <p class="muted">Нет assets.</p>
+  {% endfor %}
+</div>
+{% endif %}

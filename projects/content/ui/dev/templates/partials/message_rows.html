@@ -1,0 +1,20 @@
+{% for m in messages %}
+<tr class="msg-row msg-type-{{ m.message_type | default('unknown') | replace('.', '-') }} st-row-{{ m.status }}"
+    data-msg-id="{{ m.id }}"
+    hx-get="/dev/partials/messages/{{ m.id }}/detail"
+    hx-target="#detail-panel"
+    hx-swap="innerHTML"
+    onclick="document.querySelectorAll('.msg-row').forEach(function(r){ r.classList.remove('msg-row--selected'); }); this.classList.add('msg-row--selected');">
+  <td class="msg-ico" title="Тип сообщения">
+    {% if m.message_type == 'photo' %}🖼{% elif m.message_type == 'document' %}📄{% elif m.message_type == 'voice' %}🎤{% elif m.message_type in ['video', 'document_video'] %}🎬{% else %}💬{% endif %}
+  </td>
+  <td class="mono">{{ m.created_at_iso[:19] }}</td>
+  <td class="mono">{{ m.user_id }}</td>
+  <td class="mono">{{ m.chat_id }}</td>
+  <td><span class="tag">{{ m.message_type }}</span></td>
+  <td><span class="tag st-{{ m.status }}">{{ m.status }}</span></td>
+  <td class="preview">{{ m.text_preview }}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="muted">Нет сообщений в MongoDB</td></tr>
+{% endfor %}

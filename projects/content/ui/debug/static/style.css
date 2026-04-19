@@ -1,0 +1,19 @@
+body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #0f1419; color: #e6edf3; }
+.hdr h1 { margin: 0 0 0.25rem; font-size: 1.25rem; }
+.muted { color: #8b949e; font-size: 0.85rem; }
+.filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin: 1rem 0; }
+.filters input { background: #161b22; border: 1px solid #30363d; color: #e6edf3; padding: 0.35rem 0.5rem; border-radius: 4px; min-width: 8rem; }
+.filters button { background: #238636; color: #fff; border: none; padding: 0.4rem 0.75rem; border-radius: 4px; cursor: pointer; }
+.tabs { display: flex; gap: 0.25rem; margin: 1rem 0; flex-wrap: wrap; }
+.tabs button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 0.35rem 0.65rem; border-radius: 4px; cursor: pointer; }
+.tabs button.on { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+.panel { display: none; }
+.panel.active { display: block; }
+.panel h2 { font-size: 1rem; margin: 0.5rem 0; }
+.mono { font-family: ui-monospace, monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; background: #161b22; border: 1px solid #30363d; padding: 0.75rem; border-radius: 6px; max-height: 65vh; overflow: auto; }
+.mono.full { width: 100%; box-sizing: border-box; }
+.ev { border-bottom: 1px solid #21262d; padding: 0.5rem 0; cursor: pointer; }
+.ev:hover { background: #1c2128; }
+.ev small { color: #8b949e; }
+.tag { display: inline-block; background: #30363d; padding: 0.1rem 0.35rem; border-radius: 3px; margin-right: 0.35rem; }
+code { background: #21262d; padding: 0.1rem 0.3rem; border-radius: 3px; }

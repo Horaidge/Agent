@@ -1,0 +1,28 @@
+{% if not ok %}
+<div class="gen-card err" data-gen-ok="0">
+  <p><strong>Ошибка</strong></p>
+  <p>{{ error }}</p>
+  <p class="muted">model={{ model }} · size={{ size }} · {{ "%.2f"|format(seconds) }} с</p>
+</div>
+{% else %}
+<div class="gen-card ok" data-gen-ok="1"
+     data-gen-prompt="{{ prompt | e }}"
+     data-gen-model="{{ model | e }}"
+     data-gen-size="{{ size | e }}"
+     data-gen-seconds="{{ '%.2f'|format(seconds) }}"
+     data-gen-urls="{{ urls | join(' ') | e }}">
+  <p class="gen-lead"><strong>Готово</strong> за {{ "%.2f"|format(seconds) }} с</p>
+  <p class="muted gen-meta-line">model={{ model }} · size={{ size }}</p>
+  <p class="prompt-preview"><strong>Prompt:</strong> {{ prompt }}</p>
+  <div class="gen-preview-grid">
+    {% for url in urls %}
+    <figure class="gen-figure">
+      <a href="{{ url }}" target="_blank" rel="noopener" class="gen-figure-link">
+        <img src="{{ url }}" alt="Результат {{ loop.index }}" loading="lazy" class="gen-preview-img"/>
+      </a>
+      <figcaption class="mono gen-caption">{{ url }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

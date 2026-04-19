@@ -1,0 +1,15 @@
+{# Один фрагмент: при незавершённом job внешний div с hx-polling; при финале — статичная вёрстка #}
+{% if not job %}
+<p class="err">Job не найден</p>
+{% elif job.status in ('succeeded', 'failed') %}
+<div class="video-tracker video-tracker--final">
+  {% include "partials/video_job_result_inner.html" %}
+</div>
+{% else %}
+<div class="video-tracker video-tracker--live"
+     hx-get="/dev/partials/video/job_tracker?job_id={{ job._id }}"
+     hx-trigger="load, every 4s"
+     hx-swap="outerHTML">
+  {% include "partials/video_job_status_inner.html" %}
+</div>
+{% endif %}

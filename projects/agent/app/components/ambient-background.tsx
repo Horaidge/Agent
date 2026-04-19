@@ -2,9 +2,13 @@
 
 import { memo } from "react";
 import LiquidEther from "@/components/liquid-ether";
+import Particles from "@/components/particles";
 
 /** Softened WebGL — very low intensity so it adds depth, not glare */
 const ETHER_COLORS = ["#05070A", "#1a1030", "#0c1828"] as const;
+
+/** React Bits–style particles — под цветовую схему интерфейса */
+const PARTICLE_COLORS = ["#c4b8e8", "#8eb4d4", "#f0eef8", "#6b7aa8"] as const;
 
 export const AmbientBackground = memo(function AmbientBackground() {
   return (
@@ -21,6 +25,22 @@ export const AmbientBackground = memo(function AmbientBackground() {
           `,
         }}
       />
+
+      {/* OGL point field — глубина за LiquidEther */}
+      <div className="absolute inset-0 opacity-[0.28] mix-blend-screen">
+        <Particles
+          particleColors={[...PARTICLE_COLORS]}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          sizeRandomness={0.85}
+          moveParticlesOnHover={false}
+          alphaParticles
+          disableRotation={false}
+          cameraDistance={20}
+        />
+      </div>
 
       {/* Subtle fluid layer */}
       <div className="absolute inset-0 opacity-[0.14]">

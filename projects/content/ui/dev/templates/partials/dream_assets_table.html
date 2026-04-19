@@ -1,0 +1,33 @@
+<h3 class="dream-h3">dream_assets · user_id {{ user_id }}</h3>
+{% if assets %}
+<div class="dream-cards">
+  {% for a in assets %}
+  <article class="dream-card">
+    <header class="dream-card-hd">
+      {% set at = (a.asset_type or '') | lower %}
+      {% if at == 'face' %}
+        <span class="dream-badge dream-badge-face">🧑 Лицо</span>
+      {% elif at == 'environment' %}
+        <span class="dream-badge dream-badge-env">🌍 Окружение</span>
+      {% elif at == 'dream_object' %}
+        <span class="dream-badge dream-badge-obj">🧱 Объект</span>
+      {% elif at == 'character' %}
+        <span class="dream-badge dream-badge-char">🎭 Персонаж</span>
+      {% else %}
+        <span class="dream-badge dream-badge-unk">📦 {{ a.asset_type or "—" }}</span>
+      {% endif %}
+      <span class="dream-card-status tag">{{ a.status or "—" }}</span>
+    </header>
+    <dl class="dream-card-dl">
+      <div><dt>_id</dt><dd class="mono">{{ a._id }}</dd></div>
+      <div><dt>Создано</dt><dd class="mono">{{ a.created_at }}</dd></div>
+      <div><dt>Обновлено</dt><dd class="mono">{{ a.updated_at or "—" }}</dd></div>
+      <div><dt>telegram_file_id</dt><dd class="mono dream-ellipsis">{{ a.telegram_file_id }}</dd></div>
+      <div><dt>source_message_id</dt><dd class="mono">{{ a.source_message_id }}</dd></div>
+    </dl>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">Нет записей для этого пользователя.</p>
+{% endif %}

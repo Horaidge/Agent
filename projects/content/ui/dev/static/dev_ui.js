@@ -167,10 +167,38 @@
     if (!t) return;
     if (t.id === "gen-result") pushFromGenResult(t);
     if (t.id === "message-rows") restoreMessageSelection();
+    if (t.id === "tools-frame-root") initDevToolsTabs(t);
   });
+
+  function initDevToolsTabs(root) {
+    var r = root || document.getElementById("tools-frame-root");
+    if (!r) return;
+    var strip = r.querySelector(".tools-substrip");
+    if (!strip || strip.getAttribute("data-tools-tabs-init") === "1") return;
+    strip.setAttribute("data-tools-tabs-init", "1");
+    function show(tab) {
+      r.querySelectorAll(".tools-tab-btn").forEach(function (b) {
+        var on = b.getAttribute("data-tool-tab") === tab;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      r.querySelectorAll("[data-tool-pane]").forEach(function (p) {
+        var on = p.getAttribute("data-tool-pane") === tab;
+        p.hidden = !on;
+        p.classList.toggle("tools-pane--active", on);
+      });
+    }
+    strip.addEventListener("click", function (ev) {
+      var btn = ev.target.closest(".tools-tab-btn[data-tool-tab]");
+      if (!btn || !strip.contains(btn)) return;
+      show(btn.getAttribute("data-tool-tab") || "registry");
+    });
+    show("registry");
+  }
 
   document.addEventListener("DOMContentLoaded", function () {
     renderHistory();
     restoreMessageSelection();
+    initDevToolsTabs(document.getElementById("tools-frame-root"));
   });
 })();

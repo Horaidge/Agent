@@ -21,6 +21,7 @@
     <input type="radio" name="tab" id="tab-video"/>
     <input type="radio" name="tab" id="tab-dream"/>
     <input type="radio" name="tab" id="tab-workspaces"/>
+    <input type="radio" name="tab" id="tab-tools"/>
     <div class="tab-labels">
       <label for="tab-msg">Messages</label>
       <label for="tab-gen">Generation</label>
@@ -28,6 +29,7 @@
       <label for="tab-video">Video</label>
       <label for="tab-dream">Dream Pipeline</label>
       <label for="tab-workspaces">Workspaces</label>
+      <label for="tab-tools">Tools</label>
     </div>
 
     <section class="tab-panel" id="panel-msg">
@@ -162,6 +164,17 @@
         <div class="col-detail dream-pipeline-main" id="dream-pipeline-detail">
           <p class="muted">Выберите запуск слева — здесь появится визуальный pipeline (сцены → промпты → кадры → Wan).</p>
         </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-tools">
+      <div
+        id="tools-frame-root"
+        class="tools-frame-root"
+        hx-get="/dev/partials/tools/frame"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Tools…</p>
       </div>
     </section>
 

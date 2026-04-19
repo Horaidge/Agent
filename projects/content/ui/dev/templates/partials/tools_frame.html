@@ -1,0 +1,256 @@
+{# Полная вкладка Tools: registry, executions, live, policies, analytics #}
+<div class="tools-frame-inner">
+  <form
+    class="tools-header tools-filters"
+    hx-get="/dev/partials/tools/frame"
+    hx-target="#tools-frame-root"
+    hx-swap="innerHTML"
+    hx-trigger="submit, change from:select delay:100ms, change from:input delay:400ms"
+    hx-include="this"
+  >
+    <div class="tools-header-row">
+      <h2 class="tools-title">Tools</h2>
+      <p class="muted tools-sub">Операционная панель: реестр, вызовы, live, политики, аналитика (данные: Mongo tool_calls, video_jobs, observability).</p>
+    </div>
+    <div class="tools-filter-row">
+      <label>Период
+        <select name="period">
+          <option value="day" {% if period == 'day' %}selected{% endif %}>День</option>
+          <option value="week" {% if period == 'week' %}selected{% endif %}>Неделя</option>
+          <option value="month" {% if period == 'month' or not period %}selected{% endif %}>Месяц</option>
+          <option value="all" {% if period == 'all' %}selected{% endif %}>Всё время</option>
+          <option value="custom" {% if period == 'custom' %}selected{% endif %}>Custom</option>
+        </select>
+      </label>
+      <label>Custom start <input type="date" name="custom_start" value="{{ custom_start }}"/></label>
+      <label>Custom end <input type="date" name="custom_end" value="{{ custom_end }}"/></label>
+      <input type="hidden" name="registry_view" value="{{ registry_view or 'grid' }}" id="tools-registry-view-field"/>
+      <button type="submit" class="btn-ghost">Применить</button>
+    </div>
+  </form>
+
+  <div class="tools-substrip" role="tablist" aria-label="Tools sections">
+    <button type="button" class="tools-tab-btn is-active" data-tool-tab="registry" role="tab" aria-selected="true">Registry</button>
+    <button type="button" class="tools-tab-btn" data-tool-tab="executions" role="tab" aria-selected="false">Executions</button>
+    <button type="button" class="tools-tab-btn" data-tool-tab="live" role="tab" aria-selected="false">Live</button>
+    <button type="button" class="tools-tab-btn" data-tool-tab="policies" role="tab" aria-selected="false">Policies</button>
+    <button type="button" class="tools-tab-btn" data-tool-tab="analytics" role="tab" aria-selected="false">Analytics</button>
+  </div>
+
+  <section id="tool-pane-registry" data-tool-pane="registry" class="tools-pane tools-pane--active">
+    <div class="tools-pane-head">
+      <h3>Tool registry</h3>
+      <div class="tools-view-toggle">
+        <button type="button" class="btn-ghost {% if registry_view != 'table' %}is-active{% endif %}" onclick="document.getElementById('tools-registry-view-field').value='grid'; document.querySelector('form.tools-filters').requestSubmit();">Grid</button>
+        <button type="button" class="btn-ghost {% if registry_view == 'table' %}is-active{% endif %}" onclick="document.getElementById('tools-registry-view-field').value='table'; document.querySelector('form.tools-filters').requestSubmit();">Table</button>
+      </div>
+    </div>
+    {% if registry_view == 'table' %}
+    <div class="table-wrap tools-table-wrap">
+      <table class="tools-data-table">
+        <thead>
+          <tr>
+            <th>Name</th><th>Category</th><th>Type</th><th>Status</th><th>Calls</th><th>OK%</th><th>Last</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in registry_rows %}
+          <tr class="tools-row {% if row.enabled %}tools-row--on{% else %}tools-row--off{% endif %}">
+            <td><code>{{ row.name }}</code></td>
+            <td><span class="badge badge-cat">{{ row.category }}</span></td>
+            <td>{% if row.tool_type == 'async' %}<span class="badge badge-async">async</span>{% else %}<span class="badge">sync</span>{% endif %}</td>
+            <td>{% if row.enabled %}<span class="badge badge-ok">enabled</span>{% else %}<span class="badge badge-muted">disabled</span>{% endif %}</td>
+            <td>{{ row.total_calls }}</td>
+            <td>{% if row.success_rate is not none %}{{ '%.0f'|format(row.success_rate * 100) }}%{% else %}—{% endif %}</td>
+            <td class="muted">{{ row.last_used or '—' }}</td>
+            <td><button type="button" class="btn-ghost btn-sm" onclick="document.getElementById('dlg-{{ row.name }}').showModal()">Edit</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="tools-card-grid">
+      {% for row in registry_rows %}
+      <article class="tool-card {% if row.enabled %}tool-card--enabled{% else %}tool-card--disabled{% endif %}">
+        <header class="tool-card-hd">
+          <code class="tool-card-name">{{ row.name }}</code>
+          {% if row.tool_type == 'async' %}<span class="badge badge-async">async</span>{% endif %}
+          {% if row.enabled %}<span class="badge badge-ok">on</span>{% else %}<span class="badge badge-muted">off</span>{% endif %}
+        </header>
+        <p class="tool-card-desc">{{ row.description_ui }}</p>
+        <dl class="tool-card-kpi">
+          <div><dt>Category</dt><dd><span class="badge badge-cat">{{ row.category }}</span></dd></div>
+          <div><dt>Calls</dt><dd>{{ row.total_calls }}</dd></div>
+          <div><dt>Success</dt><dd>{% if row.success_rate is not none %}{{ '%.0f'|format(row.success_rate * 100) }}%{% else %}—{% endif %}</dd></div>
+          <div><dt>Last</dt><dd class="muted">{{ row.last_used or '—' }}</dd></div>
+        </dl>
+        <button type="button" class="btn-ghost btn-sm" onclick="document.getElementById('dlg-{{ row.name }}').showModal()">Редактировать</button>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% for row in registry_rows %}
+    <dialog id="dlg-{{ row.name }}" class="tool-editor-dialog">
+      <form method="post" action="/dev/api/tools/registry" hx-post="/dev/api/tools/registry" hx-target="#tools-frame-root" hx-swap="innerHTML">
+        <h4>{{ row.name }}</h4>
+        <input type="hidden" name="tool_name" value="{{ row.name }}"/>
+        <label class="block"><input type="checkbox" name="enabled" value="true" {% if row.enabled %}checked{% endif %}/> Включён</label>
+        <label class="block">Описание (для UI)
+          <textarea name="description" rows="3">{{ row.description_ui }}</textarea>
+        </label>
+        <div class="row">
+          <label>Timeout (сек) <input type="number" name="timeout_sec" value="{{ row.timeout_sec or '' }}" placeholder="optional"/></label>
+          <label>Retry <input type="number" name="retry_count" value="{{ row.retry_count or '' }}" placeholder="optional"/></label>
+          <label>Poll interval (сек) <input type="text" name="polling_interval_sec" value="{{ row.polling_interval_sec or '' }}" placeholder="async"/></label>
+        </div>
+        <label class="block">Краткая подсказка (hint)
+          <input type="text" name="hint" value="{{ row.hint }}" placeholder="для операторов / dev"/>
+        </label>
+        <p class="muted small">Сохраняется в <code>data/runtime/dev_tool_overrides.json</code> (dev).</p>
+        <div class="dialog-actions">
+          <button type="submit" class="btn-primary">Сохранить</button>
+          <button type="button" class="btn-ghost" onclick="this.closest('dialog').close()">Отмена</button>
+        </div>
+      </form>
+    </dialog>
+    {% endfor %}
+  </section>
+
+  <section id="tool-pane-exec" data-tool-pane="executions" class="tools-pane" hidden>
+    <h3>Executions</h3>
+    <form class="tools-exec-filters"
+      hx-get="/dev/partials/tools/frame"
+      hx-target="#tools-frame-root"
+      hx-swap="innerHTML"
+      hx-trigger="change delay:150ms, submit"
+      hx-include="this">
+      <input type="hidden" name="period" value="{{ period }}"/>
+      <input type="hidden" name="custom_start" value="{{ custom_start }}"/>
+      <input type="hidden" name="custom_end" value="{{ custom_end }}"/>
+      <input type="hidden" name="registry_view" value="{{ registry_view }}"/>
+      <label>Tool <input type="text" name="exec_tool" value="{{ exec_tool }}" placeholder="generate_image…"/></label>
+      <label>Status
+        <select name="exec_status">
+          <option value="" {% if not exec_status %}selected{% endif %}>Все</option>
+          <option value="completed" {% if exec_status == 'completed' %}selected{% endif %}>completed</option>
+          <option value="failed" {% if exec_status == 'failed' %}selected{% endif %}>failed</option>
+          <option value="running" {% if exec_status == 'running' %}selected{% endif %}>running</option>
+          <option value="queued" {% if exec_status == 'queued' %}selected{% endif %}>queued</option>
+        </select>
+      </label>
+      <label>user_id <input type="text" name="exec_user" value="{{ exec_user }}"/></label>
+      <label class="chk"><input type="checkbox" name="only_errors" value="true" {% if only_errors %}checked{% endif %}/> только ошибки</label>
+    </form>
+    <div class="tools-exec-list">
+      {% for ex in executions %}
+      <article class="tool-exec-card tool-exec--{{ ex.ui_status }}" hx-get="{{ ex.detail_href }}" hx-target="#tools-exec-detail" hx-swap="innerHTML">
+        <div class="tool-exec-hd">
+          <code>{{ ex.tool_name }}</code>
+          <span class="exec-status exec-status--{{ ex.ui_status }}">{{ ex.status }}</span>
+          {% if ex.async_mode %}<span class="badge badge-async">async</span>{% endif %}
+        </div>
+        <div class="tool-exec-meta muted">
+          user={{ ex.user_id }} · trace={{ ex.trace_id or '—' }} · {{ ex.started_at }}
+        </div>
+        <div class="tool-exec-io">
+          <div><span class="lbl">in</span> {{ ex.input_summary }}</div>
+          <div><span class="lbl">out</span> {{ ex.output_summary }}</div>
+          {% if ex.error %}<div class="tool-exec-err">{{ ex.error }}</div>{% endif %}
+        </div>
+      </article>
+      {% else %}
+      <p class="muted">Нет вызовов за период.</p>
+      {% endfor %}
+    </div>
+    <aside id="tools-exec-detail" class="tools-exec-detail"><p class="muted">Клик по карточке — детали справа (ниже на узком экране).</p></aside>
+  </section>
+
+  <section id="tool-pane-live" data-tool-pane="live" class="tools-pane" hidden>
+    <h3>Live</h3>
+    <p class="muted">Активные async-задачи (video_jobs: created/running). Обновите вкладку Tools (фильтр «Применить») для свежего списка.</p>
+    <div class="tools-live-list" id="tools-live-list-real">
+      {% for ex in live_items %}
+      <article class="tool-live-card tool-exec--{{ ex.ui_status }}">
+        <span class="live-pulse" aria-hidden="true"></span>
+        <div>
+          <code>{{ ex.tool_name }}</code>
+          <span class="exec-status exec-status--{{ ex.ui_status }}">{{ ex.status }}</span>
+        </div>
+        <div class="muted">user={{ ex.user_id }} · {{ ex.started_at }}{% if ex.elapsed_ms %} · {{ (ex.elapsed_ms / 1000)|round(1) }}s{% endif %}</div>
+        <div class="muted small">{{ ex.input_summary[:120] }}</div>
+      </article>
+      {% else %}
+      <p class="muted">Нет активных задач.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section id="tool-pane-pol" data-tool-pane="policies" class="tools-pane" hidden>
+    <h3>Policies</h3>
+    <form class="tools-policies-form" method="post" action="/dev/api/tools/policies" hx-post="/dev/api/tools/policies" hx-target="#tools-frame-root" hx-swap="innerHTML">
+      <fieldset class="tools-fieldset">
+        <legend>Markdown-промпты (файлы в <code>prompts/</code>)</legend>
+        <label class="block">global_model_policy.md
+          <textarea name="global_model_policy" rows="6">{{ policies.global_model_policy }}</textarea>
+        </label>
+        <label class="block">system_prompt.md
+          <textarea name="system_prompt" rows="8">{{ policies.system_prompt }}</textarea>
+        </label>
+      </fieldset>
+      <fieldset class="tools-fieldset">
+        <legend>Структурированные правила (JSON-файл dev)</legend>
+        <label class="block">Доступные tools (заметка)
+          <textarea name="available_tools_note" rows="2">{{ policies_extra.available_tools_note }}</textarea>
+        </label>
+        <label class="block">Правила вызова
+          <textarea name="usage_rules" rows="3">{{ policies_extra.usage_rules }}</textarea>
+        </label>
+        <label class="block">Fallback
+          <textarea name="fallback_logic" rows="2">{{ policies_extra.fallback_logic }}</textarea>
+        </label>
+        <label>Язык по умолчанию <input type="text" name="default_language" value="{{ policies_extra.default_language }}"/></label>
+        <label class="block">Условия вызова
+          <textarea name="call_conditions" rows="2">{{ policies_extra.call_conditions }}</textarea>
+        </label>
+      </fieldset>
+      <button type="submit" class="btn-primary">Сохранить политики</button>
+    </form>
+  </section>
+
+  <section id="tool-pane-ana" data-tool-pane="analytics" class="tools-pane" hidden>
+    <h3>Analytics</h3>
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card kpi-tools"><span class="kpi-val">{{ analytics.total_tools }}</span><span class="kpi-lbl">tools (каталог)</span></div>
+      <div class="analytics-kpi-card kpi-active"><span class="kpi-val">{{ analytics.active_tools }}</span><span class="kpi-lbl">active (overrides)</span></div>
+      <div class="analytics-kpi-card kpi-calls"><span class="kpi-val">{{ analytics.total_calls }}</span><span class="kpi-lbl">total calls*</span></div>
+      <div class="analytics-kpi-card kpi-fail"><span class="kpi-val">{{ analytics.failed_calls }}</span><span class="kpi-lbl">failed*</span></div>
+    </div>
+    <p class="muted small">* Включает вызовы tool_calls и задачи video_jobs за выбранный период (см. фильтр сверху).</p>
+    <h4>Calls по дням (tool_calls)</h4>
+    <div class="dv-chart dv-chart--bars">
+      {% for pt in analytics.series %}
+      <div class="dv-chart-row" title="{{ pt.date }}">
+        <span class="dv-chart-label">{{ pt.date }}</span>
+        <div class="dv-chart-bar-wrap">
+          <div class="dv-chart-bar dv-chart-bar--ok" style="flex-grow: {{ pt.calls + 1 }}; min-width: 2rem;">{{ pt.calls }}</div>
+          {% if pt.failed %}
+          <div class="dv-chart-bar dv-chart-bar--fail" style="flex-grow: {{ pt.failed + 1 }}; min-width: 2rem;">{{ pt.failed }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <p class="muted">Нет данных.</p>
+      {% endfor %}
+    </div>
+    <h4>Top tools</h4>
+    <ul class="top-tools-list">
+      {% for t in analytics.top_tools %}
+      <li><code>{{ t.name }}</code> — {{ t.calls }} calls, {{ t.failed }} fail</li>
+      {% else %}
+      <li class="muted">—</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>

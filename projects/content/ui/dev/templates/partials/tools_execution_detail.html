@@ -1,0 +1,46 @@
+{% if not detail %}
+<p class="muted">Execution не найден.</p>
+{% else %}
+<div class="tool-exec-detail-inner">
+  <header class="tool-exec-detail-hd">
+    <code class="tool-exec-detail-name">{{ detail.tool_name or '—' }}</code>
+    <span class="exec-status exec-status--{{ detail.status }}">{{ detail.status }}</span>
+    {% if detail.kind == 'video_job' %}<span class="badge badge-async">async</span>{% endif %}
+  </header>
+  <p class="muted small">trace_id: {{ detail.trace_id or '—' }} · user: {{ detail.user_id or '—' }}</p>
+
+  <h4 class="tools-h4">Шаги</h4>
+  <ol class="tool-step-timeline">
+    {% for s in detail.steps %}
+    <li class="tool-step tool-step--{{ s.status }}">
+      <span class="tool-step-title">{{ s.title }}</span>
+      <span class="muted small">{{ s.status }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+
+  {% if timeline and timeline|length > 0 %}
+  <h4 class="tools-h4">Observability (trace)</h4>
+  <ul class="tool-obs-mini">
+    {% for ev in timeline %}
+    <li>
+      <span class="muted">{{ ev.created_at }}</span>
+      <code>{{ ev.event_type }}</code>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <details class="pipe-details"><summary>Input (JSON)</summary>
+    <pre class="raw-json-block">{{ detail.input | tojson(indent=2) }}</pre>
+  </details>
+  <details class="pipe-details"><summary>Output (JSON)</summary>
+    <pre class="raw-json-block">{{ detail.output | tojson(indent=2) }}</pre>
+  </details>
+  {% if detail.raw_doc %}
+  <details class="pipe-details"><summary>Raw tool_calls document</summary>
+    <pre class="raw-json-block">{{ detail.raw_doc | tojson(indent=2) }}</pre>
+  </details>
+  {% endif %}
+</div>
+{% endif %}

@@ -54,6 +54,43 @@ class VideoJobRepository:
         cur = self._sync.find().sort("created_at", -1).limit(lim)
         return [_serialize_doc(dict(doc)) for doc in cur]
 
+    def list_active_sync(self, *, limit: int = 40) -> list[dict[str, Any]]:
+        """Задачи image-to-video, которые ещё не завершены (Dev Tools → Live)."""
+        lim = max(1, min(limit, 200))
+        cur = (
+            self._sync.find(
+                {"status": {"$in": ["created", "running"]}},
+            )
+            .sort("updated_at", -1)
+            .limit(lim)
+        )
+        return [_serialize_doc(dict(doc)) for doc in cur]
+
+    def list_filtered_sync(
+        self,
+        *,
+        limit: int = 80,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        status_in: list[str] | None = None,
+        owner_user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        q: dict[str, Any] = {}
+        if since is not None or until is not None:
+            r: dict[str, Any] = {}
+            if since is not None:
+                r["$gte"] = since
+            if until is not None:
+                r["$lte"] = until
+            q["created_at"] = r
+        if status_in:
+            q["status"] = {"$in": status_in}
+        if owner_user_id:
+            q["owner_user_id"] = owner_user_id
+        lim = max(1, min(limit, 300))
+        cur = self._sync.find(q).sort("created_at", -1).limit(lim)
+        return [_serialize_doc(dict(doc)) for doc in cur]
+
     async def insert_job(self, doc: dict[str, Any]) -> str:
         if self._async is None:
             raise RuntimeError("Async collection not configured for VideoJobRepository")

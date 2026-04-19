@@ -8,6 +8,7 @@ import uuid
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -22,6 +23,16 @@ from services.assets.asset_source_service import (
     load_local_file_as_data_uri,
 )
 from services.observability.dev_messages import get_message_detail, get_recent_messages
+from services.observability.tools_dev import (
+    build_tools_frame_context,
+    get_execution_detail,
+    load_policies_extra,
+    load_tool_overrides,
+    save_policies_extra,
+    save_tool_overrides,
+    trace_timeline,
+    write_policy_file,
+)
 from services.observability.workspaces import get_workspace_detail, list_workspace_summaries
 from services.tools.image_tools import tool_generate_image
 from services.tools.video_tools import tool_image_to_video
@@ -209,6 +220,138 @@ def create_dev_console_router(
             request,
             "partials/workspace_detail.html",
             {"detail": detail},
+        )
+
+    @router.get("/partials/tools/frame", response_class=HTMLResponse)
+    async def partial_tools_frame(
+        request: Request,
+        period: str = Query("month"),
+        custom_start: str | None = Query(None),
+        custom_end: str | None = Query(None),
+        registry_view: str = Query("grid"),
+        exec_tool: str | None = Query(None),
+        exec_status: str | None = Query(None),
+        exec_user: str | None = Query(None),
+        only_errors: bool = Query(False),
+    ) -> Any:
+        ctx = build_tools_frame_context(
+            data_dir=settings.data_dir,
+            chat_store=chat_store,
+            video_job_repo=video_job_repo,
+            period=period,
+            custom_start=custom_start,
+            custom_end=custom_end,
+            registry_view=registry_view,
+            exec_tool=(exec_tool or "").strip() or None,
+            exec_status=(exec_status or "").strip() or None,
+            exec_user=(exec_user or "").strip() or None,
+            only_errors=only_errors,
+        )
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "partials/tools_frame.html",
+            ctx,
+        )
+
+    @router.get("/partials/tools/execution", response_class=HTMLResponse)
+    async def partial_tools_execution_detail(
+        request: Request,
+        exec_id: str = Query(...),
+    ) -> Any:
+        detail = get_execution_detail(
+            exec_id=unquote(exec_id).strip(),
+            chat_store=chat_store,
+            video_job_repo=video_job_repo,
+        )
+        timeline: list[dict[str, Any]] = []
+        if detail and detail.get("trace_id"):
+            timeline = trace_timeline(
+                str(detail["trace_id"]),
+                obs_repo,
+                limit=150,
+            )[-40:]
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "partials/tools_execution_detail.html",
+            {"detail": detail, "timeline": timeline, "exec_id": exec_id},
+        )
+
+    @router.post("/api/tools/registry", response_class=HTMLResponse)
+    async def api_tools_registry_save(
+        request: Request,
+        tool_name: str = Form(...),
+        enabled: str | None = Form(default=None),
+        description: str = Form(""),
+        timeout_sec: str = Form(""),
+        retry_count: str = Form(""),
+        polling_interval_sec: str = Form(""),
+        hint: str = Form(""),
+    ) -> Any:
+        overrides = load_tool_overrides(settings.data_dir)
+        entry = dict(overrides.get(tool_name) or {})
+        entry["enabled"] = bool(enabled)
+        entry["description"] = (description or "").strip()
+        if (timeout_sec or "").strip().isdigit():
+            entry["timeout_sec"] = int(timeout_sec)
+        else:
+            entry.pop("timeout_sec", None)
+        if (retry_count or "").strip().isdigit():
+            entry["retry_count"] = int(retry_count)
+        else:
+            entry.pop("retry_count", None)
+        if (polling_interval_sec or "").strip().replace(".", "", 1).isdigit():
+            entry["polling_interval_sec"] = float(polling_interval_sec)
+        else:
+            entry.pop("polling_interval_sec", None)
+        entry["hint"] = (hint or "").strip()
+        overrides[tool_name] = entry
+        save_tool_overrides(settings.data_dir, overrides)
+        ctx = build_tools_frame_context(
+            data_dir=settings.data_dir,
+            chat_store=chat_store,
+            video_job_repo=video_job_repo,
+            period="month",
+        )
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "partials/tools_frame.html",
+            ctx,
+        )
+
+    @router.post("/api/tools/policies", response_class=HTMLResponse)
+    async def api_tools_policies_save(
+        request: Request,
+        global_model_policy: str = Form(""),
+        system_prompt: str = Form(""),
+        available_tools_note: str = Form(""),
+        usage_rules: str = Form(""),
+        fallback_logic: str = Form(""),
+        default_language: str = Form("ru"),
+        call_conditions: str = Form(""),
+    ) -> Any:
+        write_policy_file("global_model_policy", global_model_policy)
+        write_policy_file("system_prompt", system_prompt)
+        extra = load_policies_extra(settings.data_dir)
+        extra.update(
+            {
+                "available_tools_note": available_tools_note,
+                "usage_rules": usage_rules,
+                "fallback_logic": fallback_logic,
+                "default_language": (default_language or "ru").strip() or "ru",
+                "call_conditions": call_conditions,
+            }
+        )
+        save_policies_extra(settings.data_dir, extra)
+        ctx = build_tools_frame_context(
+            data_dir=settings.data_dir,
+            chat_store=chat_store,
+            video_job_repo=video_job_repo,
+            period="month",
+        )
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "partials/tools_frame.html",
+            ctx,
         )
 
     @router.get(

@@ -66,6 +66,55 @@ class VideoJobRepository:
         )
         return [_serialize_doc(dict(doc)) for doc in cur]
 
+    def aggregate_period_stats_sync(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> dict[str, Any]:
+        """
+        Счётчики по video_jobs за период без загрузки всех документов (Dev Tools / аналитика).
+        """
+        m: dict[str, Any] = {}
+        if since is not None or until is not None:
+            r: dict[str, Any] = {}
+            if since is not None:
+                r["$gte"] = since
+            if until is not None:
+                r["$lte"] = until
+            m["created_at"] = r
+        pipeline: list[dict[str, Any]] = [
+            {"$match": m},
+            {
+                "$group": {
+                    "_id": None,
+                    "total": {"$sum": 1},
+                    "succeeded": {
+                        "$sum": {"$cond": [{"$eq": ["$status", "succeeded"]}, 1, 0]}
+                    },
+                    "failed": {
+                        "$sum": {"$cond": [{"$eq": ["$status", "failed"]}, 1, 0]}
+                    },
+                    "last_created": {"$max": "$created_at"},
+                }
+            },
+        ]
+        rows = list(self._sync.aggregate(pipeline))
+        if not rows:
+            return {
+                "total": 0,
+                "succeeded": 0,
+                "failed": 0,
+                "last_created": None,
+            }
+        row = rows[0]
+        return {
+            "total": int(row.get("total") or 0),
+            "succeeded": int(row.get("succeeded") or 0),
+            "failed": int(row.get("failed") or 0),
+            "last_created": row.get("last_created"),
+        }
+
     def list_filtered_sync(
         self,
         *,

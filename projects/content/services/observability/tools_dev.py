@@ -60,8 +60,31 @@ def get_period_bounds(
     return None, None
 
 
+_TOOLS_ALL_MAX_LOOKBACK_DAYS = 730
+
+
+def get_tools_period_bounds(
+    period: str,
+    *,
+    custom_start: str | None = None,
+    custom_end: str | None = None,
+) -> tuple[datetime | None, datetime | None]:
+    """
+    Границы дат для Tools UI.
+
+    Для period=all без нижней границы полный скан Mongo может занимать секунды/минуты —
+    ограничиваем «всё время» последними _TOOLS_ALL_MAX_LOOKBACK_DAYS днями.
+    """
+    start, end = get_period_bounds(
+        period, custom_start=custom_start, custom_end=custom_end
+    )
+    if start is None and (period or "").strip().lower() == "all":
+        start = datetime.now(UTC) - timedelta(days=_TOOLS_ALL_MAX_LOOKBACK_DAYS)
+    return start, end
+
+
 # обратная совместимость внутри модуля
-_period_bounds = get_period_bounds
+_period_bounds = get_tools_period_bounds
 
 
 def _overrides_path(data_dir: Path) -> Path:
@@ -203,24 +226,14 @@ def build_registry_rows(
     return rows
 
 
-def merge_video_job_stats_for_registry(
-    *,
-    video_job_repo: VideoJobRepository,
+def merge_video_stats_from_aggregate(
     rows: list[dict[str, Any]],
-    since: datetime | None,
-    until: datetime | None = None,
+    video_agg: dict[str, Any],
 ) -> None:
-    try:
-        jobs = video_job_repo.list_filtered_sync(limit=5000, since=since, until=until)
-    except Exception:  # noqa: BLE001
-        return
-    total = len(jobs)
-    ok = sum(1 for j in jobs if (j.get("status") or "") == "succeeded")
-    last_ts = None
-    for j in jobs:
-        ca = j.get("created_at")
-        if hasattr(ca, "isoformat"):
-            last_ts = max(last_ts, ca) if last_ts else ca
+    """Добавляет к строке image_to_video агрегаты video_jobs (без загрузки всех документов)."""
+    total = int(video_agg.get("total") or 0)
+    ok = int(video_agg.get("succeeded") or 0)
+    last_ts = video_agg.get("last_created")
     for r in rows:
         if r.get("name") == "image_to_video":
             prev_t = int(r.get("total_calls") or 0)
@@ -481,6 +494,7 @@ def analytics_summary(
     period: str = "month",
     custom_start: str | None = None,
     custom_end: str | None = None,
+    video_agg: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     start, end = _period_bounds(period, custom_start=custom_start, custom_end=custom_end)
     since = start
@@ -489,8 +503,13 @@ def analytics_summary(
     total_calls = sum(int(s.get("total") or 0) for s in stats)
     total_ok = sum(int(s.get("success") or 0) for s in stats)
     failed = total_calls - total_ok
-    jobs = video_job_repo.list_filtered_sync(limit=5000, since=since, until=until)
-    j_fail = sum(1 for j in jobs if (j.get("status") or "") == "failed")
+    if video_agg is None:
+        try:
+            video_agg = video_job_repo.aggregate_period_stats_sync(since=since, until=until)
+        except Exception:  # noqa: BLE001
+            video_agg = {"total": 0, "succeeded": 0, "failed": 0}
+    j_total = int(video_agg.get("total") or 0)
+    j_fail = int(video_agg.get("failed") or 0)
     overrides = load_tool_overrides(data_dir)
     catalog = _static_tool_catalog()
     active_tools = sum(
@@ -514,7 +533,7 @@ def analytics_summary(
     return {
         "total_tools": len(catalog),
         "active_tools": active_tools,
-        "total_calls": total_calls + len(jobs),
+        "total_calls": total_calls + j_total,
         "failed_calls": failed + j_fail,
         "avg_latency_ms": None,
         "p95_latency_ms": None,
@@ -561,6 +580,14 @@ def build_tools_frame_context(
     only_errors: bool = False,
 ) -> dict[str, Any]:
     """Данные для полной вкладки Tools (один HTMX-ответ)."""
+    start, end = get_tools_period_bounds(
+        period, custom_start=custom_start, custom_end=custom_end
+    )
+    try:
+        video_agg = video_job_repo.aggregate_period_stats_sync(since=start, until=end)
+    except Exception:  # noqa: BLE001
+        video_agg = {"total": 0, "succeeded": 0, "failed": 0, "last_created": None}
+
     rows = build_registry_rows(
         data_dir=data_dir,
         chat_store=chat_store,
@@ -568,13 +595,7 @@ def build_tools_frame_context(
         custom_start=custom_start,
         custom_end=custom_end,
     )
-    start, end = get_period_bounds(period, custom_start=custom_start, custom_end=custom_end)
-    merge_video_job_stats_for_registry(
-        video_job_repo=video_job_repo,
-        rows=rows,
-        since=start,
-        until=end,
-    )
+    merge_video_stats_from_aggregate(rows, video_agg)
 
     executions = list_unified_executions(
         chat_store=chat_store,
@@ -607,6 +628,7 @@ def build_tools_frame_context(
         period=period,
         custom_start=custom_start,
         custom_end=custom_end,
+        video_agg=video_agg,
     )
 
     return {

@@ -12,9 +12,10 @@ from core.config.settings import Settings
 from core.observability.service import ObservabilityService
 from services.chat import history_service as hist
 from services.assets.dream_asset_service import ASSET_TYPE_CHARACTER, STATUS_GENERATED
-from services.llm.openai_chat_service import GENERATE_IMAGE_TOOL, OpenAIChatService
+from services.llm.openai_chat_service import OpenAIChatService
 from services.llm.system_prompt_loader import load_system_prompt, system_prompt_preview
 from services.telegram_reply_keyboards import main_reply_keyboard
+from services.tools import OPENAI_TOOLS_DEFAULT
 from services.tools.image_tools import tool_generate_base_character, tool_generate_image
 from storage.chat_repository import ChatStoreRepository
 from storage.dream_asset_repository import DreamAssetRepository
@@ -175,7 +176,7 @@ class ChatOrchestrator:
         try:
             resp = await self._openai.chat_completion(
                 messages,
-                tools=[GENERATE_IMAGE_TOOL],
+                tools=OPENAI_TOOLS_DEFAULT,
             )
         except AuthenticationError:
             # Не логируем тело ответа OpenAI — в нём может быть фрагмент ключа

@@ -8,46 +8,9 @@ import httpx
 from openai import AsyncOpenAI
 
 from services.llm.system_prompt_loader import merge_with_global_model_policy, load_global_model_policy
+from services.tools.openai_definitions import GENERATE_IMAGE_TOOL
 
 logger = logging.getLogger(__name__)
-
-# Схема для модели — вызывает Python `tool_generate_image`
-GENERATE_IMAGE_TOOL: dict[str, Any] = {
-    "type": "function",
-    "function": {
-        "name": "generate_image",
-        "description": (
-            "Сгенерировать изображение по текстовому описанию (Qwen Image / DashScope). "
-            "Вызывай, когда пользователь просит картинку, иллюстрацию, визуализацию сцены."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "Описание изображения (сцена, стиль, детали)",
-                },
-                "size": {
-                    "type": "string",
-                    "enum": ["1024*1024", "1024*1536", "1536*1024"],
-                    "description": "Размер в формате width*height",
-                },
-                "model": {
-                    "type": "string",
-                    "description": "Модель Qwen Image, например qwen-image-2.0",
-                },
-                "n": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 6,
-                    "description": "Сколько вариантов сгенерировать",
-                },
-            },
-            "required": ["prompt"],
-        },
-    },
-}
-
 
 class OpenAIChatService:
     """Обёртка над AsyncOpenAI; ключ и модель из настроек."""

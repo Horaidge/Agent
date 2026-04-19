@@ -99,6 +99,10 @@ npm run dev
 - `core/config/settings.py` — конфигурация и env.
 - `bot/*` — webhook/handlers/middleware.
 - `services/*` — бизнес-логика (чат, пайплайны, генерация).
+- `services/tools/` — **все инструменты модели в одном месте**:
+  - `openai_definitions.py` — JSON-схемы function calling для OpenAI (`generate_image` и дальше по списку);
+  - `image_tools.py`, `video_tools.py` — Python-реализации (вызов Qwen, Wan и т.д.);
+  - оркестратор чата подключает список схем из `OPENAI_TOOLS_DEFAULT` и маппит имена на эти функции.
 - `ui/dev/templates/*` — backend dev UI.
 
 ### Ключевая особенность конфигурации

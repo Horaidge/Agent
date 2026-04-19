@@ -22,6 +22,7 @@
     <input type="radio" name="tab" id="tab-dream"/>
     <input type="radio" name="tab" id="tab-workspaces"/>
     <input type="radio" name="tab" id="tab-tools"/>
+    <input type="radio" name="tab" id="tab-prompts"/>
     <div class="tab-labels">
       <label for="tab-msg">Messages</label>
       <label for="tab-gen">Generation</label>
@@ -30,6 +31,7 @@
       <label for="tab-dream">Dream Pipeline</label>
       <label for="tab-workspaces">Workspaces</label>
       <label for="tab-tools">Tools</label>
+      <label for="tab-prompts">Prompts</label>
     </div>
 
     <section class="tab-panel" id="panel-msg">
@@ -175,6 +177,17 @@
         hx-trigger="load"
         hx-swap="innerHTML">
         <p class="muted">Загрузка Tools…</p>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-prompts">
+      <div
+        id="prompts-editor-root"
+        class="prompts-editor-root"
+        hx-get="/dev/partials/prompts/editor"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка редактора промптов…</p>
       </div>
     </section>
 

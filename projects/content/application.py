@@ -70,6 +70,7 @@ from storage.repository import ensure_indexes
 from storage.video_job_repository import ensure_video_job_indexes
 from ui.banner import print_local_app_banner, schedule_open_gradio_in_browser
 from ui.gradio_app import build_gradio_app
+from ui.prompts_editor_api import create_prompts_editor_router
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +319,8 @@ def create_app() -> FastAPI:
 
     gradio_app = build_gradio_app(repository, settings)
     gr.mount_gradio_app(app, gradio_app, path=settings.gradio_mount_path)
+
+    app.include_router(create_prompts_editor_router(settings))
 
     if settings.dev_debug_ui_enabled and obs_repo is not None:
         from ui.dev.router import (

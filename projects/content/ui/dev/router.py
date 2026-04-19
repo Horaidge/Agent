@@ -1,6 +1,7 @@
 """Локальная dev-консоль: FastAPI + Jinja2 + HTMX (только 127.0.0.1)."""
 from __future__ import annotations
 
+import html
 import json
 import re
 import time
@@ -32,6 +33,13 @@ from services.observability.tools_dev import (
     save_tool_overrides,
     trace_timeline,
     write_policy_file,
+)
+from services.llm.system_prompt_loader import (
+    read_global_model_policy_raw,
+    read_system_prompt_raw,
+    SystemPromptError,
+    write_global_model_policy_raw,
+    write_system_prompt_raw,
 )
 from services.observability.workspaces import get_workspace_detail, list_workspace_summaries
 from services.tools.image_tools import tool_generate_image
@@ -251,6 +259,42 @@ def create_dev_console_router(
             request,
             "partials/tools_frame.html",
             ctx,
+        )
+
+    @router.get("/partials/prompts/editor", response_class=HTMLResponse)
+    async def partial_prompts_editor(request: Request) -> Any:
+        try:
+            system_content = read_system_prompt_raw()
+        except SystemPromptError as e:
+            system_content = f"# Ошибка чтения system_prompt.md: {e}\n"
+        global_content = read_global_model_policy_raw()
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "partials/prompts_editor.html",
+            {
+                "system_content": system_content,
+                "global_content": global_content,
+            },
+        )
+
+    @router.post("/api/prompts/system-md", response_class=HTMLResponse)
+    async def api_save_system_prompt_md(content: str = Form(...)) -> Any:
+        try:
+            write_system_prompt_raw(content)
+        except SystemPromptError as e:
+            return HTMLResponse(
+                f'<p class="st-error">Ошибка: {html.escape(str(e))}</p>',
+                status_code=400,
+            )
+        return HTMLResponse(
+            '<p class="muted" style="color:#56d364">Сохранено: prompts/system_prompt.md</p>'
+        )
+
+    @router.post("/api/prompts/global-policy-md", response_class=HTMLResponse)
+    async def api_save_global_policy_md(content: str = Form("")) -> Any:
+        write_global_model_policy_raw(content)
+        return HTMLResponse(
+            '<p class="muted" style="color:#56d364">Сохранено: prompts/global_model_policy.md</p>'
         )
 
     @router.get("/partials/tools/execution", response_class=HTMLResponse)

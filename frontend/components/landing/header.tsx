@@ -38,10 +38,22 @@ export function Header() {
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
+            <Link
+              href="/prompt-editor"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Промпты
+            </Link>
             <LanguageSwitcher />
           </div>
 
           <div className="md:hidden flex items-center gap-2">
+            <Link
+              href="/prompt-editor"
+              className="text-xs text-muted-foreground px-1"
+            >
+              Промпты
+            </Link>
             <LanguageSwitcher />
             <button
               className="p-2"
@@ -56,6 +68,9 @@ export function Header() {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-border">
             <nav className="flex flex-col gap-4">
+              <Link href="/prompt-editor" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Промпты
+              </Link>
               <Link href="#platform" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 {t("nav.platform")}
               </Link>

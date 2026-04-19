@@ -100,7 +100,9 @@ npm run dev
 - `bot/*` — webhook/handlers/middleware.
 - `services/*` — бизнес-логика (чат, пайплайны, генерация).
 - `services/tools/` — **все инструменты модели в одном месте**:
-  - `openai_definitions.py` — JSON-схемы function calling для OpenAI (`generate_image` и дальше по списку);
+  - `model_tools/*` — отдельные tool-модули (schema + описание + парсинг аргументов);
+  - `openai_definitions.py` — реестр (`OPENAI_TOOLS_DEFAULT`, `OPENAI_TOOLS_CATALOG`);
+  - есть композитный `generate_dream_pipeline` (разметка сна -> кадры -> анимация -> сборка);
   - `image_tools.py`, `video_tools.py` — Python-реализации (вызов Qwen, Wan и т.д.);
   - оркестратор чата подключает список схем из `OPENAI_TOOLS_DEFAULT` и маппит имена на эти функции.
 - `ui/dev/templates/*` — backend dev UI.

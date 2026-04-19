@@ -76,6 +76,16 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("DEV_DEBUG_UI", "DEBUG_CONSOLE"),
         description="Локальная dev-консоль /dev (доступ только с localhost)",
     )
+    uvicorn_reload: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("UVICORN_RELOAD"),
+        description="Автоперезапуск uvicorn при изменении файлов (только локальная разработка)",
+    )
+    prompts_editor_secret: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("PROMPTS_EDITOR_SECRET"),
+        description="Секрет Bearer для API редактирования prompts (GET/PUT /api/prompts/*); фронт проксирует через Next",
+    )
     mongodb_collection_observability: str = Field(
         default="observability_events",
         description="Коллекция событий observability для dev UI",

@@ -161,6 +161,71 @@
     }
   });
 
+  function toolsFrameRootFromElt(elt) {
+    if (!elt) return null;
+    if (elt.id === "tools-frame-root") return elt;
+    return elt.closest ? elt.closest("#tools-frame-root") : null;
+  }
+
+  function showToolsFrameLoadError(root, xhr) {
+    if (!root) return;
+    var status = xhr && typeof xhr.status === "number" ? xhr.status : 0;
+    var rawBody = "";
+    var detailStr = "";
+    try {
+      rawBody = xhr && xhr.responseText ? String(xhr.responseText) : "";
+      if (rawBody.trim().indexOf("{") === 0) {
+        var j = JSON.parse(rawBody);
+        if (j.detail !== undefined) {
+          detailStr = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+        }
+      }
+    } catch (e) {}
+    var body = detailStr || rawBody;
+
+    var hint = "";
+    if (status === 403) {
+      hint =
+        "Доступ к /dev разрешён только с loopback (127.0.0.1), localhost или частной сети. Если открываете приложение по публичному IP, используйте SSH port forward, например: ssh -L 8000:127.0.0.1:8000 user@host";
+    } else if (status === 404) {
+      if (detailStr === "Dev console disabled") {
+        hint =
+          "Консоль выключена в этом процессе: в окружении задайте DEV_DEBUG_UI=true (или DEBUG_CONSOLE=true) и полностью перезапустите uvicorn.";
+      } else if (detailStr === "Not Found" || !detailStr) {
+        hint =
+          "Маршрут /dev не зарегистрирован: backend запущен без dev-роутера (часто DEV_DEBUG_UI=false в момент старта или переменная задана в системе и перекрывает .env). Нужен файл projects/content/.env с DEV_DEBUG_UI=true, рабочий каталог/запуск из корня этого проекта и перезапуск. Убедитесь, что в браузере открыт тот же хост:порт, куда смотрит uvicorn (не другой прокси/фронтенд).";
+      } else {
+        hint = "См. текст ответа ниже.";
+      }
+    } else if (status >= 500) {
+      hint = "Ошибка сервера — смотрите логи uvicorn (сбор контекста Tools, Mongo, шаблон).";
+    } else if (status === 0) {
+      hint = "Сеть: сервер не отвечает, соединение сброшено или запрос заблокирован.";
+    }
+    root.innerHTML =
+      '<div class="tools-frame-error box">' +
+      "<p><strong>Не удалось загрузить Tools</strong> (HTTP " +
+      status +
+      ").</p>" +
+      (hint ? '<p class="muted">' + escapeHtml(hint) + "</p>" : "") +
+      (body
+        ? '<pre class="mono muted tools-frame-error-detail">' + escapeHtml(body.slice(0, 1200)) + "</pre>"
+        : "") +
+      "</div>";
+  }
+
+  function onToolsFrameRequestFailed(ev) {
+    var reqElt = ev.detail && ev.detail.elt;
+    var xhr = ev.detail && ev.detail.xhr;
+    var root = toolsFrameRootFromElt(reqElt);
+    if (!root) return;
+    showToolsFrameLoadError(root, xhr);
+  }
+
+  document.body.addEventListener("htmx:responseError", onToolsFrameRequestFailed);
+  document.body.addEventListener("htmx:sendError", onToolsFrameRequestFailed);
+  document.body.addEventListener("htmx:timeout", onToolsFrameRequestFailed);
+
   document.body.addEventListener("htmx:afterSwap", function (ev) {
     var d = ev.detail;
     var t = d && (d.target || d.elt);

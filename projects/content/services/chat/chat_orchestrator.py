@@ -16,7 +16,12 @@ from services.llm.openai_chat_service import OpenAIChatService
 from services.llm.system_prompt_loader import load_system_prompt, system_prompt_preview
 from services.telegram_reply_keyboards import main_reply_keyboard
 from services.tools import OPENAI_TOOLS_DEFAULT
-from services.tools.image_tools import tool_generate_base_character, tool_generate_image
+from services.tools.model_tools.generate_image_tool import (
+    GenerateImageArgs,
+    execute_generate_image,
+    parse_generate_image_args,
+)
+from services.tools.image_tools import tool_generate_base_character
 from storage.chat_repository import ChatStoreRepository
 from storage.dream_asset_repository import DreamAssetRepository
 from storage.generated_image_repository import GeneratedImageRepository
@@ -362,17 +367,20 @@ class ChatOrchestrator:
             return
 
         try:
-            args = json.loads(args_raw)
-        except json.JSONDecodeError:
-            args = {}
-
-        prompt = (args.get("prompt") or "").strip()
-        if not prompt:
+            parsed = parse_generate_image_args(args_raw)
+        except ValueError:
             await message.answer(
                 "Модель не передала описание для генерации.",
                 reply_markup=main_reply_keyboard(),
             )
             return
+        args = {
+            "prompt": parsed.prompt,
+            "size": parsed.size,
+            "model": parsed.model,
+            "n": parsed.n,
+        }
+        prompt = parsed.prompt
 
         if self._user_profile and self._dream_assets:
             has_face = await self._dream_assets.has_classified_face_asset(uid)
@@ -435,16 +443,13 @@ class ChatOrchestrator:
 
         prompt = await self._maybe_augment_prompt_with_base_character(uid, prompt)
 
-        size = args.get("size") or "1024*1536"
-        model = args.get("model") or "qwen-image-2.0"
-        n = int(args.get("n") or 1)
-
-        result = tool_generate_image(
+        parsed = GenerateImageArgs(
             prompt=prompt,
-            size=size,
-            model=model,
-            n=n,
+            size=parsed.size,
+            model=parsed.model,
+            n=parsed.n,
         )
+        result = execute_generate_image(parsed)
 
         await self._persist_tool_call(
             internal_user_id=internal_user_id,

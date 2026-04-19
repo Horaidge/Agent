@@ -121,3 +121,47 @@ def system_prompt_preview(max_len: int = 300) -> str:
     if len(full) <= max_len:
         return full
     return full[:max_len] + "…"
+
+
+def read_system_prompt_raw() -> str:
+    """Сырой текст `system_prompt.md` (для редактора; без strip — сохраняет форматирование)."""
+    path = SYSTEM_PROMPT_FILE
+    if not path.is_file():
+        raise SystemPromptError(f"Системный промпт не найден: {path}")
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as e:
+        raise SystemPromptError(str(e)) from e
+
+
+def write_system_prompt_raw(text: str) -> None:
+    """Записывает `system_prompt.md` и сбрасывает флаг логирования первого чтения."""
+    global _logged_system_prompt_path
+    if not (text or "").strip():
+        raise SystemPromptError("system_prompt.md не может быть пустым")
+    path = SYSTEM_PROMPT_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8", newline="\n")
+    _logged_system_prompt_path = False
+
+
+def read_global_model_policy_raw() -> str:
+    """Сырой текст `global_model_policy.md` (файл может отсутствовать — тогда пустая строка)."""
+    path = GLOBAL_MODEL_POLICY_FILE
+    if not path.is_file():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as e:
+        logger.error("Не удалось прочитать global_model_policy (raw): %s", e)
+        return ""
+
+
+def write_global_model_policy_raw(text: str) -> None:
+    """Записывает `global_model_policy.md` (допустима пустая строка — слой не добавляется)."""
+    global _logged_global_policy_path, _logged_missing_global_policy
+    path = GLOBAL_MODEL_POLICY_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text or "", encoding="utf-8", newline="\n")
+    _logged_global_policy_path = False
+    _logged_missing_global_policy = False

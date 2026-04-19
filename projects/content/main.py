@@ -28,6 +28,7 @@ def main() -> None:
         factory=True,
         host=settings.host,
         port=settings.port,
+        reload=settings.uvicorn_reload,
     )
 
 

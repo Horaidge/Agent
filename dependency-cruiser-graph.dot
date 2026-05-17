@@ -1,0 +1,16 @@
+strict digraph "dependency-cruiser output"{
+    rankdir="LR" splines="true" overlap="false" nodesep="0.16" ranksep="0.18" fontname="Helvetica-bold" fontsize="9" style="rounded,bold,filled" fillcolor="#ffffff" compound="true"
+    node [shape="box" style="rounded, filled" height="0.2" color="black" fillcolor="#ffffcc" fontcolor="black" fontname="Helvetica" fontsize="9"]
+    edge [arrowhead="normal" arrowsize="0.6" penwidth="2.0" color="#00000033" fontname="Helvetica" fontsize="9"]
+
+    subgraph "cluster_src" {label="src" "src/app" [label=<app> tooltip="app" URL="src/app" shape="box3d"] }
+    "src/app" -> "src/components"
+    subgraph "cluster_src" {label="src" "src/audio" [label=<audio> tooltip="audio" URL="src/audio" shape="box3d"] }
+    subgraph "cluster_src" {label="src" "src/components" [label=<components> tooltip="components" URL="src/components" fillcolor="#ccffcc" shape="box3d"] }
+    "src/components" -> "src/orchestration"
+    "src/components" -> "src/shared"
+    subgraph "cluster_src" {label="src" "src/orchestration" [label=<orchestration> tooltip="orchestration" URL="src/orchestration" shape="box3d"] }
+    "src/orchestration" -> "src/shared"
+    "src/orchestration" -> "src/audio"
+    subgraph "cluster_src" {label="src" "src/shared" [label=<shared> tooltip="shared" URL="src/shared" shape="box3d"] }
+}

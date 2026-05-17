@@ -1,0 +1,42 @@
+{
+  "name": "agent-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "eslint",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs --output-type err-long",
+    "depcruise:json": "mkdir -p reports && depcruise src --config .dependency-cruiser.cjs --output-type json --output-to reports/dependency-cruiser-report.json",
+    "depcruise:dot": "mkdir -p reports && depcruise src --config .dependency-cruiser.cjs --output-type dot --output-to reports/dependency-cruiser-graph.dot",
+    "depcruise:text": "mkdir -p reports && depcruise src --config .dependency-cruiser.cjs --output-type text --output-to reports/dependency-cruiser-graph.txt",
+    "depcruise:mermaid": "mkdir -p reports && depcruise src --config .dependency-cruiser.cjs --output-type mermaid --output-to reports/dependency-cruiser-graph.mmd",
+    "depcruise:html": "mkdir -p reports && depcruise src --config .dependency-cruiser.cjs --output-type err-html --output-to reports/dependency-cruiser-report.html",
+    "depcruise:all": "pnpm depcruise && pnpm depcruise:json && pnpm depcruise:dot && pnpm depcruise:text && pnpm depcruise:mermaid && pnpm depcruise:html"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.6.1",
+    "@vapi-ai/web": "^2.5.2",
+    "framer-motion": "^12.38.0",
+    "mermaid": "^11.14.0",
+    "next": "16.2.5",
+    "ogl": "^1.0.11",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "three": "^0.184.0",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.184.1",
+    "dependency-cruiser": "^17.4.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

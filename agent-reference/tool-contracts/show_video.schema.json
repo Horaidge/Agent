@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "show_video.arguments",
+  "description": "Контракт аргументов инструмента show_video для агентного runtime.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "description": "Short title to display in the UI.",
+      "type": "string"
+    },
+    "reason": {
+      "description": "Why this video is being shown (for debugging/analytics).",
+      "type": "string"
+    },
+    "videoKey": {
+      "description": "Stable video identifier from agent-reference/video-catalog.json.",
+      "type": "string",
+      "enum": [
+        "agent_1",
+        "agent_2",
+        "agent_3",
+        "agent_4"
+      ]
+    },
+    "startSeconds": {
+      "description": "Optional start timestamp (seconds). Default 0.",
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "required": [
+    "videoKey"
+  ],
+  "examples": [
+    {
+      "videoKey": "agent_1",
+      "title": "Agent 1 demo",
+      "reason": "user requested a product demo",
+      "startSeconds": 0
+    }
+  ]
+}

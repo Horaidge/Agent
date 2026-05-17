@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "description": "Справочный каталог видео для инструмента show_video. Не используется runtime-кодом напрямую.",
+  "videos": [
+    {
+      "videoKey": "agent_1",
+      "legacyName": "Agent1",
+      "title": "Agent 1",
+      "shortDescription": "Базовый демо-ролик №1. Использовать, когда нужен общий обзор кейса.",
+      "publicPath": "/media/videos/Agent1.mp4"
+    },
+    {
+      "videoKey": "agent_2",
+      "legacyName": "Agent2",
+      "title": "Agent 2",
+      "shortDescription": "Базовый демо-ролик №2. Использовать для альтернативного короткого примера.",
+      "publicPath": "/media/videos/Agent2.mp4"
+    },
+    {
+      "videoKey": "agent_3",
+      "legacyName": "Agent3",
+      "title": "Agent 3",
+      "shortDescription": "Базовый демо-ролик №3. Использовать для расширенного сценария демонстрации.",
+      "publicPath": "/media/videos/Agent3.mp4"
+    },
+    {
+      "videoKey": "agent_4",
+      "legacyName": "Agent4",
+      "title": "Agent 4",
+      "shortDescription": "Базовый демо-ролик №4. Использовать, когда нужен еще один независимый кейс.",
+      "publicPath": "/media/videos/Agent4.mp4"
+    }
+  ],
+  "mappingNotes": {
+    "why": "legacyName отражает текущее имя файла, videoKey — стабильный контрактный идентификатор для LLM/tool-calls",
+    "agentInstruction": "Выбирай videoKey только из этого файла и передавай его в show_video.arguments.videoKey"
+  }
+}

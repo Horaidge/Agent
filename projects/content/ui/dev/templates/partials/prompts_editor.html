@@ -1,8 +1,7 @@
 {# Редактор prompts/system_prompt.md и global_model_policy.md (только dev UI) #}
 <div class="prompts-editor-inner">
-  <p class="muted prompts-editor-lead">
-    Те же файлы, что и на фронтенде <code>/prompt-editor</code>. Сохранение пишет в
-    <code>prompts/</code> на диске — следующий запрос к модели подхватит текст без перезапуска.
+  <p class="muted prompts-editor-lead small">
+    Сохранение в <code>prompts/</code> — следующий запрос к модели подхватит текст без перезапуска сервера.
   </p>
 
   <section class="prompts-editor-block">
@@ -33,6 +32,38 @@
       <div class="prompts-editor-actions">
         <button type="submit" class="btn-ghost">Сохранить global_model_policy.md</button>
         <span id="prompts-global-feedback" class="prompts-editor-feedback"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="prompts-editor-block">
+    <h2 class="prompts-editor-h2">Dream pipeline — image prompts (Stage 2) — <code>prompts/dream_image_prompts.md</code></h2>
+    <p class="muted small">JSON visual_prompts по сценам после декомпозиции. Пустой файл — встроенный fallback в коде (лучше не оставлять пустым).</p>
+    <form
+      class="prompts-editor-form"
+      hx-post="/dev/api/prompts/dream-image-prompts-md"
+      hx-target="#prompts-dream-image-feedback"
+      hx-swap="innerHTML">
+      <textarea name="content" class="prompts-editor-textarea mono" rows="18">{{ dream_image_content }}</textarea>
+      <div class="prompts-editor-actions">
+        <button type="submit" class="btn-ghost">Сохранить dream_image_prompts.md</button>
+        <span id="prompts-dream-image-feedback" class="prompts-editor-feedback"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="prompts-editor-block">
+    <h2 class="prompts-editor-h2">Dream — маршрутизация intent — <code>prompts/dream_intent_routing.md</code></h2>
+    <p class="muted small">Классификатор: dream vs chat для свободного текста (без команды /dream). Пустой файл — fallback в коде.</p>
+    <form
+      class="prompts-editor-form"
+      hx-post="/dev/api/prompts/dream-intent-routing-md"
+      hx-target="#prompts-dream-intent-feedback"
+      hx-swap="innerHTML">
+      <textarea name="content" class="prompts-editor-textarea mono" rows="8">{{ dream_intent_content }}</textarea>
+      <div class="prompts-editor-actions">
+        <button type="submit" class="btn-ghost">Сохранить dream_intent_routing.md</button>
+        <span id="prompts-dream-intent-feedback" class="prompts-editor-feedback"></span>
       </div>
     </form>
   </section>

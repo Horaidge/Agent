@@ -167,6 +167,17 @@ class VideoJobRepository:
             return None
         return _serialize_doc(doc)
 
+    async def count_for_owner(self, owner_user_id: str) -> int:
+        if self._async is None:
+            raise RuntimeError("Async collection not configured for VideoJobRepository")
+        return await self._async.count_documents({"owner_user_id": owner_user_id})
+
+    async def delete_for_owner(self, owner_user_id: str) -> int:
+        if self._async is None:
+            raise RuntimeError("Async collection not configured for VideoJobRepository")
+        r = await self._async.delete_many({"owner_user_id": owner_user_id})
+        return int(getattr(r, "deleted_count", 0) or 0)
+
 
 def _serialize_doc(doc: dict[str, Any]) -> dict[str, Any]:
     out = dict(doc)

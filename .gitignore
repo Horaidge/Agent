@@ -20,12 +20,35 @@ projects/agent/config/.env
 projects/agent/app/.env
 projects/agent/app/.env.local
 projects/agent/app/.env.*.local
+projects/agent-next/.env
+projects/agent-next/.env.*
 projects/content/config/.env
 projects/content/.env
 projects/content/app/.env
 projects/content/app/.env.local
 projects/content/app/.env.*.local
+projects/telegram-mini-bot/.env
+projects/telegram-mini-bot/ENV
+projects/telegram-mini-bot/env
 envforcontent*
+
+# Python venv и рантайм-данные (код в git, мусор — нет)
+**/.venv/
+projects/telegram-mini-bot/data/
+projects/content/data/
+
+# Крупные локальные экспорты
+chunks_export*.json
+
+# Секреты nginx
+nginx/.htpasswd
+
+# Локальное окружение пользователя на сервере
+.local/
+
+# Вложенные .git при слиянии в монорепозиторий (не пушить)
+**/.git.backup-for-monorepo/
+Agent-repo/
 
 # Зависимости и сборка
 **/node_modules/

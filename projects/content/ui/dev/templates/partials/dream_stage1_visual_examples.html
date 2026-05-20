@@ -1,0 +1,454 @@
+{# Примеры для lab первичной разметки: те же классы полей, что Stage 0 / poll body #}
+{% macro asset_ctx_colored(ctx) -%}
+<div class="dream-lab-ctx-json mono" aria-label="Контекст ассетов (цвета как в runtime)">
+  {<br>
+  <span class="pipe-k--field">"has_face"</span>: <span class="pipe-dd--meta">{{ ctx.has_face | tojson }}</span>,<br>
+  <span class="pipe-k--field">"has_base_character"</span>: <span class="pipe-dd--meta">{{ ctx.has_base_character | tojson }}</span>,<br>
+  <span class="pipe-k--field">"secondary_actors"</span>: [<br>
+  {%- if ctx.secondary_actors %}
+  {%- for a in ctx.secondary_actors %}
+  &nbsp;&nbsp;{<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<span class="pipe-k--field">"actor_name"</span>: <span class="pipe-dd--actors">"{{ a.actor_name | e }}"</span>,<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<span class="pipe-k--field">"asset_id"</span>: <span class="pipe-dd--meta">"{{ a.asset_id | e }}"</span><br>
+  &nbsp;&nbsp;}{% if not loop.last %},{% endif %}<br>
+  {%- endfor %}
+  {%- else %}
+  &nbsp;&nbsp;<span class="pipe-dd--meta">[]</span><br>
+  {%- endif %}
+  ],<br>
+  <span class="pipe-k--field">"missing"</span>: <span class="pipe-dd--support">{{ (ctx.missing or []) | tojson }}</span>,<br>
+  <span class="pipe-k--field">"environment_hints"</span>: [<br>
+  {%- for pair in (ctx.environment_hints or []) %}
+  &nbsp;&nbsp;<span class="pipe-dd--environment">{{ pair | tojson }}</span>{% if not loop.last %},{% endif %}<br>
+  {%- endfor %}
+  ]<br>
+  }
+</div>
+{%- endmacro %}
+
+{% macro scene_cards(scenes) -%}
+<div class="pipe-s0-scenes dream-lab-s0-scenes" aria-label="Пример разметки сцен (как в Stage 0)">
+  {% for s in scenes %}
+  <div class="pipe-s0-scene-card">
+    <div class="pipe-s0-scene-head">
+      Сцена {{ s.scene_index or loop.index }}{% if s.source_beat_index %} ← Beat {{ s.source_beat_index }}{% endif %}{% if s.title %} · {{ s.title }}{% endif %}
+    </div>
+    {% if s.short_description %}
+    <p class="pipe-s0-field pipe-s0-field--short">{{ s.short_description }}</p>
+    {% endif %}
+    <p class="pipe-s0-field pipe-s0-field--desc">{{ s.scene_description or '—' }}</p>
+    <p class="pipe-s0-field pipe-s0-field--actors">
+      <span class="pipe-s0-ico" aria-hidden="true">{% if (s.actors or [])|length > 1 %}👥{% else %}👤{% endif %}</span>
+      {{ (s.actors or []) | join(', ') if s.actors else '—' }}
+    </p>
+    <p class="pipe-s0-field pipe-s0-field--env"><span class="pipe-s0-ico" aria-hidden="true">🌍</span> {{ s.environment or s.environment_requirement or '—' }}</p>
+    <p class="pipe-s0-field pipe-s0-field--mood">{{ s.mood or '—' }}</p>
+    <p class="pipe-s0-field pipe-s0-field--meta">scene_goal: {{ s.scene_goal or '—' }} · main_character_state: {{ s.main_character_state or '—' }}</p>
+    {% if s.key_objects_or_entities %}
+    <p class="pipe-s0-field pipe-s0-field--meta">key_objects_or_entities: {{ (s.key_objects_or_entities or []) | join(', ') }}</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro beat_cards(beats) -%}
+<div class="dream-beat-cards" aria-label="Beat outline">
+  {% for b in beats %}
+  <article class="dream-beat-card">
+    <header class="dream-beat-card-head">
+      <span class="dream-beat-index">Beat {{ b.beat_index or loop.index }}</span>
+      <span class="dream-beat-function">{{ b.story_function or '—' }}</span>
+    </header>
+    <h4 class="dream-beat-title">{{ b.title or '—' }}</h4>
+    <p class="dream-beat-line"><span>core_event:</span> {{ b.core_event or '—' }}</p>
+    <p class="dream-beat-desc">{{ b.beat_description or '—' }}</p>
+    <p class="dream-beat-line"><span>event_steps:</span> {{ (b.event_steps or []) | join(' · ') if b.event_steps else '—' }}</p>
+    <p class="dream-beat-line"><span>actors:</span> {{ (b.actors or []) | join(', ') if b.actors else '—' }}</p>
+    <p class="dream-beat-line"><span>environment:</span> {{ b.environment or '—' }}</p>
+    <p class="dream-beat-line"><span>main_character_state:</span> {{ b.main_character_state or '—' }}</p>
+    <p class="dream-beat-line"><span>key_objects_or_entities:</span> {{ (b.key_objects_or_entities or []) | join(', ') if b.key_objects_or_entities else '—' }}</p>
+    <p class="dream-beat-line"><span>transition_out:</span> {{ b.transition_out or '—' }}</p>
+  </article>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro header_context_block(hc, title, mode_label, stats_label, stats_value) -%}
+<section class="dream-world-model" aria-label="Header Context">
+  <header class="dream-world-model-head">
+    <h4 class="dream-world-model-title">🌍 {{ title or 'Header Context' }}</h4>
+    <div class="dream-world-model-meta">
+      <span class="dream-world-chip">mode: {{ mode_label or 'Full JSON' }}</span>
+      <span class="dream-world-chip">{{ stats_label or 'items_total' }}: {{ stats_value or 0 }}</span>
+    </div>
+  </header>
+  <div class="dream-world-grid">
+    <article class="dream-world-section">
+      <h5>🧭 Summary</h5>
+      <p>{{ (hc or {}).summary or '—' }}</p>
+    </article>
+    <article class="dream-world-section">
+      <h5>🏞 Environment</h5>
+      <p>{{ ((hc or {}).environment or {}).world_summary or '—' }}</p>
+    </article>
+    <article class="dream-world-section">
+      <h5>🧱 World Properties</h5>
+      {% if (hc or {}).world_properties %}
+      <div class="dream-world-tags">
+        {% for wp in ((hc or {}).world_properties or []) %}
+        <span class="dream-world-tag">{{ wp }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p>—</p>
+      {% endif %}
+    </article>
+    <article class="dream-world-section">
+      <h5>🗺 Entities</h5>
+      {% if (hc or {}).entities %}
+      <ul class="dream-world-entities">
+        {% for ent in ((hc or {}).entities or []) %}
+        <li><strong>{{ ent.env_id or 'env' }}</strong> · {{ ent.title or '—' }}<br><span>{{ ent.description or '—' }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>—</p>
+      {% endif %}
+    </article>
+  </div>
+</section>
+{%- endmacro %}
+
+{# Сворачиваемые контракты input/output для вкладок planning layer #}
+{% macro planning_json_contracts(title, input_json, output_json) -%}
+<details class="dream-planning-io">
+  <summary class="dream-planning-io__summary"><span class="dream-planning-io__tag" aria-hidden="true">📐</span> {{ title }}</summary>
+  <div class="dream-planning-io__body">
+    <details class="dream-planning-io__nest">
+      <summary class="dream-planning-io__nest-sum">Input — ожидаемая структура</summary>
+      <pre class="dream-json-colored mono" data-json-hl="true">{{ input_json }}</pre>
+    </details>
+    <details class="dream-planning-io__nest">
+      <summary class="dream-planning-io__nest-sum">Output — контракт ответа</summary>
+      <pre class="dream-json-colored mono" data-json-hl="true">{{ output_json }}</pre>
+    </details>
+  </div>
+</details>
+{%- endmacro %}
+
+{% macro format_director_semantic(val) -%}
+{%- if val is none -%}
+—
+{%- elif val is string -%}
+{{ val }}
+{%- elif val is mapping -%}
+{%- for k, v in val.items() -%}
+<span class="director-semantic-k">{{ k }}</span>: {{ format_director_semantic(v) }}{% if not loop.last %} · {% endif %}
+{%- endfor -%}
+{%- elif val is iterable -%}
+{%- for item in val -%}
+{{ format_director_semantic(item) }}{% if not loop.last %}; {% endif %}
+{%- endfor -%}
+{%- else -%}
+{{ val }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro director_reference_hub(final_obj) -%}
+{% set hc = final_obj.header_context or {} %}
+{% set scenes = final_obj.final_scenes or [] %}
+{% set gref = final_obj.global_references %}
+<section class="director-ref-hub" aria-label="Центр референсов">
+  <header class="director-ref-hub-head">
+    <h4>🧷 Центр референсов</h4>
+    <p class="muted small director-ref-hub-sub">Мир сна (header) и связь планов: глобальные референсы → ключевые кадры / final_scenes для Сборщика.</p>
+  </header>
+  <div class="director-ref-hub-grid">
+    <div class="director-ref-hub-col director-ref-hub-col--user">
+      <h5 class="director-ref-hub-h">👤 Пользователь и мир</h5>
+      <p class="director-ref-hub-summary">{{ hc.summary or 'Краткое описание мира не передано.' }}</p>
+      {% if hc.entities %}
+      <ul class="director-ref-hub-list">
+        {% for ent in hc.entities %}
+        <li>
+          <strong>{{ ent.title or ent.env_id or 'сущность' }}</strong>
+          {% if ent.description %} — {{ ent.description }}{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted small">В header_context нет списка сущностей.</p>
+      {% endif %}
+      {% if hc.environment and hc.environment.world_summary %}
+      <p class="director-ref-hub-env"><span class="director-ref-label">🏞 Среда:</span> {{ hc.environment.world_summary }}</p>
+      {% endif %}
+    </div>
+    <div class="director-ref-hub-col director-ref-hub-col--system">
+      <h5 class="director-ref-hub-h">⚙️ Система и пайплайн</h5>
+      {% if gref is mapping and gref.get('items') %}
+      <p class="muted small">Запланированные ref_id:</p>
+      <ul class="director-ref-hub-list director-ref-hub-list--system">
+        {% for it in gref.get('items', []) %}
+        <li><code>{{ it.ref_id | e }}</code> · {{ it.kind | e }} — {{ it.label | e }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if scenes %}
+      <ul class="director-ref-hub-list director-ref-hub-list--system">
+        {% for row in scenes %}
+        <li>
+          <span class="director-ref-scene-idx">Сцена {{ row.scene_index or loop.index }}</span>
+          {% if row.overlap %}
+          <span class="director-ref-pill director-ref-pill--overlap">last frame ← {% if row.dependency_scene_index %}сцена {{ row.dependency_scene_index }}{% else %}предыдущая{% endif %}</span>
+          {% else %}
+          <span class="director-ref-pill director-ref-pill--new">новый кадр из контекста</span>
+          {% endif %}
+          {% if row.trim_sec and row.trim_sec > 0 %}
+          <span class="director-ref-pill director-ref-pill--trim">trim {{ row.trim_sec }}s</span>
+          {% endif %}
+          {% if row.reference_image_url %}
+          <a class="director-ref-thumb-inline" href="{{ row.reference_image_url }}" target="_blank" rel="noopener" title="preview">
+            <img src="{{ row.reference_image_url }}" alt="" loading="lazy"/>
+          </a>
+          {% endif %}
+          {% if row.references %}
+          <ul class="director-ref-sub">
+            {% for ref in row.references %}
+            <li>
+              <span class="director-ref-label">{{ ref.kind or 'ref' }}</span>
+              {% if ref.source %}: {{ ref.source }}{% endif %}
+              {% if ref.note %} — {{ ref.note }}{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted small">Нет final_scenes{% if gref is mapping and gref.get('items') %} (на этапе 1A только план референсов){% endif %}.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{%- endmacro %}
+
+{% macro referencing_block(rows) -%}
+<section class="dream-world-model dream-world-model--ref" aria-label="Referencing">
+  <header class="dream-world-model-head">
+    <h4 class="dream-world-model-title">🧷 Referencing</h4>
+    <div class="dream-world-model-meta">
+      <span class="dream-world-chip">items: {{ (rows or [])|length }}</span>
+    </div>
+  </header>
+  <div class="dream-ref-grid">
+    {% for r in (rows or []) %}
+    <article class="dream-ref-card">
+      <p class="pipe-s0-field pipe-s0-field--meta">🎬 Scene {{ r.scene_index or loop.index }} · strategy: {{ r.generation_strategy or 'new_start' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--mood">🔁 overlap: {{ r.overlap or false }}{% if r.dependency_scene_index %} · depends_on: scene {{ r.dependency_scene_index }}{% endif %}</p>
+      <p class="pipe-s0-field pipe-s0-field--env">🧭 source: {{ r.reference_source or 'none' }} · type: {{ r.reference_type or 'none' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--short">✂️ trim_sec: {{ r.trim_sec or 0.0 }}</p>
+      {% if r.reference_image_url %}
+      <a href="{{ r.reference_image_url }}" target="_blank" rel="noopener" class="dream-ref-thumb-wrap">
+        <img src="{{ r.reference_image_url }}" alt="reference preview" class="dream-ref-thumb"/>
+      </a>
+      {% else %}
+      <p class="pipe-s0-field pipe-s0-field--meta">preview: —</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+    {% if not (rows or []) %}
+    <p class="muted small">Референсы пока не сформированы.</p>
+    {% endif %}
+  </div>
+</section>
+{%- endmacro %}
+
+{# Playground v2: глобальные референсы + ключевые кадры (без скрытой генерации) #}
+{% macro director_status_pill(status) -%}
+<span class="director-status-pill director-status-pill--{{ (status or 'pending') | replace('_', '-') }}">{{ status or 'pending_confirmation' }}</span>
+{%- endmacro %}
+
+{% macro ref_chip(gref, rid) -%}
+{%- set ns = namespace(lbl='') -%}
+{%- for it in (gref.get('items', []) if gref is mapping else []) -%}
+{%- if it.ref_id == rid -%}{%- set ns.lbl = it.label -%}{%- endif -%}
+{%- endfor -%}
+<span class="director-ref-chip" title="ref_id: {{ rid | e }}">{% if ns.lbl %}{{ ns.lbl | e }}{% else %}<code class="director-ref-chip-fallback">{{ rid | e }}</code>{% endif %}</span>
+{%- endmacro %}
+
+{% macro director_global_ref_asset_card(it, visual_idx) -%}
+<article class="director-gref-card" data-gref-card="{{ it.ref_id | e }}">
+  <div class="director-gref-card__main">
+    <div class="director-gref-card__headline">
+      <h4 class="director-gref-card__title">{{ it.label | e }}</h4>
+      {% if it.is_main_hero %}<span class="director-gref-badge">Главный герой</span>{% endif %}
+    </div>
+    <p class="director-gref-card__blurb">{{ (it.short_blurb or it.rationale or '—') | e }}</p>
+    <div class="director-gref-card__pills">
+      {% if it.user_has_reference %}
+      <span class="director-gref-pill director-gref-pill--library">В библиотеке</span>
+      {% elif it.preview_image_url %}
+      <span class="director-gref-pill director-gref-pill--ready">Есть изображение</span>
+      {% else %}
+      <span class="director-gref-pill director-gref-pill--need">Нужна генерация</span>
+      {% endif %}
+    </div>
+    {% if it.existing_asset_note %}
+    <p class="muted small director-gref-card__asset-note">{{ it.existing_asset_note | e }}</p>
+    {% endif %}
+    <details class="director-gref-details">
+      <summary class="director-gref-details-sum">Детали и промпт для картинки</summary>
+      {% if it.rationale %}
+      <p class="muted small director-gref-details-line"><span class="director-gref-details-k">Зачем в сне</span> {{ it.rationale | e }}</p>
+      {% endif %}
+      <pre class="director-gref-details-pre mono small">{{ it.generation_prompt | e }}</pre>
+    </details>
+  </div>
+  <aside class="director-gref-card__aside" aria-label="Превью и действия">
+    <div id="gref-v-{{ visual_idx }}" class="director-gref-card__visual">
+      {% if it.preview_image_url %}
+      <div class="director-gref-visual-media">
+        <img src="{{ it.preview_image_url | e }}" alt="" class="director-gref-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+      </div>
+      {% endif %}
+      {% if it.generation_prompt %}
+      <form
+        class="director-gref-gen-form"
+        hx-post="/dev/api/dream/playground/generate_global_ref_still"
+        hx-target="#gref-v-{{ visual_idx }}"
+        hx-swap="innerHTML"
+        hx-indicator="#gref-ind-{{ visual_idx }}">
+        <textarea name="item_json" class="visually-hidden" aria-hidden="true">{{ it | tojson }}</textarea>
+        <input type="hidden" name="visual_idx" value="{{ visual_idx | e }}"/>
+        <button type="submit" class="btn-primary btn-sm director-gref-gen-btn">{% if it.preview_image_url %}Перегенерировать{% else %}Сгенерировать{% endif %}</button>
+        <span id="gref-ind-{{ visual_idx }}" class="htmx-indicator muted small">Запрос…</span>
+      </form>
+      {% if it.user_has_reference %}
+      <p class="muted small director-gref-library-hint">В библиотеке уже есть опора для продукта; кнопка — черновой still в Playground (можно перегенерировать).</p>
+      {% endif %}
+      {% elif it.user_has_reference %}
+      <p class="muted small director-gref-aside-placeholder">В библиотеке есть ассет, но нет <code>generation_prompt</code> — обновите этап 1A.</p>
+      {% else %}
+      <p class="muted small director-gref-aside-placeholder">Нет промпта генерации — обновите этап 1A.</p>
+      {% endif %}
+    </div>
+    {% if it.generation_prompt %}
+    <p class="muted small director-gref-tool-hint">Изображение через Playground (OpenRouter). В проде — запись в библиотеку пользователя.</p>
+    {% endif %}
+  </aside>
+</article>
+{%- endmacro %}
+
+{% macro director_global_references_center(gref) -%}
+{% if gref is mapping and gref.get('items') %}
+<section class="director-gref-hub" aria-label="Global references">
+  <header class="director-gref-hub-head">
+    <div class="director-gref-hub-titles">
+      <h3 class="director-gref-hub-title">Global references</h3>
+      <p class="director-gref-hub-lead muted small">Библиотека визуальных опор на весь сон: отсюда же в будущем уйдёт в Telegram и сборщик. Технические поля спрятаны под «Детали».</p>
+    </div>
+    <div class="director-gref-hub-meta">{{ director_status_pill(gref.get('status')) }}</div>
+  </header>
+
+  <div class="director-gref-zones">
+    <section class="director-gref-zone">
+      <h4 class="director-gref-zone-h">Персонажи</h4>
+      <div class="director-gref-cards">
+        {% for it in gref.get('items', []) if (it.kind or '')|lower in ('character', 'персонаж') %}
+        {{ director_global_ref_asset_card(it, loop.index) }}
+        {% else %}
+        <p class="muted small director-gref-empty">Нет персонажей в плане.</p>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="director-gref-zone">
+      <h4 class="director-gref-zone-h">Окружения</h4>
+      <div class="director-gref-cards">
+        {% for it in gref.get('items', []) if (it.kind or '')|lower in ('environment', 'окружение') %}
+        {{ director_global_ref_asset_card(it, 100 + loop.index) }}
+        {% else %}
+        <p class="muted small director-gref-empty">Нет зон окружения.</p>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="director-gref-zone">
+      <h4 class="director-gref-zone-h">Важные объекты</h4>
+      <div class="director-gref-cards">
+        {% for it in gref.get('items', []) if (it.kind or '')|lower in ('object', 'объект') %}
+        {{ director_global_ref_asset_card(it, 200 + loop.index) }}
+        {% else %}
+        <p class="muted small director-gref-empty">Нет ключевых объектов.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</section>
+{% endif %}
+{%- endmacro %}
+
+{% macro director_keyframes_section(kf, vp, gref) -%}
+{% if kf is mapping and kf.get('items') %}
+<section class="director-kf-board" aria-label="Keyframes">
+  <header class="director-kf-board-head">
+    <h3 class="director-kf-board-title">Keyframes</h3>
+    <p class="muted small">Ключевые кадры раскадровки (не все сцены сценариста). {{ director_status_pill(kf.get('status')) }}</p>
+  </header>
+  <div class="director-kf-grid director-kf-grid--storyboard">
+    {% for fr in kf.get('items', []) %}
+    <article class="director-kf-card director-kf-card--scene">
+      <header class="director-kf-card-head">
+        <span class="director-kf-idx">Кадр {{ fr.frame_index }}</span>
+        {% if fr.short_label %}<span class="director-kf-title">{{ fr.short_label | e }}</span>{% endif %}
+        <span class="director-status-pill director-status-pill--pending">ожидает подтверждения</span>
+      </header>
+      <p class="director-kf-moment"><span class="director-kf-lbl">Момент сна</span> {{ fr.moment_description | e }}</p>
+      <p class="director-kf-generate-line"><span class="director-kf-lbl">Будет сгенерировано</span> {{ fr.image_prompt | e }}</p>
+      <div class="director-kf-chips-row">
+        <span class="director-kf-lbl">Референсы</span>
+        <div class="director-kf-ref-chips">
+          {% for rid in fr.uses_reference_ids or [] %}
+          {{ ref_chip(gref, rid) }}
+          {% endfor %}
+          {% if not (fr.uses_reference_ids or []) %}<span class="muted small">—</span>{% endif %}
+        </div>
+      </div>
+      <ul class="director-kf-bullets">
+        <li><span class="director-kf-lbl">Персонажи в кадре</span> {{ (fr.subjects_in_frame or []) | join(', ') }}</li>
+        <li><span class="director-kf-lbl">Окружение</span> {{ fr.environment | e }}</li>
+        <li><span class="director-kf-lbl">Визуальный фокус</span> {{ fr.visual_focus | e }}</li>
+        <li><span class="director-kf-lbl">Состояние героя</span> {{ fr.hero_state | e }}</li>
+        <li><span class="director-kf-lbl">Связь кадров</span> {{ fr.scene_boundary | e }}{% if fr.continues_from_frame_index %} · продолжение после кадра {{ fr.continues_from_frame_index }}{% endif %}</li>
+      </ul>
+      {% if fr.video_bridge_prompt %}
+      <p class="muted small director-kf-bridge">🎬 Видео: {{ fr.video_bridge_prompt | e }}</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% if vp and (vp.segments or vp.scene_flow) %}
+<section class="director-video-plan-board" aria-label="План видео-связок">
+  <header class="director-video-plan-head">
+    <h4>🔗 Видео-план</h4>
+    <p class="muted small">Какие кадры соединяются; границы сцен. {{ director_status_pill(vp.status) }}</p>
+  </header>
+  {% if vp.segments %}
+  <ul class="director-video-segments">
+    {% for seg in vp.segments %}
+    <li><strong>Кадр {{ seg.from_frame_index }} → {{ seg.to_frame_index }}</strong> — {{ seg.link_note | e }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if vp.scene_flow %}
+  <ul class="director-video-flow muted small">
+    {% for sf in vp.scene_flow %}
+    <li>Кадр {{ sf.frame_index }} · {{ sf.narrative_role | e }} — {{ sf.note | e }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+{%- endmacro %}

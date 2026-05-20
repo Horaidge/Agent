@@ -1,0 +1,50 @@
+<div class="playground-asset-picker-root">
+  <p class="muted small">user_id <strong>{{ user_id }}</strong> · клик по плитке = референс для этой ячейки.</p>
+  <label class="playground-ref-none">
+    <input
+      type="radio"
+      name="dream_asset_id"
+      value=""
+      form="{{ form_id }}"
+      checked/>
+    <span>Без референса (только текст)</span>
+  </label>
+  {% if assets %}
+  <div class="playground-asset-grid">
+    {% for a in assets %}
+    <label class="playground-asset-tile">
+      <input
+        type="radio"
+        name="dream_asset_id"
+        value="{{ a._id }}"
+        form="{{ form_id }}"/>
+      <span class="playground-asset-tile-inner">
+        {% if a.source_image_url %}
+        <img
+          src="{{ a.source_image_url }}"
+          alt=""
+          loading="lazy"
+          class="playground-asset-thumb"/>
+        {% else %}
+        <div class="playground-asset-no-thumb">
+          <span class="muted small">Нет публичного URL</span>
+          <span class="mono playground-asset-fid">{{ (a.telegram_file_id or '')[:18] }}{% if a.telegram_file_id %}…{% endif %}</span>
+        </div>
+        {% endif %}
+        <span class="playground-asset-badge">
+          {% set at = (a.asset_type or '') | lower %}
+          {% if at == 'face' %}🧑
+          {% elif at == 'environment' %}🌍
+          {% elif at == 'dream_object' %}🧱
+          {% elif at == 'character' %}🎭
+          {% else %}📦{% endif %}
+        </span>
+        <span class="mono playground-asset-id">{{ a._id }}</span>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">Нет ассетов у этого пользователя.</p>
+  {% endif %}
+</div>

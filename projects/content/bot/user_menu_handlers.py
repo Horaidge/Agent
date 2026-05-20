@@ -20,11 +20,18 @@ router = Router(name="user_menu")
 
 BTN_MENU = MAIN_MENU_BUTTON_TEXT
 BTN_BACK = "◀️ Назад"
+BTN_MY_DATA = "👤 Мои данные"
 BTN_CLEAR_HISTORY = "🗑 Очистить историю"
+BTN_CLEAR_ALL_DATA = "🧹 Очистить мои данные"
 BTN_MY_IMAGES = "🖼 Мои изображения"
+BTN_DELETE_AVATAR = "🧍 Удалить аватар"
 BTN_DELETE_IMAGES = "🗑 Удалить все изображения"
+BTN_DELETE_VIDEOS = "🎬 Удалить видео"
 BTN_CONFIRM_CLEAR_HISTORY = "✅ Да, очистить историю"
+BTN_CONFIRM_CLEAR_ALL_DATA = "✅ Да, очистить мои данные"
 BTN_CONFIRM_DELETE_IMAGES = "✅ Да, удалить изображения"
+BTN_CONFIRM_DELETE_AVATAR = "✅ Да, удалить аватар"
+BTN_CONFIRM_DELETE_VIDEOS = "✅ Да, удалить видео"
 BTN_CANCEL = "❌ Отмена"
 
 
@@ -35,9 +42,13 @@ def _main_kb() -> ReplyKeyboardMarkup:
 def _data_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text=BTN_MY_DATA)],
             [KeyboardButton(text=BTN_CLEAR_HISTORY)],
             [KeyboardButton(text=BTN_MY_IMAGES)],
+            [KeyboardButton(text=BTN_DELETE_AVATAR)],
             [KeyboardButton(text=BTN_DELETE_IMAGES)],
+            [KeyboardButton(text=BTN_DELETE_VIDEOS)],
+            [KeyboardButton(text=BTN_CLEAR_ALL_DATA)],
             [KeyboardButton(text=BTN_BACK)],
         ],
         resize_keyboard=True,
@@ -58,6 +69,36 @@ def _confirm_images_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=BTN_CONFIRM_DELETE_IMAGES)],
+            [KeyboardButton(text=BTN_CANCEL)],
+        ],
+        resize_keyboard=True,
+    )
+
+
+def _confirm_avatar_kb() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=BTN_CONFIRM_DELETE_AVATAR)],
+            [KeyboardButton(text=BTN_CANCEL)],
+        ],
+        resize_keyboard=True,
+    )
+
+
+def _confirm_videos_kb() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=BTN_CONFIRM_DELETE_VIDEOS)],
+            [KeyboardButton(text=BTN_CANCEL)],
+        ],
+        resize_keyboard=True,
+    )
+
+
+def _confirm_clear_all_kb() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=BTN_CONFIRM_CLEAR_ALL_DATA)],
             [KeyboardButton(text=BTN_CANCEL)],
         ],
         resize_keyboard=True,
@@ -102,6 +143,28 @@ async def ask_clear_history(message: Message) -> None:
         "Нажмите подтверждение ниже.",
         reply_markup=_confirm_history_kb(),
         parse_mode="Markdown",
+    )
+
+
+@router.message(F.text == BTN_MY_DATA)
+async def show_my_data_overview(message: Message, user_data_service: UserDataService) -> None:
+    uid = message.from_user.id if message.from_user else 0
+    ov = await user_data_service.get_user_overview(uid)
+    avatar = "есть" if ov["avatar_exists"] else "нет"
+    avatar_created = ov.get("avatar_created_at")
+    avatar_line = f"Аватар: {avatar}"
+    if avatar_created:
+        avatar_line += f" (создан: {avatar_created})"
+    await message.answer(
+        "Мои данные:\n"
+        f"• {avatar_line}\n"
+        f"• Изображения: {ov['images_count']}\n"
+        f"• Видео: {ov['videos_count']}\n"
+        f"• Персонажи (actors): {ov['actors_count']}\n"
+        f"• Окружения: {ov['environments_count']}\n"
+        f"• Снов сгенерировано: {ov['dream_runs_count']}\n"
+        f"• Сообщений: {ov['messages_count']}",
+        reply_markup=_data_kb(),
     )
 
 
@@ -191,6 +254,32 @@ async def ask_delete_images(message: Message) -> None:
     )
 
 
+@router.message(F.text == BTN_DELETE_AVATAR)
+async def ask_delete_avatar(message: Message) -> None:
+    await message.answer(
+        "Удалить сохранённый аватар (главного персонажа)?\n"
+        "Это сбросит identity state, и pipeline снова спросит, как вы выглядите.",
+        reply_markup=_confirm_avatar_kb(),
+    )
+
+
+@router.message(F.text == BTN_DELETE_VIDEOS)
+async def ask_delete_videos(message: Message) -> None:
+    await message.answer(
+        "Удалить все видео (scene + final) и video jobs для вашего пользователя?",
+        reply_markup=_confirm_videos_kb(),
+    )
+
+
+@router.message(F.text == BTN_CLEAR_ALL_DATA)
+async def ask_clear_all_data(message: Message) -> None:
+    await message.answer(
+        "Полностью очистить ваши данные в системе?\n"
+        "(история, аватар/actors, изображения, видео, pipeline runs)",
+        reply_markup=_confirm_clear_all_kb(),
+    )
+
+
 @router.message(F.text == BTN_CONFIRM_DELETE_IMAGES)
 async def do_delete_images(message: Message, user_data_service: UserDataService) -> None:
     uid = message.from_user.id if message.from_user else 0
@@ -198,6 +287,48 @@ async def do_delete_images(message: Message, user_data_service: UserDataService)
     await message.answer(
         f"Готово. Удалено записей об изображениях: **{n}**.",
         parse_mode="Markdown",
+        reply_markup=_data_kb(),
+    )
+
+
+@router.message(F.text == BTN_CONFIRM_DELETE_AVATAR)
+async def do_delete_avatar(message: Message, user_data_service: UserDataService) -> None:
+    uid = message.from_user.id if message.from_user else 0
+    stats = await user_data_service.delete_avatar(uid)
+    await message.answer(
+        "Готово. Аватар удалён.\n"
+        f"• удалено avatar assets: {stats['avatar_assets_deleted']}",
+        reply_markup=_data_kb(),
+    )
+
+
+@router.message(F.text == BTN_CONFIRM_DELETE_VIDEOS)
+async def do_delete_videos(message: Message, user_data_service: UserDataService) -> None:
+    uid = message.from_user.id if message.from_user else 0
+    stats = await user_data_service.delete_videos(uid)
+    await message.answer(
+        "Готово. Видео удалены.\n"
+        f"• final videos: {stats['story_videos']}\n"
+        f"• scene videos: {stats['scene_videos']}\n"
+        f"• video jobs: {stats['video_jobs']}",
+        reply_markup=_data_kb(),
+    )
+
+
+@router.message(F.text == BTN_CONFIRM_CLEAR_ALL_DATA)
+async def do_clear_all_data(message: Message, user_data_service: UserDataService) -> None:
+    uid = message.from_user.id if message.from_user else 0
+    stats = await user_data_service.clear_all_user_data(uid)
+    await message.answer(
+        "Готово. Ваши данные очищены.\n"
+        f"• сообщения: {stats['inbound_messages']}\n"
+        f"• conversation: {stats['conversation_messages']}\n"
+        f"• model/tool: {stats['model_calls']}/{stats['tool_calls']}\n"
+        f"• observability: {stats['observability_events']}\n"
+        f"• assets/profile: {stats['dream_assets']}/{stats['user_profiles']}\n"
+        f"• images/frames: {stats['generated_images']}/{stats['generated_frames']}\n"
+        f"• scene/final videos: {stats['scene_videos']}/{stats['story_videos']}\n"
+        f"• runs/scenes/jobs: {stats['dream_runs']}/{stats['dream_scenes']}/{stats['video_jobs']}",
         reply_markup=_data_kb(),
     )
 

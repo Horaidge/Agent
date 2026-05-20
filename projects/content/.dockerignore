@@ -1,0 +1,14 @@
+# Рантайм и локальные данные не нужны в образе
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+data/
+*.log
+.git/
+.cursor/
+ui/dev/static/dream_lite_runs/
+ui/dev/static/dream_lite_final/

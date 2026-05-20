@@ -40,6 +40,16 @@ class GeneratedFrameRepository:
     async def count_for_user(self, user_id: int) -> int:
         return await self._async.count_documents({"user_id": user_id})
 
+    async def delete_for_user(self, user_id: int) -> int:
+        r = await self._async.delete_many({"user_id": user_id})
+        return int(getattr(r, "deleted_count", 0) or 0)
+
+    async def delete_by_dream_run_ids(self, run_ids: list[str]) -> int:
+        if not run_ids:
+            return 0
+        r = await self._async.delete_many({"dream_run_id": {"$in": run_ids}})
+        return int(getattr(r, "deleted_count", 0) or 0)
+
     async def list_by_dream_run(self, dream_run_id: str) -> list[dict[str, Any]]:
         cur = (
             self._async.find({"dream_run_id": dream_run_id})

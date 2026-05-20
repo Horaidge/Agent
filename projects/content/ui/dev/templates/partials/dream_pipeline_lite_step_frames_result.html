@@ -1,0 +1,74 @@
+<div class="dream-lite-step-res dream-lite-step-res--frames">
+  {% if error %}
+  <p class="error" role="alert">{{ error | e }}</p>
+  {% else %}
+  <article class="pipe-stage-card dream-lite-pipe-card dream-lite-pipe-card--frames">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Шаг 2 · Кадры</h4>
+    <details class="pipe-json-details dream-lite-arch-details dream-lite-frames-hint-short">
+      <summary class="pipe-json-details-summary dream-lite-secondary">Архитектура полей (что в ответе модели и что уходит в генерацию)</summary>
+      <div class="dream-lite-secondary pipe-model-hint dream-lite-arch-body">
+        <p><strong>Шаг 2 — два вызова чата:</strong> <strong>2a</strong> раскадровка (markdown по <code class="mono">### Кадр N</code>); <strong>2b</strong> классификатор prev по тому же тексту сна, шагу 1 и сырой раскадровке — один JSON с флагами по индексам кадров.</p>
+        <p><strong>В ответе 2a</strong> в основном английские имена полей; ниже — как они отображаются в карточке и как используются дальше.</p>
+        <ul class="dream-lite-arch-list">
+          <li><strong>Персонажи</strong> — <code class="mono dream-lite-code">character_references</code>: id людей из шага 1. В image API подмешиваются их <strong>листы-референсы</strong> (лицо, фигура). Если пусто — пайплайн может вывести id по словам в кадре или перенести список с предыдущей карточки; метки «авто», «с пред. кадра», «+dreamer» в UI показывают это (дубликаты одного человека схлопываются).</li>
+          <li><strong>Окружение</strong> — в данных: текст <code class="mono dream-lite-code">Опора</code> и/или <code class="mono dream-lite-code">base_reference</code> (id окружения из шага 1). Если кадр идёт <strong>с prev</strong>, пластина окружения в запрос не подмешивается — в карточке в этой строке показывается <strong>—</strong> (prev описан в колонке Prev).</li>
+          <li><strong>Prev</strong> — решает <strong>шаг 2b</strong> (поле <code class="mono">use_previous_frame</code> на карточке после парсинга JSON). В UI колонка «Prev» — <strong>итог для image API</strong> по scene continuity (та же сцена/камера без разрыва). Метка <strong>2b</strong> у кадра 2+ — сырое решение классификатора.</li>
+          <li><strong>Кадр</strong> — итоговое описание кадра (<code class="mono dream-lite-code">frame_text</code> / Кадр); уходит в image API. Ниже тем же блоком показывается <strong>изменение такта</strong> (<code class="mono dream-lite-code">delta</code> / Изменение) — оно тоже входит в текст запроса к image API. К основному тексту сна в запрос добавляется <strong>сжатый отрывок</strong> для атмосферы и деталей (см. шаг 3, отладка <code class="mono">img_prompt</code>).</li>
+        </ul>
+      </div>
+    </details>
+    <div class="dream-lite-frames-grid dream-lite-frames-grid--story" role="list" aria-label="Кадры раскадровки">
+      {% for c in cards %}
+      <div class="pipe-s0-scene-card dream-lite-frame-story-card" role="listitem">
+        <div class="pipe-s0-scene-head dream-lite-frame-story-head">{{ c.title | e }}</div>
+        <div class="dream-lite-frame-compact">
+          <div class="dream-lite-row">
+            <span class="dream-lite-lbl dream-lite-lbl-char">Персонажи</span>
+            <span class="dream-lite-txt dream-lite-txt-char">{{ c.ui_chars_line | e if c.ui_chars_line is defined else "—" }}</span>
+          </div>
+          <div class="dream-lite-row">
+            <span class="dream-lite-lbl dream-lite-lbl-env">Окружение</span>
+            <span class="dream-lite-txt dream-lite-txt-env">{{ c.ui_env_line | e if c.ui_env_line is defined else "—" }}</span>
+          </div>
+          <div class="dream-lite-row">
+            <span class="dream-lite-lbl dream-lite-lbl-prev">Prev</span>
+            <span class="dream-lite-txt dream-lite-txt-prev">{{ c.ui_prev_line | e if c.ui_prev_line is defined else "—" }}{% if loop.index0 > 0 %} <span class="dream-lite-txt-muted mono">2b: {% if c.use_previous_frame %}prev{% else %}с нуля{% endif %}</span>{% endif %}</span>
+          </div>
+          <div class="dream-lite-row">
+            <span class="dream-lite-lbl">Ключ</span>
+            <span class="dream-lite-txt">{{ c.ui_keyframe_line | e if c.ui_keyframe_line is defined else ("key" if c.is_keyframe else "non-key") }}</span>
+          </div>
+          <div class="dream-lite-row dream-lite-row-kad">
+            <span class="dream-lite-lbl dream-lite-lbl-kad">Кадр</span>
+            <span class="dream-lite-txt dream-lite-txt-kad">
+              {% if c.kad %}{{ c.kad | e }}{% else %}{{ c.body | e }}{% endif %}
+              {% if c.izmenenie %}<span class="dream-lite-frame-delta-inline dream-lite-secondary"><br><span class="dream-lite-delta-prefix">Изменение:</span> {{ c.izmenenie | e }}</span>{% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <p class="dream-lite-secondary">Пустой ответ — проверьте окружения и текст сна.</p>
+      {% endfor %}
+    </div>
+    <details class="pipe-json-details dream-lite-raw-details">
+      <summary class="pipe-json-details-summary dream-lite-secondary">Сырой текст ответа · шаг 2a (раскадровка)</summary>
+      <pre class="pipe-json-full dream-lite-raw-pre">{{ raw_text | e }}</pre>
+    </details>
+    {% if prev_link_raw is defined and prev_link_raw %}
+    <details class="pipe-json-details dream-lite-raw-details">
+      <summary class="pipe-json-details-summary dream-lite-secondary">Сырой ответ · шаг 2b (классификатор prev)</summary>
+      <pre class="pipe-json-full dream-lite-raw-pre">{{ prev_link_raw | e }}</pre>
+    </details>
+    {% endif %}
+    {% if runtime_entrypoint is defined and runtime_entrypoint %}
+    <p class="dream-lite-secondary">Runtime path (UI/Telegram parity): <code class="mono">{{ runtime_entrypoint | e }}</code></p>
+    {% endif %}
+  </article>
+  {% endif %}
+</div>
+
+{% if not error and raw_text is defined %}
+<textarea id="dream-lite-frames-store" name="frames_text" class="visually-hidden" aria-hidden="true" hx-swap-oob="true">{{ raw_text | e }}</textarea>
+<textarea id="dream-lite-frames-prev-link-store" name="frames_prev_link_raw" class="visually-hidden" aria-hidden="true" hx-swap-oob="true">{{ (prev_link_raw if prev_link_raw is defined else '') | e }}</textarea>
+{% endif %}

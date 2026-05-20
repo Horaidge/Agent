@@ -1,0 +1,298 @@
+<section class="dream-lite-step4-res" aria-label="Шаг 4 · план монтажа">
+  {% if error %}
+  <p class="error" role="alert">{{ error | e }}</p>
+  {% else %}
+  <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+    <h5 class="dream-lite-secondary">Выбор для шага 5 (фиксируется на шаге 4)</h5>
+    <p class="dream-lite-secondary">video_model: <code>{{ selected_video_model | e }}</code> · prompt_mode: <code>{{ selected_prompt_mode | e }}</code> · montage_preset: <code>{{ selected_montage_preset | default('default') | e }}</code> · audio_required: <code>{{ selected_audio_required | e }}</code>{% if requested_audio_required is defined and requested_audio_required and not selected_audio_required %} <span class="dream-lite-secondary">(в форме включён native audio, фактически silent)</span>{% endif %}.</p>
+    {% if audio_required_clamp_note is defined and audio_required_clamp_note %}
+    <p class="dream-lite-secondary"><span class="dream-lite-pill dream-lite-pill--ok">Звук</span> {{ audio_required_clamp_note | e }}</p>
+    {% endif %}
+    {% if effective_prompt_policy is defined and effective_prompt_policy %}
+    <p class="dream-lite-secondary">effective_prompt_policy: <code>{{ effective_prompt_policy | e }}</code>{% if prompt_mode_locked is defined %} · locked: <code>{{ prompt_mode_locked | e }}</code>{% endif %}{% if requested_prompt_mode is defined and requested_prompt_mode != selected_prompt_mode %} · requested_prompt_mode: <code>{{ requested_prompt_mode | e }}</code>{% endif %}.</p>
+    {% endif %}
+    {% if runtime_entrypoint_step4 is defined and runtime_entrypoint_step5 is defined %}
+    <p class="dream-lite-secondary">runtime_parity: step4=<code>{{ runtime_entrypoint_step4 | e }}</code> · step5=<code>{{ runtime_entrypoint_step5 | e }}</code></p>
+    {% endif %}
+    <p class="dream-lite-secondary">prompt_source: <code>{% if (selected_montage_preset | default('default')) == 'seedance' %}dream_pipeline_lite_transitions_seedance.md{% elif (selected_montage_preset | default('default')) == 'wan_2_6_single_anchor' %}dream_pipeline_lite_transitions_wan26.md{% elif (selected_montage_preset | default('default')) == 'kling_v3_reference_motion' %}dream_pipeline_lite_transitions_kling_v3_reference.md{% else %}dream_pipeline_lite_transitions.md{% endif %}</code></p>
+    <p class="dream-lite-secondary">input_contract:
+      {% if (selected_montage_preset | default('default')) == 'kling_v3_reference_motion' %}
+      <code>reference image (input_references) + text + size=720x720{% if selected_audio_required %} + native_audio{% else %} + silent{% endif %}</code>
+      {% elif selected_prompt_mode == 'first_last_frame' %}
+      <code>2 frames + text{% if selected_audio_required %} + native_audio{% else %} + silent{% endif %}</code>
+      {% elif selected_prompt_mode == 'first_frame_only' %}
+      <code>1 frame + text{% if selected_audio_required %} + native_audio{% else %} + silent{% endif %}</code>
+      {% else %}
+      <code>0 frames + text{% if selected_audio_required %} + native_audio{% else %} + silent{% endif %}</code>
+      {% endif %}
+    </p>
+    {% if mode_model_compatible is defined %}
+    <p class="dream-lite-secondary">compatibility:
+      <span class="dream-lite-pill dream-lite-pill--{% if mode_model_compatible %}ok{% else %}err{% endif %}">
+        {% if mode_model_compatible %}compatible{% else %}incompatible{% endif %}
+      </span>
+      {% if not mode_model_compatible and mode_model_reason %} · {{ mode_model_reason | e }}{% endif %}
+    </p>
+    {% endif %}
+    {% if selected_video_profile is defined and selected_video_profile %}
+    <details class="dream-lite-api-tab">
+      <summary class="dream-lite-api-tab-summary">Требования выбранной модели (для плана)</summary>
+      <pre class="dream-lite-prompt-readout dream-lite-prompt-readout--user">{{ selected_video_profile | tojson(indent=2) }}</pre>
+    </details>
+    {% endif %}
+    {% if llm_input_payload_preview is defined and llm_input_payload_preview %}
+    <details class="dream-lite-api-tab">
+      <summary class="dream-lite-api-tab-summary">Вход LLM (план монтажа)</summary>
+      <pre class="dream-lite-prompt-readout dream-lite-prompt-readout--user">{{ llm_input_payload_preview | tojson(indent=2) }}</pre>
+    </details>
+    {% endif %}
+  </article>
+  {% if generated_frames is defined and generated_frames %}
+  <article class="pipe-stage-card dream-lite-pipe-card dream-lite-pipe-card--frame-selection">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Все кадры и выбор модели</h4>
+    {% if frame_selection_diag is defined and frame_selection_diag %}
+    <p class="dream-lite-secondary small">
+      selection_source: <code>{{ frame_selection_diag.source | e }}</code>
+      {% if frame_selection_diag.parse_fallback %} · <span class="dream-lite-pill dream-lite-pill--warn">fallback</span>{% endif %}
+      {% if frame_selection_diag.error %} · {{ frame_selection_diag.error | e }}{% endif %}
+    </p>
+    {% endif %}
+    <div class="dream-lite-anim-line-block">
+      {% for f in generated_frames | sort(attribute='index') %}
+      {% set ix = f.index %}
+      {% set sel = frame_selection_by_index.get(ix) if frame_selection_by_index is defined else None %}
+      {% set is_selected = sel.selected if sel else False %}
+      <div class="dream-lite-anim-segment pipe-s0-scene-card">
+        <div class="pipe-s0-scene-head dream-lite-anim-segment-head">
+          Кадр {{ ix }}{% if f.title %} · {{ f.title | e }}{% endif %}
+          <span class="dream-lite-pill dream-lite-pill--{% if f.is_keyframe %}ok{% else %}muted{% endif %}">
+            {% if f.is_keyframe %}key{% else %}non-key{% endif %}
+          </span>
+          <span class="dream-lite-pill dream-lite-pill--{% if is_selected %}ok{% else %}muted{% endif %}">
+            {% if is_selected %}selected{% else %}not selected{% endif %}
+          </span>
+          {% if f.image_id %}<span class="dream-lite-pill dream-lite-pill--muted">id: {{ f.image_id | e }}</span>{% endif %}
+          {% if not f.image_generated_ok %}<span class="dream-lite-pill dream-lite-pill--warn">no image anchor</span>{% endif %}
+        </div>
+        {% set frame_img = f.image_href if f.image_href else ((f.urls[0]) if (f.urls is defined and f.urls and (f.urls|length > 0)) else "") %}
+        {% if frame_img %}
+        <div class="dream-lite-visual-img-wrap dream-lite-anim-thumb-wrap">
+          <img src="{{ frame_img | e }}" alt="" class="dream-lite-visual-img dream-lite-anim-pair-img" loading="lazy" referrerpolicy="no-referrer"/>
+        </div>
+        {% endif %}
+        {% if is_selected and sel.reason %}
+        <p class="dream-lite-anim-scene-action"><span class="dream-lite-k">Причина выбора</span> · {{ sel.reason | e }}</p>
+        {% endif %}
+        {% if f.keyframe_reason %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">keyframe_reason</span> · {{ f.keyframe_reason | e }}</p>
+        {% endif %}
+        {% if f.img_prompt %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">img_prompt</span> · {{ f.img_prompt | e }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+  {% endif %}
+  {% if animation_markup is defined and animation_markup and animation_markup.lines %}
+  <article class="pipe-stage-card dream-lite-pipe-card dream-lite-pipe-card--anim-markup">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Сцены анимации (keyframe-gap segments)</h4>
+    <p class="dream-lite-secondary">
+      Для каждого keyframe-gap сегмента показывается effective контракт i2v: в locked Seedance используется anchor-first режим (без обязательного кадра конца), плюс полный текст анимации.
+    </p>
+    {% set step4_duration = (active_video_policy.duration_sec if active_video_policy and active_video_policy.duration_sec else 5) %}
+    {% set step4_resolution = (active_video_policy.resolution if active_video_policy and active_video_policy.resolution else '720p') %}
+    <div class="dream-lite-actions">
+      <form
+        class="dream-lite-form dream-lite-anim-run-form"
+        hx-post="/dev/api/dream/lite/animate_segments_batch"
+        hx-target="#dream-lite-step4-batch-run-out"
+        hx-swap="innerHTML"
+        hx-indicator="#dream-lite-step4-batch-run-indicator">
+        <input type="hidden" name="animation_markup_json" value='{{ animation_markup | tojson }}'/>
+        <input type="hidden" name="model_id" value="{{ selected_video_model | e }}"/>
+        <input type="hidden" name="prompt_mode" value="{{ selected_prompt_mode | e }}"/>
+        <input type="hidden" name="duration" value="{{ step4_duration | e }}"/>
+        <input type="hidden" name="resolution" value="{{ step4_resolution | e }}"/>
+        <button type="submit" class="btn-ghost" {% if mode_model_compatible is defined and not mode_model_compatible %}disabled{% endif %}>Запустить все сцены</button>
+        <span id="dream-lite-step4-batch-run-indicator" class="htmx-indicator dream-lite-indicator dream-lite-indicator--inline">Запуск batch…</span>
+      </form>
+    </div>
+    <div id="dream-lite-step4-batch-run-out" class="dream-lite-anim-run-slot" aria-live="polite"></div>
+    {% if animation_markup.dream_text_excerpt %}
+    <p class="dream-lite-secondary dream-lite-anim-markup-dream"><span class="dream-lite-k">Фрагмент сна</span> · {{ animation_markup.dream_text_excerpt | e }}</p>
+    {% endif %}
+    {% if animation_markup.line_boundaries %}
+    <h5 class="dream-lite-subhead">Границы линий</h5>
+    <ul class="dream-lite-anim-boundary-list dream-lite-secondary">
+      {% for b in animation_markup.line_boundaries %}
+      <li>{{ b.message | e }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% for line in animation_markup.lines %}
+    <div class="dream-lite-anim-line-block" data-line-index="{{ line.line_index }}">
+      <h5 class="dream-lite-subhead">Линия {{ line.line_index + 1 }} · keyframes {% for ix in line.frame_indices %}{{ ix }}{% if not loop.last %}, {% endif %}{% endfor %}</h5>
+      {% if line.note %}
+      <p class="dream-lite-secondary">{{ line.note | e }}</p>
+      {% endif %}
+      {% for seg in line.segments %}
+      <div class="dream-lite-anim-segment pipe-s0-scene-card">
+        <div class="pipe-s0-scene-head dream-lite-anim-segment-head">
+          {% if seg.prompt_mode is defined and seg.prompt_mode != 'first_last_frame' %}
+          Сцена {{ seg.from_frame_index }} (anchor-only, target={{ seg.target_frame_index if seg.target_frame_index is defined else seg.to_frame_index }})
+          {% if seg.prompt_mode == 'first_frame_only' %}<span class="dream-lite-pill dream-lite-pill--ok">single-frame input</span>{% endif %}
+          {% if seg.prompt_mode == 'text_only' %}<span class="dream-lite-pill dream-lite-pill--warn">text-only input</span>{% endif %}
+          {% else %}
+          Сцена {{ seg.from_frame_index }}→{{ seg.to_frame_index }}
+          {% endif %}
+          <span class="dream-lite-pill dream-lite-pill--muted">segment_mode: {{ seg.segment_mode | default('pairwise') | e }}</span>
+          {% if not seg.both_images_ready %}<span class="dream-lite-pill dream-lite-pill--muted">{% if seg.prompt_mode is defined and seg.prompt_mode != 'first_last_frame' %}нужен стартовый URL{% else %}нужны оба URL{% endif %}</span>{% endif %}
+        </div>
+        <div class="dream-lite-anim-pair-grid">
+          <figure class="dream-lite-anim-thumb">
+            <figcaption class="dream-lite-secondary small">{{ (seg.from_title or ("Кадр " ~ seg.from_frame_index)) | e }} · начало</figcaption>
+            {% if seg.image_url_start %}
+            <div class="dream-lite-visual-img-wrap dream-lite-anim-thumb-wrap">
+              <img src="{{ seg.image_url_start | e }}" alt="" class="dream-lite-visual-img dream-lite-anim-pair-img" loading="lazy" referrerpolicy="no-referrer"/>
+            </div>
+            {% else %}
+            <p class="dream-lite-secondary small">Нет URL — выполните шаг 3 заново (картинки материализуются в /dev/static).</p>
+            {% endif %}
+          </figure>
+          {% if seg.prompt_mode is not defined or seg.prompt_mode == 'first_last_frame' %}
+          <figure class="dream-lite-anim-thumb">
+            <figcaption class="dream-lite-secondary small">{{ (seg.to_title or ("Кадр " ~ seg.to_frame_index)) | e }} · конец</figcaption>
+            {% if seg.image_url_end %}
+            <div class="dream-lite-visual-img-wrap dream-lite-anim-thumb-wrap">
+              <img src="{{ seg.image_url_end | e }}" alt="" class="dream-lite-visual-img dream-lite-anim-pair-img" loading="lazy" referrerpolicy="no-referrer"/>
+            </div>
+            {% else %}
+            <p class="dream-lite-secondary small">Нет URL — см. шаг 3.</p>
+            {% endif %}
+          </figure>
+          {% endif %}
+        </div>
+        {% if seg.segment_mode == 'single_anchor' %}
+        <div class="dream-lite-anim-black-request">
+          <div class="dream-lite-k">Запрос в i2v</div>
+          <ol class="dream-lite-anim-black-list dream-lite-secondary">
+            {% if (selected_montage_preset | default('default')) == 'kling_v3_reference_motion' %}
+            <li><span class="mono dream-lite-code">input_references[0].image_url</span>: {{ (seg.api_payload_preview.reference_image_url or "—") | e }}</li>
+            <li><span class="mono dream-lite-code">size</span>: {{ (seg.api_payload_preview.size or '720x720') | e }}</li>
+            {% else %}
+            <li><span class="mono dream-lite-code">image_url</span>: {{ (seg.api_payload_preview.image_url or "—") | e }}</li>
+            {% endif %}
+            {% set calc_dur = (seg.calculated_duration_sec or seg.api_payload_preview.calculated_duration_sec or seg.duration_sec or step4_duration) %}
+            {% set provider_dur = (seg.provider_duration_sec or seg.api_payload_preview.provider_duration_sec or seg.api_payload_preview.duration_sec or calc_dur) %}
+            <li><span class="mono dream-lite-code">calculated_duration_sec</span>: {{ calc_dur | e }}</li>
+            <li><span class="mono dream-lite-code">provider_duration_sec</span>: {{ provider_dur | e }}</li>
+            <li><span class="mono dream-lite-code">prompt</span>: {{ (seg.api_payload_preview.prompt or seg.final_prompt or seg.motion_prompt_suggested or "—") | e }}</li>
+          </ol>
+        </div>
+        {% else %}
+        {% if seg.get('montage_mode') == 'sparse' and seg.get('in_montage_plan') is sameas false %}
+        <p class="dream-lite-secondary small">Эта соседняя пара в prev-цепи не входит в разрежённый план (i2v строится по опорным парам из плана, не по каждому соседнему индексу).</p>
+        {% endif %}
+        <p class="dream-lite-anim-scene-action"><span class="dream-lite-k">motion_prompt_final</span> · {{ (seg.motion_prompt_suggested or seg.motion_prompt_preview) | e }}</p>
+        <div class="dream-lite-anim-black-request">
+          <div class="dream-lite-k">Запрос в i2v</div>
+          <ol class="dream-lite-anim-black-list dream-lite-secondary">
+            {% if (selected_montage_preset | default('default')) == 'kling_v3_reference_motion' %}
+            <li><span class="mono dream-lite-code">input_references[0].image_url</span>: {{ (seg.api_payload_preview.reference_image_url or "—") | e }}</li>
+            <li><span class="mono dream-lite-code">size</span>: {{ (seg.api_payload_preview.size or '720x720') | e }}</li>
+            {% else %}
+            <li><span class="mono dream-lite-code">image_url</span> (первый): {{ (seg.api_payload_preview.image_url or "—") | e }}</li>
+            {% if seg.prompt_mode is not defined or seg.prompt_mode == 'first_last_frame' %}
+            <li><span class="mono dream-lite-code">last_frame_url</span> (второй): {{ (seg.api_payload_preview.last_frame_url or "—") | e }}</li>
+            {% endif %}
+            {% endif %}
+            {% set calc_dur = (seg.calculated_duration_sec or seg.api_payload_preview.calculated_duration_sec or seg.duration_sec or step4_duration) %}
+            {% set provider_dur = (seg.provider_duration_sec or seg.api_payload_preview.provider_duration_sec or seg.api_payload_preview.duration_sec or calc_dur) %}
+            <li><span class="mono dream-lite-code">calculated_duration_sec</span>: {{ calc_dur | e }}</li>
+            <li><span class="mono dream-lite-code">provider_duration_sec</span>: {{ provider_dur | e }}</li>
+            <li><span class="mono dream-lite-code">prompt</span>: {{ (seg.api_payload_preview.prompt or seg.final_prompt or seg.motion_prompt_suggested or "—") | e }}</li>
+          </ol>
+        </div>
+        {% endif %}
+        <div id="dream-lite-step4-anim-run-{{ line.line_index }}-{{ seg.segment_index }}" class="dream-lite-anim-run-slot" aria-live="polite"></div>
+        <form
+          class="dream-lite-form dream-lite-anim-run-form"
+          hx-post="/dev/api/dream/lite/animate_segment"
+          hx-target="#dream-lite-step4-anim-run-{{ line.line_index }}-{{ seg.segment_index }}"
+          hx-swap="innerHTML"
+          hx-indicator="closest .dream-lite-anim-segment .dream-lite-indicator">
+          <input type="hidden" name="image_url" value="{{ seg.image_url_start | e }}"/>
+          <input type="hidden" name="last_frame_url" value="{{ seg.image_url_end | e }}"/>
+          <input type="hidden" name="reference_image_url" value="{{ (seg.api_payload_preview.reference_image_url or seg.reference_image_url or seg.image_url_start or '') | e }}"/>
+          <input type="hidden" name="final_prompt" value="{{ (seg.api_payload_preview.prompt or seg.final_prompt or seg.motion_prompt_suggested or '') | e }}"/>
+          <input type="hidden" name="motion_prompt" value="{{ (seg.motion_prompt_suggested or '') | e }}"/>
+          <input type="hidden" name="model_id" value="{{ selected_video_model | e }}"/>
+          <input type="hidden" name="prompt_mode" value="{{ selected_prompt_mode | e }}"/>
+          {% set submit_duration = (seg.provider_duration_sec or seg.api_payload_preview.provider_duration_sec or seg.api_payload_preview.duration_sec or seg.duration_sec or step4_duration) %}
+          <input type="hidden" name="duration" value="{{ submit_duration | e }}"/>
+          <input type="hidden" name="resolution" value="{{ step4_resolution | e }}"/>
+          <button type="submit" class="btn-primary" {% if not seg.both_images_ready or (mode_model_compatible is defined and not mode_model_compatible) %}disabled{% endif %}>Запустить сцену</button>
+          <span class="htmx-indicator dream-lite-indicator dream-lite-indicator--inline">Запуск…</span>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <details class="pipe-json-details dream-lite-raw-details">
+      <summary class="pipe-json-details-summary dream-lite-secondary">JSON разметки (отладка)</summary>
+      <pre class="pipe-json-full dream-lite-raw-pre">{{ animation_markup | tojson(indent=2) }}</pre>
+    </details>
+  </article>
+  {% endif %}
+  {% if transition_plan_error %}
+  <p class="err dream-lite-visual-err" role="alert">План переходов (предупреждение): {{ transition_plan_error | e }}</p>
+  {% endif %}
+  {% if transition_plan %}
+  <article class="pipe-stage-card dream-lite-pipe-card dream-lite-pipe-card--transitions">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Шаг 4 · План монтажа</h4>
+    <p class="dream-lite-secondary">Сцены и переходы: <code class="mono">animate_transition</code> → i2v между ключами, <code class="mono">hard_cut</code> → граница смысла без отдельного i2v на паре. Автопайплайн «до mp4» на главной вкладке сейчас отключён.</p>
+    {% if transition_plan.get('montage_mode') %}
+    <p class="dream-lite-secondary small">Режим плана: <code class="mono">{{ transition_plan.montage_mode | e }}</code>{% if transition_plan.get('_parse_fallback') %} · <span class="dream-lite-txt-muted">запасной разбор JSON</span>{% endif %}</p>
+    {% endif %}
+    {% if transition_plan.scenes %}
+    <h5 class="dream-lite-subhead">Сцены</h5>
+    <ul class="dream-lite-transition-list">
+      {% for s in transition_plan.scenes %}
+      <li><span class="dream-lite-k">scene {{ s.scene_index }}</span> · кадры {{ s.from_frame_index }}–{{ s.to_frame_index }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if transition_plan.transitions %}
+    <h5 class="dream-lite-subhead">Переходы</h5>
+    <ul class="dream-lite-transition-list">
+      {% for t in transition_plan.transitions %}
+      <li>
+        <span class="dream-lite-k">{{ t.from_frame_index }}→{{ t.to_frame_index }}</span>
+        · <strong>{{ t.transition_type | e }}</strong>
+        {% if t.transition_type == 'animate_transition' %} · <code>segment_mode={{ t.segment_mode | default('pairwise') | e }}</code>{% endif %}
+        {% if t.motion_prompt %} — {{ t.motion_prompt | e }}{% endif %}
+        {% if t.cut_reason %} — {{ t.cut_reason | e }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <details class="pipe-json-details dream-lite-raw-details">
+      <summary class="pipe-json-details-summary dream-lite-secondary">JSON (сборка)</summary>
+      <pre class="pipe-json-full dream-lite-raw-pre">{{ transition_plan | tojson(indent=2) }}</pre>
+    </details>
+  </article>
+  {% else %}
+  {% if not (animation_markup is defined and animation_markup and animation_markup.lines) %}
+  <p class="dream-lite-secondary">План не получен.</p>
+  {% endif %}
+  {% endif %}
+  {% if transition_plan is defined and transition_plan %}
+  <textarea id="dream-lite-transition-plan-json" name="transition_plan_json" class="visually-hidden" aria-hidden="true" hx-swap-oob="true">{{ transition_plan | tojson }}</textarea>
+  {% endif %}
+  {% if animation_markup is defined and animation_markup %}
+  <textarea id="dream-lite-animation-markup-json" name="animation_markup_json" class="visually-hidden" aria-hidden="true" hx-swap-oob="true">{{ animation_markup | tojson }}</textarea>
+  {% endif %}
+  <textarea id="dream-lite-step4-video-policy-json" name="step4_video_policy_json" class="visually-hidden" aria-hidden="true" hx-swap-oob="true">{{ {"video_model_id": selected_video_model, "prompt_mode": selected_prompt_mode, "requested_prompt_mode": (requested_prompt_mode if requested_prompt_mode is defined else selected_prompt_mode), "effective_prompt_policy": (effective_prompt_policy if effective_prompt_policy is defined else ''), "prompt_mode_locked": (prompt_mode_locked if prompt_mode_locked is defined else false), "montage_preset": selected_montage_preset | default('default'), "audio_required": selected_audio_required} | tojson }}</textarea>
+  {% endif %}
+</section>

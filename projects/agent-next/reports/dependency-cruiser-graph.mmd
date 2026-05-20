@@ -1,0 +1,120 @@
+flowchart LR
+
+subgraph 0["src"]
+subgraph 1["app"]
+subgraph 2["admin"]
+3["layout.tsx"]
+4["page.tsx"]
+end
+subgraph B["api"]
+subgraph C["reports"]
+subgraph D["[name]"]
+E["route.ts"]
+end
+end
+end
+subgraph F["deps"]
+G["page.tsx"]
+end
+J["layout.tsx"]
+K["globals.css"]
+subgraph L["login"]
+M["page.tsx"]
+end
+O["page.tsx"]
+subgraph 1A["voice"]
+1B["page.tsx"]
+end
+end
+subgraph 5["components"]
+subgraph 6["admin"]
+7["admin-material-list.tsx"]
+8["admin-upload-form.tsx"]
+end
+subgraph 9["ui"]
+A["status-pill.tsx"]
+N["button.tsx"]
+11["section-shell.tsx"]
+end
+subgraph H["deps"]
+I["mermaid-graph.tsx"]
+end
+subgraph P["landing"]
+Q["landing-page.tsx"]
+R["landing-agent-zone.tsx"]
+12["landing-contact.tsx"]
+13["landing-header.tsx"]
+14["landing-hero.tsx"]
+16["landing-portfolio.tsx"]
+17["landing-process.tsx"]
+19["landing-services.tsx"]
+end
+subgraph S["agent"]
+T["agent-widget.tsx"]
+U["agent-chat-panel.tsx"]
+V["agent-input.tsx"]
+W["agent-message-list.tsx"]
+X["agent-tool-renderer.tsx"]
+Y["agent-orb.tsx"]
+1M["types.ts"]
+end
+subgraph Z["animations"]
+10["chat-panel-transition.tsx"]
+15["motion-fade.tsx"]
+18["scroll-section-stub.tsx"]
+end
+1C["voice-screen.tsx"]
+1D["cinematic-hero.tsx"]
+end
+subgraph 1E["shared"]
+1F["voice-store.ts"]
+1L["vapi-guards.ts"]
+end
+subgraph 1G["orchestration"]
+1H["use-voice-session.ts"]
+1I["voice-controller.ts"]
+end
+subgraph 1J["audio"]
+1K["microphone.ts"]
+end
+end
+4-->7
+4-->8
+8-->A
+G-->I
+J-->K
+M-->N
+O-->Q
+Q-->R
+Q-->12
+Q-->13
+Q-->14
+Q-->16
+Q-->17
+Q-->19
+R-->T
+R-->11
+T-->U
+T-->Y
+T-->10
+T-->N
+U-->V
+U-->W
+U-->X
+12-->N
+12-->11
+13-->N
+14-->15
+16-->11
+17-->18
+17-->11
+19-->11
+1B-->1C
+1C-->1D
+1C-->1H
+1D-->1F
+1H-->1I
+1H-->1F
+1I-->1K
+1I-->1L
+1I-->1F

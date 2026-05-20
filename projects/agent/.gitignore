@@ -1,0 +1,10 @@
+config/.env
+.env
+.env.*
+!.env.example
+app/.env.local
+app/node_modules/
+app/.next/
+app/out/
+**/.DS_Store
+app/tsconfig.tsbuildinfo

@@ -18,7 +18,7 @@ from typing import Any
 TOOL_NAME = "generate_dream_pipeline"
 
 TOOL_DESCRIPTION = (
-    "Запускает полный pipeline визуализации сна: декомпозиция -> кадры -> анимация -> итоговое видео."
+    "Запускает Dream Pipeline Lite end-to-end: текст сна -> кадры -> анимация -> итоговое видео для пользователя Telegram."
 )
 
 OPENAI_TOOL_SCHEMA: dict[str, Any] = {
@@ -26,8 +26,8 @@ OPENAI_TOOL_SCHEMA: dict[str, Any] = {
     "function": {
         "name": TOOL_NAME,
         "description": (
-            "Запусти полную визуализацию сна пользователя. "
-            "Используй, когда нужно превратить описание сна в финальное видео."
+            "Запусти Dream Pipeline Lite целиком и отправь пользователю итоговое видео в Telegram. "
+            "Используй, когда нужно превратить описание сна в финальный mp4."
         ),
         "parameters": {
             "type": "object",
@@ -36,15 +36,9 @@ OPENAI_TOOL_SCHEMA: dict[str, Any] = {
                     "type": "string",
                     "description": "Описание сна естественным языком",
                 },
-                "style_hint": {
-                    "type": "string",
-                    "description": "Опциональная подсказка стиля/атмосферы",
-                },
-                "scene_count_hint": {
+                "telegram_user_id": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 8,
-                    "description": "Опционально: желаемое количество сцен",
+                    "description": "Опционально: id пользователя Telegram (если есть в контексте).",
                 },
             },
             "required": ["dream_text"],
@@ -54,18 +48,23 @@ OPENAI_TOOL_SCHEMA: dict[str, Any] = {
 
 # machine-readable описание внутренних этапов для Dev UI / отладки
 PIPELINE_INTERNAL_STAGES: list[dict[str, str]] = [
-    {"id": "stage_1", "title": "Декомпозиция сна", "status": "internal"},
-    {"id": "stage_2", "title": "Генерация изображений", "status": "internal"},
-    {"id": "stage_3", "title": "Анимация сцен", "status": "internal"},
-    {"id": "stage_4", "title": "Финальная сборка", "status": "internal"},
+    {"id": "resolve_style", "title": "Resolve style", "status": "internal"},
+    {"id": "load_user_context", "title": "Load user context", "status": "internal"},
+    {"id": "resolve_avatar", "title": "Resolve user avatar", "status": "internal"},
+    {"id": "resolve_actors", "title": "Resolve secondary actors", "status": "internal"},
+    {"id": "decomposition", "title": "Dream decomposition", "status": "internal"},
+    {"id": "scene_actor_mapping", "title": "Bind scene actors", "status": "internal"},
+    {"id": "build_prompts", "title": "Build final prompts", "status": "internal"},
+    {"id": "generate_images", "title": "Generate scene images", "status": "internal"},
+    {"id": "animate", "title": "Animate scenes", "status": "internal"},
+    {"id": "assemble", "title": "Assemble final video", "status": "internal"},
 ]
 
 
 @dataclass(frozen=True)
 class DreamPipelineArgs:
     dream_text: str
-    style_hint: str | None = None
-    scene_count_hint: int | None = None
+    telegram_user_id: int | None = None
 
 
 def parse_dream_pipeline_args(raw: str | dict[str, Any]) -> DreamPipelineArgs:
@@ -84,22 +83,16 @@ def parse_dream_pipeline_args(raw: str | dict[str, Any]) -> DreamPipelineArgs:
     if not dream_text:
         raise ValueError("missing_dream_text")
 
-    style_hint_raw = str(data.get("style_hint") or "").strip()
-    style_hint = style_hint_raw or None
-
-    scene_count_hint_raw = data.get("scene_count_hint")
-    scene_count_hint: int | None = None
-    if scene_count_hint_raw is not None:
+    telegram_user_id_raw = data.get("telegram_user_id")
+    telegram_user_id: int | None = None
+    if telegram_user_id_raw is not None:
         try:
-            scene_count_hint = int(scene_count_hint_raw)
+            telegram_user_id = int(telegram_user_id_raw)
         except (TypeError, ValueError):
-            scene_count_hint = None
-        if scene_count_hint is not None:
-            scene_count_hint = max(1, min(8, scene_count_hint))
+            telegram_user_id = None
 
     return DreamPipelineArgs(
         dream_text=dream_text,
-        style_hint=style_hint,
-        scene_count_hint=scene_count_hint,
+        telegram_user_id=telegram_user_id,
     )
 

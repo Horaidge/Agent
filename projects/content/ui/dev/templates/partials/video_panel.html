@@ -1,82 +1,150 @@
 <div class="video-tab">
-  <p class="video-lead muted">Image-to-video (Wan): выберите кадр → задайте промпт → запустите задачу и дождитесь <code>video_url</code>.</p>
+  <p class="video-lead muted">Wan image-to-video: укажите <strong>первый кадр</strong> (файл или asset из библиотеки), при желании — <strong>последний кадр</strong> файлом. Для файлов: <strong>перетащите изображение</strong> на зону или нажмите на неё — загрузка начнётся сразу, превью появится до ответа сервера. Дальше промпт, модель, разрешение и длительность.</p>
 
-  <section class="video-step">
-    <h3 class="video-step-title"><span class="video-step-num">A</span> Источник изображения</h3>
-    <div class="video-src-split">
-      <div class="video-src-block">
-        <h4 class="video-subh">Dream assets</h4>
-        <p class="muted">Пользователи с материалами в MongoDB</p>
-        <div
-          class="table-wrap video-user-wrap"
-          hx-get="/dev/partials/video/users"
-          hx-trigger="load"
-          hx-target="#video-user-list-inner"
-          hx-swap="innerHTML">
-          <div id="video-user-list-inner"><p class="muted">Загрузка…</p></div>
+  <section class="video-step video-step--frames">
+    <h3 class="video-step-title"><span class="video-step-num">1</span> Кадры</h3>
+    <div class="video-frames-strip">
+      <div class="video-frame-card video-frame-card--first">
+        <div class="video-frame-card-badge video-frame-card-badge--req">обязательно</div>
+        <div class="video-frame-card-head">🎬 Первый кадр</div>
+        <p class="muted small video-frame-card-hint">Стартовое изображение для интерполяции в видео.</p>
+        <div class="video-first-mode-bar" role="group" aria-label="Источник первого кадра">
+          <button type="button" class="video-mode-btn is-active" data-video-first-mode="upload" aria-pressed="true">📤 Файл</button>
+          <button type="button" class="video-mode-btn" data-video-first-mode="library" aria-pressed="false">🗄 Библиотека</button>
         </div>
-        <div id="video-asset-picker" class="video-asset-picker"></div>
+        <div id="video-first-upload-panel" class="video-frame-panel">
+          <form
+            class="video-upload-form video-upload-form--compact"
+            data-video-auto-upload="1"
+            hx-post="/dev/api/video/upload"
+            hx-encoding="multipart/form-data"
+            hx-target="#video-first-frame-upload-slot"
+            hx-swap="innerHTML">
+            <input type="hidden" name="upload_slot" value="first"/>
+            <div class="video-drop-zone" data-video-drop-zone tabindex="0" role="group" aria-label="Загрузка первого кадра: перетащите файл или выберите">
+              <div class="video-drop-preview-wrap">
+                <img class="video-drop-preview" alt="Превью первого кадра" hidden decoding="async"/>
+              </div>
+              <label class="video-drop-label" for="video-upload-first-file">
+                <span class="video-drop-ico" aria-hidden="true">📷</span>
+                <span class="video-drop-text">Перетащите сюда фото или нажмите, чтобы выбрать</span>
+                <span class="video-drop-sub muted small">Загрузка начнётся автоматически</span>
+              </label>
+              <input id="video-upload-first-file" type="file" name="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" required class="visually-hidden"/>
+            </div>
+          </form>
+          <div id="video-first-frame-upload-slot" class="video-upload-result"></div>
+          <p class="muted small video-upload-path-hint">Файлы: <code>data/dev_uploads/video_inputs/</code></p>
+        </div>
+        <div id="video-first-library-panel" class="video-frame-panel video-frame-panel--library" hidden>
+          <p class="muted small">Пользователи с материалами в MongoDB — выберите один asset (радиокнопка).</p>
+          <div
+            class="table-wrap video-user-wrap"
+            hx-get="/dev/partials/video/users"
+            hx-trigger="load"
+            hx-target="#video-user-list-inner"
+            hx-swap="innerHTML">
+            <div id="video-user-list-inner"><p class="muted">Загрузка…</p></div>
+          </div>
+          <div id="video-asset-picker" class="video-asset-picker"></div>
+        </div>
       </div>
-      <div class="video-src-block">
-        <h4 class="video-subh">Загрузка файла</h4>
-        <p class="muted">Файл сохраняется в <code>data/dev_uploads/video_inputs/</code></p>
+
+      <div class="video-frame-connector" aria-hidden="true">
+        <span class="video-frame-connector-arrow">→</span>
+        <span class="video-frame-connector-label muted small">интерполяция</span>
+      </div>
+
+      <div class="video-frame-card video-frame-card--last">
+        <div class="video-frame-card-badge video-frame-card-badge--opt">опционально</div>
+        <div class="video-frame-card-head">🎞 Последний кадр</div>
+        <p class="muted small video-frame-card-hint">Wan 2.7: конечный кадр — только загрузка файла (без отдельного поля в форме job).</p>
         <form
-          class="video-upload-form"
+          class="video-upload-form video-upload-form--compact"
+          data-video-auto-upload="1"
           hx-post="/dev/api/video/upload"
           hx-encoding="multipart/form-data"
-          hx-target="#video-upload-result"
+          hx-target="#video-last-frame-upload-slot"
           hx-swap="innerHTML">
-          <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" required/>
-          <button type="submit" class="btn-ghost">Загрузить</button>
+          <input type="hidden" name="upload_slot" value="last"/>
+          <div class="video-drop-zone video-drop-zone--secondary" data-video-drop-zone tabindex="0" role="group" aria-label="Загрузка последнего кадра: перетащите файл или выберите">
+            <div class="video-drop-preview-wrap">
+              <img class="video-drop-preview" alt="Превью последнего кадра" hidden decoding="async"/>
+            </div>
+            <label class="video-drop-label video-drop-label--secondary" for="video-upload-last-file">
+              <span class="video-drop-ico" aria-hidden="true">📷</span>
+              <span class="video-drop-text">Перетащите или нажмите — последний кадр (по желанию)</span>
+              <span class="video-drop-sub muted small">Необязательно · загрузка сразу после выбора</span>
+            </label>
+            <input id="video-upload-last-file" type="file" name="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" class="visually-hidden"/>
+          </div>
         </form>
-        <div id="video-upload-result" class="video-upload-result"></div>
+        <div id="video-last-frame-upload-slot" class="video-upload-result"></div>
       </div>
     </div>
   </section>
 
   <section class="video-step">
-    <h3 class="video-step-title"><span class="video-step-num">B</span> Параметры видео</h3>
+    <h3 class="video-step-title"><span class="video-step-num">2</span> Запуск job</h3>
     <form
       id="form-video-job"
       class="video-job-form"
       hx-post="/dev/api/video/jobs"
       hx-target="#video-job-live"
       hx-swap="innerHTML">
-      <label class="block">Режим источника</label>
-      <select name="source_mode" class="video-select">
-        <option value="dream_asset">Dream asset (радиокнопка выше)</option>
-        <option value="upload">Загруженный файл (сначала «Загрузить»)</option>
+      <input type="hidden" name="source_mode" id="video-source-mode" value="upload"/>
+
+      <label class="block">Провайдер</label>
+      <select name="video_backend" id="video-backend-select" class="video-select video-backend-select">
+        <option value="dashscope" selected>DashScope — прямой API Alibaba (Wan)</option>
+        <option value="openrouter">OpenRouter — <code>alibaba/wan-2.7</code> и др. (<code>POST /api/v1/videos</code>)</option>
       </select>
 
       <label class="block">Prompt</label>
       <textarea name="prompt" rows="4" placeholder="Опишите движение и сцену…" required></textarea>
 
       <div class="video-params-row">
-        <label>Model
-          <select name="model" class="video-select">
-            <option value="wan2.7-i2v" selected>Wan 2.7 i2v (wan2.7-i2v)</option>
-            <option value="wan2.6-i2v-flash">wan2.6-i2v-flash</option>
-            <option value="wan2.2-i2v-plus">wan2.2-i2v-plus</option>
-          </select>
-        </label>
+        <div id="video-dashscope-model-wrap">
+          <label>Model (DashScope)
+            <select name="model" class="video-select">
+              <option value="wan2.7-i2v" selected>Wan 2.7 i2v (wan2.7-i2v)</option>
+              <option value="wan2.6-i2v-flash">wan2.6-i2v-flash</option>
+              <option value="wan2.2-i2v-plus">wan2.2-i2v-plus</option>
+            </select>
+          </label>
+        </div>
+        <div id="video-openrouter-wrap" class="video-openrouter-wrap" hidden>
+          <label class="block">Модель OpenRouter
+            <input type="text" name="openrouter_model" class="video-select" style="width:100%;max-width:28rem" placeholder="alibaba/wan-2.7" value="alibaba/wan-2.7"/>
+          </label>
+          <label class="block muted small">Provider (JSON, опционально)
+            <textarea name="openrouter_provider_json" class="mono dream-lab-textarea" rows="2" placeholder='{"order": ["Alibaba"]}'></textarea>
+          </label>
+        </div>
         <label>Resolution
           <select name="resolution" class="video-select">
-            <option value="480p">480p</option>
+            <option value="480p">480p (не для wan2.7 — см. подсказку)</option>
             <option value="720p" selected>720p</option>
             <option value="1080p">1080p</option>
           </select>
         </label>
         <label>Duration (сек)
-          <input type="number" name="duration" value="4" min="2" max="10" class="video-num"/>
+          <input type="number" name="duration" value="4" min="2" max="15" class="video-num"/>
         </label>
       </div>
+
+      <p class="muted small video-job-hint">
+        <strong>DashScope:</strong> модель Wan, ключ <code>DASHSCOPE_API_KEY</code>, только <strong>720p / 1080p</strong> для wan2.7.
+        <strong>OpenRouter:</strong> ключ <code>OPENROUTER_API_KEY</code>, см. <a href="https://openrouter.ai/alibaba/wan-2.7/api" target="_blank" rel="noopener">документацию WAN 2.7</a>.
+        Первый кадр: загрузка → <code>upload_id</code>; библиотека → <code>dream_asset_id</code>. Последний кадр — после загрузки во второй карточке.
+      </p>
 
       <button type="submit" class="btn-primary video-submit">Запустить image-to-video</button>
     </form>
   </section>
 
   <section class="video-step">
-    <h3 class="video-step-title"><span class="video-step-num">C</span> Статус и <span class="video-step-num">D</span> результат</h3>
+    <h3 class="video-step-title"><span class="video-step-num">3</span> Статус и результат</h3>
     <div id="video-job-live" class="video-job-live">
       <p class="muted">После запуска здесь появится job и прогресс.</p>
     </div>

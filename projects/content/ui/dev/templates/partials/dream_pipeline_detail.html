@@ -3,11 +3,6 @@
 {% elif not run %}
 <p class="muted">Выберите запуск слева.</p>
 {% else %}
-<div
-  class="dream-pipeline-live-root"
-  hx-get="/dev/partials/dream/pipeline?run_id={{ run._id }}"
-  hx-trigger="every {{ poll_interval_sec }}s"
-  hx-swap="outerHTML">
 <article class="dream-run-article">
   <header class="dream-run-header">
     <h2>Pipeline</h2>
@@ -17,138 +12,28 @@
       <dt>status</dt><dd><span class="dream-run-status status-{{ run.status }}">{{ run.status }}</span></dd>
       <dt>сцен</dt><dd>{{ run.scene_count or cards|length }}</dd>
       <dt>создан</dt><dd class="muted">{{ run.created_at }}</dd>
+      {% if run.dream_decompose_model %}<dt>Stage 0 (декомпозиция)</dt><dd class="mono">{{ run.dream_decompose_model }}</dd>{% endif %}
+      {% if openai_model is defined %}<dt>прочие LLM (чат, image prompts)</dt><dd class="mono">{{ openai_model }}</dd>{% endif %}
       {% if run.error %}<dt>ошибка</dt><dd class="error">{{ run.error }}</dd>{% endif %}
     </dl>
   </header>
 
-  <section class="dream-block">
-    <h3 class="pipe-block-title">1. Исходный сон</h3>
-    <pre class="dream-text-block">{{ run.dream_text or '' }}</pre>
-  </section>
+  <p class="pipe-refresh-bar muted small">
+    <button
+      type="button"
+      class="btn-ghost pipe-refresh-btn"
+      hx-get="/dev/partials/dream/pipeline?run_id={{ run._id }}&fragment=live"
+      hx-target="#dream-pipeline-live-slot"
+      hx-swap="innerHTML">
+      Обновить данные run
+    </button>
+    <span class="pipe-refresh-hint">Авто-обновление отключено: превью видео и плеер не перезагружаются каждые несколько секунд.</span>
+  </p>
 
-  <section class="dream-block">
-    <h3 class="pipe-block-title">2. Asset context</h3>
-    {% set snap = run.asset_context_snapshot or {} %}
-    <dl class="dream-run-kv">
-      <dt>face asset</dt><dd>{{ snap.has_face }}</dd>
-      <dt>base_character</dt><dd>{{ snap.has_base_character }}</dd>
-      <dt>роль reference</dt><dd>{{ snap.selected_reference_role or '—' }}</dd>
-      <dt>source of truth (character)</dt><dd class="mono wrap">{{ run.selected_character_asset_id or snap.selected_character_asset_id or '—' }}</dd>
-      <dt>face_asset_ids</dt><dd class="mono wrap">{{ snap.face_asset_ids | join(', ') if snap.face_asset_ids else '—' }}</dd>
-      <dt>environment_asset_ids</dt><dd class="mono wrap">{{ snap.environment_asset_ids | join(', ') if snap.environment_asset_ids else '—' }}</dd>
-      <dt>base_character_asset_id</dt><dd class="mono wrap">{{ snap.base_character_asset_id or '—' }}</dd>
-      <dt>base preview URL</dt><dd class="mono wrap">{% if snap.base_character_preview_url %}<a href="{{ snap.base_character_preview_url }}" target="_blank" rel="noopener">ссылка</a>{% else %}—{% endif %}</dd>
-      <dt>missing</dt><dd>{{ snap.missing | join(', ') if snap.missing else '—' }}</dd>
-    </dl>
-  </section>
-
-  {% for c in cards %}
-  {% set sc = c.scene %}
-  {% set fr = c.frame %}
-  {% set sv = c.scene_video %}
-  <section class="scene-pipeline">
-    <h3 class="scene-pipeline-title">Сцена {{ c.scene_index }}{% if sc and sc.title %}: {{ sc.title }}{% endif %}</h3>
-
-    <div class="pipe-flow">
-      <div class="pipe-step">
-        <h4 class="pipe-step-h">1. Сцена</h4>
-        {% if sc %}
-        <p class="pipe-desc">{{ sc.short_description or sc.scene_description or '' }}</p>
-        <dl class="pipe-mini-kv">
-          <dt>mood</dt><dd>{{ sc.mood or '—' }}</dd>
-          <dt>duration</dt><dd>{{ sc.duration_sec or '—' }} с</dd>
-          <dt>environment</dt><dd>{{ sc.environment_requirement or '—' }}</dd>
-          <dt>character</dt><dd>{{ sc.character_requirement or '—' }}</dd>
-        </dl>
-        <details class="pipe-details" open><summary>JSON плана (этапы LLM)</summary>
-          <pre class="json-snippet">{{ sc.planning_payload | tojson(indent=2) }}</pre>
-        </details>
-        {% else %}
-        <p class="muted">Сцена ещё не сохранена в Mongo.</p>
-        {% endif %}
-      </div>
-      <div class="pipe-arrow">↓</div>
-
-      <div class="pipe-step">
-        <h4 class="pipe-step-h">2. Промпт → картинка</h4>
-        {% if fr %}
-        <p class="pipe-label">финальный промпт (image model)</p>
-        <pre class="prompt-block">{{ fr.image_prompt_final or '' }}</pre>
-        <p class="pipe-label">visual_prompt (после шага LLM)</p>
-        <pre class="prompt-block subtle">{{ fr.image_prompt_raw or '' }}</pre>
-        <p class="pipe-label">reference</p>
-        <dl class="pipe-mini-kv">
-          <dt>type</dt><dd><strong>{{ fr.reference_type }}</strong></dd>
-          <dt>asset_id</dt><dd class="mono wrap">{{ fr.reference_asset_id or '—' }}</dd>
-          <dt>preview</dt><dd>{% if fr.reference_image_url %}<a href="{{ fr.reference_image_url }}" target="_blank">открыть</a>{% else %}—{% endif %}</dd>
-        </dl>
-        <details class="pipe-details"><summary>prompt_inputs</summary>
-          <pre class="json-snippet">{{ fr.prompt_inputs | tojson(indent=2) }}</pre>
-        </details>
-        {% else %}
-        <p class="muted">Кадр ещё не сгенерирован — промпт появится после этапа генерации.</p>
-        {% endif %}
-      </div>
-      <div class="pipe-arrow">↓</div>
-
-      <div class="pipe-step">
-        <h4 class="pipe-step-h">3. Кадр</h4>
-        {% if fr %}
-        <p class="pipe-meta muted">status: {{ fr.status }} · {{ fr.generation_completed_at or fr.created_at }}</p>
-        {% if fr.image_url %}
-        <a href="{{ fr.image_url }}" target="_blank" rel="noopener" class="pipe-thumb-link">
-          <img src="{{ fr.image_url }}" alt="frame" class="pipe-thumb" loading="lazy"/>
-        </a>
-        <p class="mono wrap small-url">{{ fr.image_url }}</p>
-        {% endif %}
-        {% else %}<p class="muted">—</p>{% endif %}
-      </div>
-      <div class="pipe-arrow">↓</div>
-
-      <div class="pipe-step">
-        <h4 class="pipe-step-h">4. Промпт → анимация</h4>
-        {% if sv %}
-        <p class="pipe-label">final → video model</p>
-        <pre class="prompt-block">{{ sv.animation_prompt or '' }}</pre>
-        {% if sv.animation_inputs and sv.animation_inputs.animation_prompt_raw %}
-        <p class="pipe-label">raw (из плана сцены)</p>
-        <pre class="prompt-block subtle">{{ sv.animation_inputs.animation_prompt_raw }}</pre>
-        {% endif %}
-        <dl class="pipe-mini-kv">
-          <dt>model</dt><dd>{{ sv.model }}</dd>
-          <dt>duration</dt><dd>{{ sv.duration }} с</dd>
-          <dt>resolution</dt><dd>{{ sv.resolution }}</dd>
-          <dt>source image</dt><dd class="mono wrap">{% if sv.source_image_url %}{{ sv.source_image_url[:120] }}…{% else %}—{% endif %}</dd>
-        </dl>
-        <details class="pipe-details"><summary>animation_inputs</summary>
-          <pre class="json-snippet">{{ sv.animation_inputs | tojson(indent=2) }}</pre>
-        </details>
-        {% elif fr %}
-        <p class="muted">Видео-задача ещё не создана.</p>
-        {% else %}<p class="muted">—</p>{% endif %}
-      </div>
-      <div class="pipe-arrow">↓</div>
-
-      <div class="pipe-step">
-        <h4 class="pipe-step-h">5. Видео</h4>
-        {% if sv %}
-        <dl class="pipe-mini-kv">
-          <dt>job_id</dt><dd class="mono wrap">{{ sv.video_job_id or '—' }}</dd>
-          <dt>provider_task_id</dt><dd class="mono wrap">{{ sv.provider_task_id or '—' }}</dd>
-          <dt>status</dt><dd>{{ sv.status }}</dd>
-          <dt>обновлено</dt><dd class="muted">{{ sv.updated_at or '—' }}</dd>
-        </dl>
-        {% if sv.video_url %}
-        <video class="pipe-video" controls preload="metadata" src="{{ sv.video_url }}"></video>
-        <p class="mono wrap small-url">{{ sv.video_url }}</p>
-        {% endif %}
-        {% else %}<p class="muted">—</p>{% endif %}
-      </div>
-    </div>
-  </section>
-  {% else %}
-  <p class="muted">Сцены появятся после планирования.</p>
-  {% endfor %}
+  <div
+    id="dream-pipeline-live-slot"
+    class="dream-pipeline-live-root">
+    {% include "partials/dream_pipeline_poll_body.html" %}
+  </div>
 </article>
-</div>
 {% endif %}

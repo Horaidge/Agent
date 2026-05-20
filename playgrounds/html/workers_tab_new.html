@@ -1,0 +1,87 @@
+<div class="dream-runtime-layout dream-lite-layout">
+  <p class="dream-lite-lead dream-lite-lead--main">
+    <strong>Dream Lite Workers</strong> — единая зона наблюдения и отладки worker-run.
+  </p>
+
+  <div class="split dream-pipeline-split">
+    <div class="col-list dream-pipeline-sidebar">
+      <div
+        id="dream-lite-workers-runs"
+        hx-get="/dev/partials/dream/lite/runs_live"
+        hx-trigger="load, every 4s"
+        hx-swap="innerHTML"></div>
+    </div>
+    <div class="col-detail dream-pipeline-main" id="dream-lite-worker-detail">
+      <article class="pipe-stage-card dream-lite-input-card">
+        <h4 class="pipe-stage-card-title">Worker detail</h4>
+        <p class="dream-lite-secondary">Нажмите <strong>Открыть воркер</strong> в строке слева, чтобы увидеть pipeline, ошибки, кадры и клипы.</p>
+      </article>
+      <article class="pipe-stage-card dream-lite-input-card" style="margin-top:0.8rem;">
+        <h4 class="pipe-stage-card-title">Контракты этапов (OpenRouter modalities)</h4>
+        <p class="dream-lite-secondary">Опорная таблица для будущего переключения логик и JSON-структур по стадиям.</p>
+        <table class="tools-data-table">
+          <thead><tr><th>stage</th><th>task</th><th>input</th><th>output</th></tr></thead>
+          <tbody>
+            
+            <tr>
+              <td><code>text_step1</code></td>
+              <td class="muted">env+char decomposition</td>
+              <td class="muted"><code>text</code></td>
+              <td class="muted"><code>step1_raw, env_cards[], char_cards[]</code></td>
+            </tr>
+            
+            <tr>
+              <td><code>text_step2</code></td>
+              <td class="muted">storyboard frames</td>
+              <td class="muted"><code>text</code></td>
+              <td class="muted"><code>step2_raw, step2_prev_link_raw, frame_cards[]</code></td>
+            </tr>
+            
+            <tr>
+              <td><code>gen_env</code></td>
+              <td class="muted">environment images</td>
+              <td class="muted"><code>text</code></td>
+              <td class="muted"><code>generated_env[title].urls[]</code></td>
+            </tr>
+            
+            <tr>
+              <td><code>gen_char</code></td>
+              <td class="muted">character sheets</td>
+              <td class="muted"><code>text</code></td>
+              <td class="muted"><code>generated_char[title].urls[]</code></td>
+            </tr>
+            
+            <tr>
+              <td><code>gen_frame</code></td>
+              <td class="muted">keyframes</td>
+              <td class="muted"><code>text, image</code></td>
+              <td class="muted"><code>generated_frames[].urls[]</code></td>
+            </tr>
+            
+            <tr>
+              <td><code>transition_plan</code></td>
+              <td class="muted">transition planning</td>
+              <td class="muted"><code>text</code></td>
+              <td class="muted"><code>transition_plan.transitions[]</code></td>
+            </tr>
+            
+            <tr>
+              <td><code>anim_i2v</code></td>
+              <td class="muted">image-to-video</td>
+              <td class="muted"><code>image, text</code></td>
+              <td class="muted"><code>generated_anim_clips[].job_id/video_url</code></td>
+            </tr>
+            
+            <tr>
+              <td><code>finalize_clips</code></td>
+              <td class="muted">ffmpeg concat</td>
+              <td class="muted"><code>video</code></td>
+              <td class="muted"><code>final_video_url</code></td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </article>
+    </div>
+  </div>
+</div>

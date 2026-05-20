@@ -9,10 +9,9 @@
      data-gen-prompt="{{ prompt | e }}"
      data-gen-model="{{ model | e }}"
      data-gen-size="{{ size | e }}"
-     data-gen-seconds="{{ '%.2f'|format(seconds) }}"
-     data-gen-urls="{{ urls | join(' ') | e }}">
+     data-gen-seconds="{{ '%.2f'|format(seconds) }}">
   <p class="gen-lead"><strong>Готово</strong> за {{ "%.2f"|format(seconds) }} с</p>
-  <p class="muted gen-meta-line">model={{ model }} · size={{ size }}</p>
+  <p class="muted gen-meta-line">model={{ model }} · size={{ size }} · {{ urls|length }} файл(ов)</p>
   <p class="prompt-preview"><strong>Prompt:</strong> {{ prompt }}</p>
   <div class="gen-preview-grid">
     {% for url in urls %}
@@ -20,9 +19,23 @@
       <a href="{{ url }}" target="_blank" rel="noopener" class="gen-figure-link">
         <img src="{{ url }}" alt="Результат {{ loop.index }}" loading="lazy" class="gen-preview-img"/>
       </a>
-      <figcaption class="mono gen-caption">{{ url }}</figcaption>
+      <figcaption class="gen-caption-short muted small">
+        {% if url.startswith('data:') %}
+        Data URL · ~{{ (url|length / 1024)|round(1) }} KB (в DOM не показываем строку целиком)
+        {% else %}
+        {{ url[:96] }}{% if url|length > 96 %}…{% endif %}
+        {% endif %}
+      </figcaption>
     </figure>
     {% endfor %}
   </div>
+  <details class="gen-tech-details">
+    <summary class="gen-tech-summary">Показать технические данные (полные URL / data)</summary>
+    <ul class="gen-tech-url-list mono small">
+      {% for url in urls %}
+      <li><span class="muted">#{{ loop.index }}</span> <code class="gen-tech-code">{{ url }}</code></li>
+      {% endfor %}
+    </ul>
+  </details>
 </div>
 {% endif %}

@@ -1,0 +1,208 @@
+<section class="dream-lite-step5-res" aria-label="Шаг 5 · видео i2v">
+  {% if error %}
+  <p class="error" role="alert">{{ error | e }}</p>
+  {% else %}
+  {% set has_lines = animation_markup and animation_markup.lines %}
+  {% set single_locked_run = (selected_montage_preset | default('default')) == 'seedance' and selected_audio_required %}
+  <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step5 dream-lite-debug-inner">
+    <h4 class="pipe-stage-card-title">5 · Видео (i2v) · Model Audit</h4>
+    <p class="dream-lite-secondary">Шаг 5 исполняет выбор шага 4 и не делает silent override.</p>
+    {% if single_locked_run %}
+    <p class="dream-lite-secondary">Режим запуска: <span class="dream-lite-pill dream-lite-pill--ok">single_locked_run</span> · для Seedance + native audio ручные покадровые запуски отключены.</p>
+    <p class="dream-lite-secondary">Поля <code>video_model</code> и <code>prompt_mode</code> в этом режиме preset-locked и не переопределяются вручную.</p>
+    {% endif %}
+    <p class="dream-lite-secondary">status:
+      <span class="dream-lite-pill dream-lite-pill--{% if has_lines %}ok{% else %}muted{% endif %}">{% if has_lines %}ready{% else %}locked{% endif %}</span>
+      · model: <code>{{ selected_video_model | e }}</code>
+      · prompt_mode: <code>{{ selected_prompt_mode | e }}</code>
+      · montage_preset: <code>{{ selected_montage_preset | default('default') | e }}</code>
+    </p>
+    {% if effective_prompt_policy is defined and effective_prompt_policy %}
+    <p class="dream-lite-secondary">effective_prompt_policy: <code>{{ effective_prompt_policy | e }}</code>{% if prompt_mode_locked is defined %} · locked: <code>{{ prompt_mode_locked | e }}</code>{% endif %}</p>
+    {% endif %}
+    <p class="dream-lite-secondary">input_contract:
+      {% if (selected_montage_preset | default('default')) == 'kling_v3_reference_motion' %}
+      <code>reference image (input_references) + text + size=720x720</code>
+      {% elif selected_prompt_mode == 'first_last_frame' %}
+      <code>2 frames + text{% if selected_audio_required %} + native_audio{% else %} + silent{% endif %}</code>
+      {% elif selected_prompt_mode == 'first_frame_only' %}
+      <code>1 frame + text{% if selected_audio_required %} + native_audio{% else %} + silent{% endif %}</code>
+      {% else %}
+      <code>0 frames + text{% if selected_audio_required %} + native_audio{% else %} + silent{% endif %}</code>
+      {% endif %}
+    </p>
+    {% if runtime_entrypoint_step5 is defined %}
+    <p class="dream-lite-secondary">runtime_parity: step5=<code>{{ runtime_entrypoint_step5 | e }}</code></p>
+    {% endif %}
+    {% if selected_video_profile is defined and selected_video_profile %}
+    <p class="dream-lite-secondary">sound:
+      <span class="dream-lite-pill dream-lite-pill--{% if selected_video_profile.audio_mode == 'native_audio' %}ok{% elif selected_video_profile.audio_mode == 'silent_only' %}muted{% else %}warn{% endif %}">
+        {% if selected_video_profile.audio_mode == 'native_audio' %}yes{% elif selected_video_profile.audio_mode == 'silent_only' %}no{% else %}unknown{% endif %}
+      </span>
+      {% if selected_video_profile.audio_note %} · {{ selected_video_profile.audio_note | e }}{% endif %}
+    </p>
+    {% endif %}
+    {% if mode_model_compatible is defined %}
+    <p class="dream-lite-secondary">mode/model:
+      <span class="dream-lite-pill dream-lite-pill--{% if mode_model_compatible %}ok{% else %}err{% endif %}">
+        {% if mode_model_compatible %}compatible{% else %}incompatible{% endif %}
+      </span>
+      {% if not mode_model_compatible and mode_model_reason %} · {{ mode_model_reason | e }}{% endif %}
+    </p>
+    {% endif %}
+    <input id="dream-lite-video-model" type="hidden" value="{{ selected_video_model | e }}"/>
+    <input id="dream-lite-video-prompt-mode" type="hidden" value="{{ selected_prompt_mode | e }}"/>
+    <input id="dream-lite-video-audio-required" type="hidden" value="{% if selected_audio_required %}1{% else %}0{% endif %}"/>
+
+    <div id="dream-lite-video-model-insight-out" class="dream-lite-out dream-lite-out--frame-contract" aria-live="polite">
+      {% if selected_video_model_insight %}
+      <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+        <h5 class="dream-lite-secondary">Video model insight</h5>
+        <p class="dream-lite-secondary">status:
+          <span class="dream-lite-pill dream-lite-pill--{% if selected_video_model_insight.quality_status == 'tested' %}ok{% else %}muted{% endif %}">{{ selected_video_model_insight.quality_status | e }}</span>
+          · tested_status: <code>{{ selected_video_model_insight.tested_status | e }}</code>
+          · runs: <code>{{ selected_video_model_insight.runs_count }}</code>
+        </p>
+      </article>
+      {% endif %}
+    </div>
+    <form
+      class="dream-lite-form dream-lite-form--frame-contract"
+      hx-post="/dev/api/dream/lite/video_model_insight_card"
+      hx-target="#dream-lite-video-model-insight-out"
+      hx-swap="innerHTML"
+      hx-vals='js:{model_id: document.getElementById("dream-lite-video-model") ? document.getElementById("dream-lite-video-model").value : ""}'
+      hx-trigger="load, change from:#dream-lite-video-model">
+    </form>
+
+    <form
+      id="dream-lite-video-contract-form"
+      class="dream-lite-form dream-lite-form--frame-contract"
+      hx-post="/dev/api/dream/lite/video_contract_preview"
+      hx-target="#dream-lite-video-contract-out"
+      hx-swap="innerHTML"
+      hx-vals='js:{model_id: document.getElementById("dream-lite-video-model") ? document.getElementById("dream-lite-video-model").value : "", prompt_mode: document.getElementById("dream-lite-video-prompt-mode") ? document.getElementById("dream-lite-video-prompt-mode").value : "first_last_frame", audio_required: document.getElementById("dream-lite-video-audio-required") ? document.getElementById("dream-lite-video-audio-required").value : "0", duration: document.getElementById("dream-lite-video-duration") ? document.getElementById("dream-lite-video-duration").value : "4", resolution: document.getElementById("dream-lite-video-resolution") ? document.getElementById("dream-lite-video-resolution").value : "720p"}'
+      hx-trigger="load, change from:#dream-lite-video-model, change from:#dream-lite-video-duration, change from:#dream-lite-video-resolution">
+      <div class="dream-lite-actions">
+        {% set dur_opts = (selected_video_profile.limits.supported_durations if selected_video_profile and selected_video_profile.limits and selected_video_profile.limits.supported_durations else []) %}
+        {% set res_opts = (selected_video_profile.limits.supported_resolutions if selected_video_profile and selected_video_profile.limits and selected_video_profile.limits.supported_resolutions else []) %}
+        <label class="dream-lite-label" for="dream-lite-video-duration">duration</label>
+        {% if dur_opts %}
+        <select id="dream-lite-video-duration" class="dream-lite-model-select">
+          {% for d in dur_opts %}
+          <option value="{{ d }}" {% if (active_video_policy.duration_sec if active_video_policy else 4) == d %}selected{% endif %}>{{ d }}s (per clip)</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input id="dream-lite-video-duration" class="dream-lite-model-select" type="number" min="1" step="1" value="{{ (active_video_policy.duration_sec if active_video_policy else 4) | e }}"/>
+        {% endif %}
+        <label class="dream-lite-label" for="dream-lite-video-resolution">resolution</label>
+        {% if res_opts %}
+        <select id="dream-lite-video-resolution" class="dream-lite-model-select">
+          {% for r in res_opts %}
+          <option value="{{ r | e }}" {% if (active_video_policy.resolution if active_video_policy else '720p') == r %}selected{% endif %}>{{ r | e }} (per clip)</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input id="dream-lite-video-resolution" class="dream-lite-model-select" type="text" value="{{ (active_video_policy.resolution if active_video_policy else '720p') | e }}"/>
+        {% endif %}
+        <button type="button" class="btn-ghost"
+          hx-post="/dev/api/dream/lite/config/apply_video_model"
+          hx-vals='js:{model_id: document.getElementById("dream-lite-video-model") ? document.getElementById("dream-lite-video-model").value : "", prompt_mode: document.getElementById("dream-lite-video-prompt-mode") ? document.getElementById("dream-lite-video-prompt-mode").value : "first_last_frame", audio_required: document.getElementById("dream-lite-video-audio-required") ? document.getElementById("dream-lite-video-audio-required").value : "0", duration: document.getElementById("dream-lite-video-duration") ? document.getElementById("dream-lite-video-duration").value : "4", resolution: document.getElementById("dream-lite-video-resolution") ? document.getElementById("dream-lite-video-resolution").value : "720p"}'
+          hx-target="#dream-lite-video-contract-out"
+          hx-swap="beforebegin"
+          {% if mode_model_compatible is defined and not mode_model_compatible %}disabled{% endif %}>Apply video model to Active Tool</button>
+      </div>
+    </form>
+    <div id="dream-lite-video-contract-out" class="dream-lite-out dream-lite-out--frame-contract" aria-live="polite"></div>
+
+    <details class="dream-lite-api-tab">
+      <summary class="dream-lite-api-tab-summary">OpenRouter video models & contract fields</summary>
+      <pre class="dream-lite-prompt-readout dream-lite-prompt-readout--user">{{ openrouter_video_models_catalog | tojson(indent=2) }}</pre>
+    </details>
+  </article>
+
+  {% if animation_markup and animation_markup.lines %}
+  <article class="pipe-stage-card dream-lite-pipe-card dream-lite-pipe-card--anim-markup">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Сцены анимации (шаг 5)</h4>
+    {% for line in animation_markup.lines %}
+    <div class="dream-lite-anim-line-block" data-line-index="{{ line.line_index }}">
+      <h5 class="dream-lite-subhead">Линия {{ line.line_index + 1 }}</h5>
+      {% for seg in line.segments %}
+      <div class="dream-lite-anim-segment pipe-s0-scene-card">
+        <div class="pipe-s0-scene-head dream-lite-anim-segment-head">
+          {% if seg.prompt_mode is defined and seg.prompt_mode != 'first_last_frame' %}
+          Сцена {{ seg.from_frame_index }} (anchor-only, target={{ seg.target_frame_index if seg.target_frame_index is defined else seg.to_frame_index }})
+          {% if seg.prompt_mode == 'first_frame_only' %}<span class="dream-lite-pill dream-lite-pill--ok">single-frame input</span>{% endif %}
+          {% if seg.prompt_mode == 'text_only' %}<span class="dream-lite-pill dream-lite-pill--warn">text-only input</span>{% endif %}
+          {% else %}
+          Сцена {{ seg.from_frame_index }}→{{ seg.to_frame_index }}
+          {% endif %}
+          <span class="dream-lite-pill dream-lite-pill--muted">segment_mode: {{ seg.segment_mode | default('pairwise') | e }}</span>
+        </div>
+        <p class="dream-lite-anim-scene-action"><span class="dream-lite-k">motion_prompt_final</span> · {{ (seg.motion_prompt_preview or seg.motion_prompt_suggested) | e }}</p>
+        {% if seg.segment_story %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">contract_story</span> · {{ seg.segment_story | e }}</p>
+        {% endif %}
+        {% if seg.anchor_role %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">anchor_role</span> · {{ seg.anchor_role | e }}{% if seg.is_scene_start %} · scene_start{% endif %}</p>
+        {% endif %}
+        {% if seg.pre_anchor_beats %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">pre_anchor_beats</span> · {{ seg.pre_anchor_beats | e }}</p>
+        {% endif %}
+        {% if seg.anchor_frame_state %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">anchor_frame_state</span> · {{ seg.anchor_frame_state | e }}</p>
+        {% endif %}
+        {% if seg.post_anchor_beats %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">post_anchor_beats</span> · {{ seg.post_anchor_beats | e }}</p>
+        {% endif %}
+        {% if seg.phase_timing_text_present is defined %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">phase_timing_text_present</span> · {{ seg.phase_timing_text_present | e }}</p>
+        {% endif %}
+        {% if seg.micro_act_contract_applied is defined and seg.micro_act_contract_applied %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">micro_act</span> · setup → development → payoff</p>
+        {% endif %}
+        {% set calc_dur = (seg.calculated_duration_sec or seg.duration_sec) %}
+        {% if calc_dur %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">calculated_duration_sec</span> · {{ calc_dur }}</p>
+        {% endif %}
+        {% set provider_dur = (seg.provider_duration_sec or seg.duration_sec) %}
+        {% if provider_dur %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">provider_duration_sec</span> · {{ provider_dur }}</p>
+        {% endif %}
+        {% if seg.voiceover_text %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">voiceover_text</span> · {{ seg.voiceover_text | e }}</p>
+        {% endif %}
+        {% if (selected_montage_preset | default('default')) == 'kling_v3_reference_motion' %}
+        <p class="dream-lite-secondary small"><span class="dream-lite-k">reference_image_url</span> · {{ (seg.api_payload_preview.reference_image_url or seg.reference_image_url or seg.image_url_start or "—") | e }}</p>
+        {% endif %}
+        <div id="dream-lite-anim-run-{{ line.line_index }}-{{ seg.segment_index }}" class="dream-lite-anim-run-slot" aria-live="polite"></div>
+        {% if single_locked_run %}
+        <p class="dream-lite-secondary small">Ручной запуск сцены заблокирован в режиме Seedance + native audio. Используйте единый запуск по выбранному плану.</p>
+        {% else %}
+        <form
+          class="dream-lite-form dream-lite-anim-run-form"
+          hx-post="/dev/api/dream/lite/animate_segment"
+          hx-target="#dream-lite-anim-run-{{ line.line_index }}-{{ seg.segment_index }}"
+          hx-swap="innerHTML"
+          hx-vals='js:{model_id: document.getElementById("dream-lite-video-model") ? document.getElementById("dream-lite-video-model").value : "", prompt_mode: document.getElementById("dream-lite-video-prompt-mode") ? document.getElementById("dream-lite-video-prompt-mode").value : "first_last_frame", duration: document.getElementById("dream-lite-video-duration") ? document.getElementById("dream-lite-video-duration").value : "4", resolution: document.getElementById("dream-lite-video-resolution") ? document.getElementById("dream-lite-video-resolution").value : "720p"}'
+          hx-indicator="closest .dream-lite-anim-segment .dream-lite-indicator">
+          <input type="hidden" name="image_url" value="{{ seg.image_url_start | e }}"/>
+          <input type="hidden" name="last_frame_url" value="{{ seg.image_url_end | e }}"/>
+          <input type="hidden" name="reference_image_url" value="{{ (seg.api_payload_preview.reference_image_url or seg.reference_image_url or seg.image_url_start or '') | e }}"/>
+          <label class="dream-lite-label" for="step5-motion-{{ line.line_index }}-{{ seg.segment_index }}">Промпт (можно править)</label>
+          <textarea id="step5-motion-{{ line.line_index }}-{{ seg.segment_index }}" name="motion_prompt" class="mono dream-lite-prompt-textarea" rows="3" spellcheck="false">{{ seg.motion_prompt_suggested | e }}</textarea>
+          <button type="submit" class="btn-primary" {% if not seg.both_images_ready or (mode_model_compatible is defined and not mode_model_compatible) %}disabled{% endif %}>Запустить сцену</button>
+          <span class="htmx-indicator dream-lite-indicator dream-lite-indicator--inline">Запуск…</span>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </article>
+  {% else %}
+  <p class="dream-lite-secondary">Нет сцен для запуска i2v. Сначала выполните шаг 4.</p>
+  {% endif %}
+  {% endif %}
+</section>

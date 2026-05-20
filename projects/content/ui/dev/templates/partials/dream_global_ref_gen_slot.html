@@ -1,0 +1,24 @@
+{# Фрагмент под hx-swap внутрь .director-gref-card__visual #}
+{% if ok and urls %}
+<div class="director-gref-visual-media">
+  {% for u in urls %}
+  <img src="{{ u | e }}" alt="{{ (item.label or item.ref_id) | e }}" class="director-gref-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+  {% endfor %}
+</div>
+<p class="muted small director-gref-gen-caption">Сгенерировано в Playground. В проде — сохранение в <strong>dream_assets</strong> и привязка к пользователю (Telegram).</p>
+{% elif error %}
+<p class="error small director-gref-gen-err">{{ error | e }}</p>
+{% else %}
+<p class="muted small">Нет URL изображения.</p>
+{% endif %}
+<form
+  class="director-gref-gen-form director-gref-gen-form--retry"
+  hx-post="/dev/api/dream/playground/generate_global_ref_still"
+  hx-target="#gref-v-{{ visual_idx | e }}"
+  hx-swap="innerHTML"
+  hx-indicator="#gref-ind-{{ visual_idx | e }}">
+  <textarea name="item_json" class="visually-hidden" aria-hidden="true">{{ item | tojson }}</textarea>
+  <input type="hidden" name="visual_idx" value="{{ visual_idx | e }}"/>
+  <button type="submit" class="btn-ghost btn-sm director-gref-gen-btn">Перегенерировать</button>
+  <span id="gref-ind-{{ visual_idx | e }}" class="htmx-indicator muted small">…</span>
+</form>

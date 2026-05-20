@@ -1,0 +1,31 @@
+<section class="dream-batch-gen-res" aria-label="Результат пакетной генерации стиллов">
+  <header class="dream-batch-gen-head">
+    <h4 class="dream-batch-gen-title">🖼 Генерация · {{ batch_label | e }}</h4>
+    <p class="muted small">Каждый блок — отдельный вызов OpenRouter (Playground). Ошибки показаны в карточке.</p>
+  </header>
+  <div class="dream-batch-gen-grid">
+    {% for r in results %}
+    <article class="dream-batch-gen-card {% if not r.ok %}dream-batch-gen-card--err{% endif %}">
+      <header class="dream-batch-gen-card-head">
+        <span class="dream-batch-gen-card-lbl">{{ r.label | e }}</span>
+        {% if r.id %}<code class="dream-batch-gen-card-id">{{ r.id | e }}</code>{% endif %}
+        {% if r.kind %}<span class="dream-world-chip">{{ r.kind | e }}</span>{% endif %}
+      </header>
+      {% if r.ok and r.urls %}
+      <div class="dream-batch-gen-img-stack">
+        {% for u in r.urls %}
+        <img src="{{ u }}" alt="Сгенерировано: {{ r.label | e }}" class="dream-batch-gen-img" loading="lazy"/>
+        {% endfor %}
+      </div>
+      {% elif r.error %}
+      <p class="err dream-batch-gen-err">{{ r.error | e }}</p>
+      {% else %}
+      <p class="muted small">Нет URL изображения.</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% if not results %}
+  <p class="muted small">Нет элементов для генерации.</p>
+  {% endif %}
+</section>

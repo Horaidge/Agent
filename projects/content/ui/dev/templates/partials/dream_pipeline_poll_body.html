@@ -1,0 +1,357 @@
+<div class="dream-poll-flow">
+  {% if run.error %}
+  <p class="error pipe-run-error-banner" role="alert"><strong>Ошибка run:</strong> {{ run.error }}</p>
+  {% endif %}
+
+  {# --- Stage 0: decomposition — вход + результат (JSON свёрнут) --- #}
+  <article class="pipe-stage-card pipe-stage-card--decomposition pipe-run-stage-0">
+    <h4 class="pipe-stage-card-title">Stage 0 · Dream Decomposition <span class="pipe-stage-tag">storyboard + motion intent</span></h4>
+    {% if run.dream_decompose_model or openai_model_dream_decompose is defined %}
+    <p class="pipe-model-hint muted small">
+      Модель декомпозиции (один вызов на run):
+      <strong class="mono">{{ run.dream_decompose_model or '—' }}</strong>
+      {% if openai_model_dream_decompose is defined %}
+      <span class="pipe-model-hint-sep">·</span> из конфига <span class="mono">{{ openai_model_dream_decompose }}</span>
+      {% endif %}
+      {% if openai_model is defined %}
+      <span class="pipe-model-hint-sep">·</span> чат и image prompts: <span class="mono">{{ openai_model }}</span>
+      {% endif %}
+    </p>
+    {% endif %}
+    <div class="pipe-s0-layout">
+      <div class="pipe-s0-col pipe-s0-col--in">
+        <span class="pipe-step-label">Вход</span>
+        <p class="pipe-k pipe-k--field">dream_text</p>
+        <pre class="dream-text-block dream-text-open pipe-pre-open pipe-val-block--dream-text">{{ run.dream_text or '' }}</pre>
+      </div>
+      <div class="pipe-s0-col pipe-s0-col--out">
+        <span class="pipe-step-label">Результат</span>
+        {% if run.decomposition_snapshot and run.decomposition_snapshot.get('scenes') %}
+        <div class="pipe-s0-scenes" aria-label="Разметка сцен (читаемо)">
+          {% for s in run.decomposition_snapshot.scenes %}
+          <div class="pipe-s0-scene-card">
+            <div class="pipe-s0-scene-head">
+              Сцена {{ s.get('scene_index', loop.index) }}{% if s.get('title') %} · {{ s.title }}{% endif %}
+            </div>
+            {% if s.get('short_description') %}
+            <p class="pipe-s0-field pipe-s0-field--short">{{ s.short_description }}</p>
+            {% endif %}
+            <p class="pipe-s0-field pipe-s0-field--desc">{{ s.get('scene_description') or '—' }}</p>
+            <p class="pipe-s0-field pipe-s0-field--actors">
+              <span class="pipe-s0-ico" aria-hidden="true">{% if (s.get('actors') or [])|length > 1 %}👥{% else %}👤{% endif %}</span>
+              {{ (s.get('actors') or []) | join(', ') if s.get('actors') else '—' }}
+            </p>
+            <p class="pipe-s0-field pipe-s0-field--env">
+              <span class="pipe-s0-ico" aria-hidden="true">🌍</span> {{ s.get('environment_requirement') or '—' }}
+            </p>
+            <p class="pipe-s0-field pipe-s0-field--mood">{{ s.get('mood') or '—' }}</p>
+            {% set m = s.get('motion') or {} %}
+            <div class="pipe-s0-motion-block">
+              <div class="pipe-s0-motion-h">Motion · задел под видео (Stage 0)</div>
+              <p class="pipe-s0-motion-type"><span class="pipe-s0-meta-k">type</span> {{ m.get('type', '—') }}</p>
+              <p class="pipe-s0-motion-desc">{{ m.get('description') or '—' }}</p>
+              <p class="pipe-s0-motion-meta muted small">
+                camera: <strong>{{ m.get('camera_behavior', '—') }}</strong>
+                · timing: <strong>{{ m.get('timing', '—') }}</strong>
+              </p>
+            </div>
+            <p class="pipe-s0-field pipe-s0-field--meta">duration_sec {{ s.get('duration_sec', '—') }} · camera_motion {{ s.get('camera_motion', '—') }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if run.decomposition_snapshot %}
+        <details class="pipe-json-details pipe-json-details--primary">
+          <summary class="pipe-json-details-summary">Полный JSON разметки (stage 0, копировать)</summary>
+          <pre class="pipe-json-full pipe-json-full--decomp" aria-label="decomposition_snapshot JSON">{{ run.decomposition_snapshot | tojson(indent=2) }}</pre>
+        </details>
+        {% else %}
+        <p class="muted small pipe-snapshot-missing">Полный snapshot недоступен для старых run — запустите pipeline заново после обновления.</p>
+        {% endif %}
+        <p class="pipe-summary-secondary"><span class="pipe-summary-secondary-k">Резюме (вторично)</span> {{ run.dream_summary or '—' }}</p>
+      </div>
+    </div>
+    <details class="pipe-debug-fold">
+      <summary class="pipe-debug-fold-summary">Отладка: шаг декомпозиции</summary>
+      <p class="muted small pipe-debug-fold-body"><code>json_completion</code> → <code>dream_summary</code>, сцены с полем <code>motion</code> (storyboard + динамика). Отдельный LLM для анимации не вызывается.</p>
+    </details>
+  </article>
+
+  {# --- Ассеты: визуально, сопоставление с run --- #}
+  {% set snap = run.asset_context_snapshot or {} %}
+  {% set ab = run.actor_bindings or {} %}
+  {% set env_ids = snap.environment_asset_ids or [] %}
+  {% set face_ids = snap.face_asset_ids or [] %}
+  {% set miss = snap.missing or [] %}
+  {% set role = snap.selected_reference_role or 'none' %}
+  {% set main_id = run.selected_character_asset_id or snap.selected_character_asset_id %}
+  {% set env_emojis = ['🌍', '🏔', '🌆', '🏙'] %}
+  <section class="pipe-assets-board" aria-label="Контекст ассетов">
+    <h3 class="pipe-block-title pipe-assets-board-title">Контекст ассетов</h3>
+    <div class="pipe-assets-grid">
+      <div class="pipe-asset-card pipe-asset-card--main">
+        <div class="pipe-asset-card-h"><span class="pipe-asset-ico" aria-hidden="true">👤</span> Главный персонаж</div>
+        <p class="pipe-asset-card-body">
+          {% if role == 'base_character' %}
+          <span class="pipe-asset-tag pipe-asset-tag--ok">base_character</span>
+          {% elif role == 'face_asset' %}
+          <span class="pipe-asset-tag pipe-asset-tag--ok">face_asset</span>
+          {% else %}
+          <span class="pipe-asset-tag pipe-asset-tag--warn">не выбран</span>
+          {% endif %}
+        </p>
+        <p class="mono wrap pipe-asset-id">{{ main_id or '—' }}</p>
+        {% if snap.base_character_preview_url %}
+        <p class="pipe-asset-preview"><a href="{{ snap.base_character_preview_url }}" target="_blank" rel="noopener">превью base</a></p>
+        {% endif %}
+      </div>
+      <div class="pipe-asset-card pipe-asset-card--cast">
+        <div class="pipe-asset-card-h"><span class="pipe-asset-ico" aria-hidden="true">👥</span> Именованные актёры (bindings)</div>
+        {% if ab %}
+        <ul class="pipe-asset-list">
+          {% for aname, aid in ab|dictsort %}
+          <li class="pipe-asset-list-item"><span class="pipe-dd--actors">{{ aname }}</span> → <span class="mono pipe-dd--meta">{{ aid }}</span></li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted small">Нет привязок имён к ассетам.</p>
+        {% endif %}
+      </div>
+      <div class="pipe-asset-card pipe-asset-card--env">
+        <div class="pipe-asset-card-h"><span class="pipe-asset-ico" aria-hidden="true">🌍</span> Окружение</div>
+        {% if env_ids %}
+        <ul class="pipe-asset-list pipe-asset-list--env">
+          {% for eid in env_ids %}
+          <li class="pipe-asset-list-item"><span aria-hidden="true">{{ env_emojis[loop.index0 % 4] }}</span> <span class="mono pipe-dd--environment">{{ eid }}</span></li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted small">Нет classified environment-ассетов в снимке.</p>
+        {% endif %}
+      </div>
+      <div class="pipe-asset-card pipe-asset-card--status">
+        <div class="pipe-asset-card-h">Найдено / отсутствует</div>
+        <ul class="pipe-asset-checklist">
+          <li>{% if snap.has_base_character %}<span class="pipe-ok">✓</span>{% else %}<span class="pipe-bad">✗</span>{% endif %} base_character</li>
+          <li>{% if snap.has_face %}<span class="pipe-ok">✓</span>{% else %}<span class="pipe-bad">✗</span>{% endif %} face (classified)</li>
+          <li>{% if env_ids|length > 0 %}<span class="pipe-ok">✓</span>{% else %}<span class="pipe-bad">✗</span>{% endif %} environment (≥1 id)</li>
+          <li>{% if face_ids|length > 0 %}<span class="pipe-ok">✓</span>{% else %}<span class="pipe-muted">—</span>{% endif %} face_asset_ids: {{ face_ids|length }}</li>
+        </ul>
+        {% if miss %}
+        <p class="pipe-asset-missing"><strong>Отсутствует по правилам контекста:</strong> {{ miss | join(', ') }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  {% for c in cards %}
+  {% set sc = c.scene %}
+  {% set fr = c.frame %}
+  {% set sv = c.scene_video %}
+  {% set pi = fr.prompt_inputs if fr else {} %}
+  <section class="scene-pipeline-v2" data-scene-index="{{ c.scene_index }}">
+    <header class="scene-pipeline-v2-head">
+      <h3 class="scene-pipeline-v2-title">Сцена {{ c.scene_index }}{% if sc and sc.title %}: {{ sc.title }}{% endif %}</h3>
+      {% if sc and sc.actors %}
+      <p class="pipe-scene-actors-line muted small">Актёры сцены и привязка к ассетам:</p>
+      <div class="pipe-actor-strip" role="list">
+        {% for actor in sc.actors %}
+        {% set ak = actor|dream_actor_key %}
+        {% set bound = ab.get(ak) %}
+        <span class="pipe-actor-pill {% if bound %}pipe-actor-pill--ok{% else %}pipe-actor-pill--miss{% endif %}" role="listitem" title="{% if bound %}{{ bound }}{% else %}нет asset_id в actor_bindings{% endif %}">
+          <span aria-hidden="true">{% if bound %}👤{% else %}⚠️{% endif %}</span> {{ actor }}{% if bound %} <span class="mono pipe-actor-pill-id">{{ bound[:10] }}…</span>{% endif %}
+        </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </header>
+
+    {# --- Stage 1: только поля + свёрнутый JSON --- #}
+    <article class="pipe-stage-card pipe-stage-card--planning">
+      <h4 class="pipe-stage-card-title">Stage 1 · План сцены</h4>
+      {% if sc %}
+      <div class="pipe-one-col">
+        <span class="pipe-step-label">Вход → результат</span>
+        <dl class="pipe-dl-colored pipe-dl-tight">
+          <dt class="pipe-dt pipe-dt--short_description">short_description</dt>
+          <dd class="pipe-dd pipe-dd--short_description">{{ sc.short_description or '—' }}</dd>
+          <dt class="pipe-dt pipe-dt--scene_description">scene_description</dt>
+          <dd class="pipe-dd pipe-dd--scene_description">{{ sc.scene_description or '—' }}</dd>
+          <dt class="pipe-dt pipe-dt--actors">actors</dt>
+          <dd class="pipe-dd pipe-dd--actors">{% if sc.actors %}{{ sc.actors | join(', ') }}{% else %}—{% endif %}</dd>
+          <dt class="pipe-dt pipe-dt--environment">environment_requirement</dt>
+          <dd class="pipe-dd pipe-dd--environment">{{ sc.environment_requirement or '—' }}</dd>
+          <dt class="pipe-dt pipe-dt--mood">mood</dt>
+          <dd class="pipe-dd pipe-dd--mood">{{ sc.mood or '—' }}</dd>
+          <dt class="pipe-dt pipe-dt--meta">duration_sec</dt>
+          <dd class="pipe-dd pipe-dd--meta">{{ sc.duration_sec or '—' }}</dd>
+        </dl>
+        <details class="pipe-json-details pipe-json-details--nested">
+          <summary class="pipe-json-details-summary">Полный planning_payload (JSON)</summary>
+          <pre class="pipe-json-full" aria-label="planning_payload JSON">{% if sc.planning_payload %}{{ sc.planning_payload | tojson(indent=2) }}{% else %}{{ {} | tojson(indent=2) }}{% endif %}</pre>
+        </details>
+      </div>
+      {% else %}
+      <p class="muted">Нет документа сцены.</p>
+      {% endif %}
+    </article>
+
+    <div class="pipe-stage-connector pipe-stage-connector--planning-image" aria-hidden="true"><span class="pipe-stage-connector-line"></span></div>
+
+    {# --- Stage 2: ровно 4 блока --- #}
+    <article class="pipe-stage-card pipe-stage-card--image">
+      <h4 class="pipe-stage-card-title">Stage 2 · Image generation</h4>
+      {% if fr %}
+      <div class="pipe-four-blocks">
+        <div class="pipe-img-block pipe-img-block--input">
+          <h5 class="pipe-img-block-title">1 · Input <span class="pipe-img-block-sub">из Stage 1</span></h5>
+          <dl class="pipe-dl-colored pipe-dl-tight">
+            <dt class="pipe-dt pipe-dt--scene_description">scene_description</dt>
+            <dd class="pipe-dd pipe-dd--scene_description">{{ sc.scene_description if sc else '—' }}</dd>
+            <dt class="pipe-dt pipe-dt--actors">actors</dt>
+            <dd class="pipe-dd pipe-dd--actors">{% if sc and sc.actors %}{{ sc.actors | join(', ') }}{% else %}—{% endif %}</dd>
+            <dt class="pipe-dt pipe-dt--environment">environment</dt>
+            <dd class="pipe-dd pipe-dd--environment">{{ sc.environment_requirement if sc else (pi.environment_requirement or '—') }}</dd>
+            <dt class="pipe-dt pipe-dt--mood">mood</dt>
+            <dd class="pipe-dd pipe-dd--mood">{{ sc.mood if sc else (pi.mood or '—') }}</dd>
+          </dl>
+        </div>
+        <div class="pipe-img-block pipe-img-block--build">
+          <h5 class="pipe-img-block-title">2 · Build / compose</h5>
+          <p class="pipe-k pipe-k--field pipe-k--visual_prompt">visual_prompt (после LLM)</p>
+          <pre class="pipe-pre-open pipe-pre--visual_prompt">{{ fr.image_prompt_raw or '—' }}</pre>
+          <p class="pipe-k pipe-k--field">Стиль и суффиксы</p>
+          <pre class="pipe-pre-open pipe-pre--support">{{ (pi.style_block or '—') | string }}</pre>
+          {% if pi.character_prompt_suffix %}
+          <p class="pipe-k pipe-k--field">character_prompt_suffix</p>
+          <pre class="pipe-pre-open pipe-pre--meta-block">{{ pi.character_prompt_suffix }}</pre>
+          {% endif %}
+          <p class="pipe-k pipe-k--field">Reference logic</p>
+          <ul class="pipe-ref-logic">
+            <li><span class="pipe-dd--meta">режим</span> <strong>{{ fr.image_generation_mode or '—' }}</strong></li>
+            <li><span class="pipe-dd--meta">reference_type</span> {{ fr.reference_type or '—' }}</li>
+            <li><span class="pipe-dd--meta">reference_label</span> {{ fr.reference_label or '—' }}</li>
+            <li><span class="pipe-dd--meta">reference_asset_id</span> <span class="mono">{{ fr.reference_asset_id or '—' }}</span></li>
+            <li><span class="pipe-dd--meta">resolution intent</span> {{ pi.reference_resolution or '—' }}</li>
+          </ul>
+          <p class="muted small pipe-build-hint">Собранный промпт (то, что уходит в API как текст) — см. колонку <strong>3 · Model call</strong>.</p>
+        </div>
+        <div class="pipe-img-block pipe-img-block--call">
+          <h5 class="pipe-img-block-title">3 · Model call</h5>
+          {% set api = fr.image_api_request_preview or {} %}
+          <p class="pipe-k pipe-k--field">Текст запроса к модели</p>
+          <pre class="pipe-pre-open pipe-pre-accent pipe-pre--visual_prompt-final">{{ fr.image_prompt_final or '—' }}</pre>
+          <p class="pipe-k pipe-k--field">Провайдер / модель / параметры</p>
+          <dl class="pipe-dl-colored pipe-dl-tight">
+            <dt class="pipe-dt pipe-dt--meta">provider</dt>
+            <dd class="pipe-dd pipe-dd--meta">{{ api.provider or '—' }}</dd>
+            <dt class="pipe-dt pipe-dt--meta">model</dt>
+            <dd class="pipe-dd pipe-dd--meta"><strong>{{ api.model or 'qwen-image-2.0' }}</strong></dd>
+            <dt class="pipe-dt pipe-dt--meta">parameters</dt>
+            <dd class="pipe-dd pipe-dd--meta"><pre class="pipe-json-inline">{{ (api.parameters or {}) | tojson(indent=2) }}</pre></dd>
+            <dt class="pipe-dt pipe-dt--meta">call</dt>
+            <dd class="pipe-dd pipe-dd--meta">{{ api.call or '—' }}</dd>
+          </dl>
+          {% if fr.reference_image_url %}
+          <p class="muted small pipe-meta-note">Референс изображения: {% if fr.reference_image_url.startswith('data:') %}<span class="mono">data:image/…</span>{% else %}<a href="{{ fr.reference_image_url }}" target="_blank" rel="noopener" class="pipe-ref-link">открыть</a>{% endif %}</p>
+          {% endif %}
+        </div>
+        <div class="pipe-img-block pipe-img-block--result">
+          <h5 class="pipe-img-block-title">4 · Result</h5>
+          <p class="pipe-result-status">status: <strong>{{ fr.status or '—' }}</strong>
+            {% if fr.generation_started_at %}<span class="muted small"> · начало {{ fr.generation_started_at }}</span>{% endif %}
+            {% if fr.generation_completed_at %}<span class="muted small"> · конец {{ fr.generation_completed_at }}</span>{% endif %}
+          </p>
+          {% if fr.image_url %}
+          <a href="{{ fr.image_url }}" target="_blank" rel="noopener" class="pipe-result-thumb-wrap">
+            <img src="{{ fr.image_url }}" alt="Кадр сцены {{ c.scene_index }}" class="pipe-result-thumb" loading="lazy"/>
+          </a>
+          <pre class="pipe-pre-url mono">{{ fr.image_url }}</pre>
+          {% else %}
+          <p class="muted">Нет URL изображения.</p>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <p class="muted pipe-pending">Кадр ещё не создан.</p>
+      {% endif %}
+    </article>
+
+    <div class="pipe-stage-connector pipe-stage-connector--image-video" aria-hidden="true"><span class="pipe-stage-connector-line pipe-stage-connector-line--purple"></span></div>
+
+    {# --- Stage 3: тот же принцип: 4 блока --- #}
+    <article class="pipe-stage-card pipe-stage-card--video">
+      <h4 class="pipe-stage-card-title">Stage 3 · Animation &amp; Video</h4>
+      {% if sv or fr %}
+      <div class="pipe-four-blocks pipe-four-blocks--video">
+        <div class="pipe-img-block pipe-img-block--input">
+          <h5 class="pipe-img-block-title">1 · Input</h5>
+          {% if fr and fr.image_url %}
+          <p class="muted small">Исходный кадр для видео</p>
+          <pre class="pipe-pre-url mono">{{ fr.image_url }}</pre>
+          {% else %}
+          <p class="muted">Нет кадра.</p>
+          {% endif %}
+        </div>
+        <div class="pipe-img-block pipe-img-block--build">
+          <h5 class="pipe-img-block-title">2 · Build / compose</h5>
+          {% if sv %}
+          {% set ai = sv.animation_inputs or {} %}
+          {% if ai.get('motion') %}
+          <p class="pipe-k pipe-k--field pipe-k--animation_prompt">Motion (из Stage 0)</p>
+          <pre class="pipe-pre-open pipe-pre--motion-json">{{ ai.get('motion') | tojson(indent=2) }}</pre>
+          {% elif ai.get('animation_prompt_raw') %}
+          <p class="pipe-k pipe-k--field pipe-k--animation_prompt muted small">Старый run (LLM анимации)</p>
+          <pre class="pipe-pre-open pipe-pre--animation_prompt">{{ ai.animation_prompt_raw }}</pre>
+          {% endif %}
+          <p class="pipe-k pipe-k--field">Текст в video job</p>
+          <pre class="pipe-pre-open pipe-pre-accent pipe-pre--animation_prompt-final">{{ sv.animation_prompt or '—' }}</pre>
+          {% elif fr %}
+          <p class="muted">Задача видео ещё не создана.</p>
+          {% else %}
+          <p class="muted">—</p>
+          {% endif %}
+        </div>
+        <div class="pipe-img-block pipe-img-block--call">
+          <h5 class="pipe-img-block-title">3 · Model call</h5>
+          {% if sv %}
+          <dl class="pipe-mini-kv pipe-mini-kv--tight pipe-dl-meta">
+            <dt>model</dt><dd>{{ sv.model or '—' }}</dd>
+            <dt>duration</dt><dd class="pipe-dd--meta">{{ sv.duration }} с</dd>
+            <dt>resolution</dt><dd>{{ sv.resolution or '—' }}</dd>
+            <dt>video_job_id</dt><dd class="mono wrap">{{ sv.video_job_id or '—' }}</dd>
+            <dt>provider_task_id</dt><dd class="mono wrap">{{ sv.provider_task_id or '—' }}</dd>
+            <dt>status</dt><dd><strong class="{% if sv.status and sv.status != 'succeeded' %}pipe-status-warn{% endif %}">{{ sv.status or '—' }}</strong></dd>
+            <dt>обновлено</dt><dd class="muted">{{ sv.updated_at or '—' }}</dd>
+          </dl>
+          <details class="pipe-json-details pipe-json-details--nested">
+            <summary class="pipe-json-details-summary">animation_inputs (JSON)</summary>
+            <pre class="pipe-json-full pipe-json-tight">{% if sv.animation_inputs %}{{ sv.animation_inputs | tojson(indent=2) }}{% else %}{{ {} | tojson(indent=2) }}{% endif %}</pre>
+          </details>
+          <p class="muted small">Источник кадра в job:</p>
+          <pre class="pipe-pre-url mono">{% if sv.source_image_url %}{{ sv.source_image_url }}{% else %}—{% endif %}</pre>
+          {% else %}
+          <p class="muted">—</p>
+          {% endif %}
+        </div>
+        <div class="pipe-img-block pipe-img-block--result">
+          <h5 class="pipe-img-block-title">4 · Result</h5>
+          {% if sv and sv.video_url %}
+          <video class="pipe-result-video" controls playsinline preload="metadata" src="{{ sv.video_url }}"></video>
+          <pre class="pipe-pre-url mono">{{ sv.video_url }}</pre>
+          {% elif sv %}
+          <p class="muted">Видео ещё нет (status: {{ sv.status or '—' }}).</p>
+          {% else %}
+          <p class="muted">—</p>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <p class="muted">—</p>
+      {% endif %}
+    </article>
+  </section>
+  {% else %}
+  <p class="muted">Сцены появятся после планирования.</p>
+  {% endfor %}
+</div>

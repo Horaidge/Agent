@@ -1,0 +1,155 @@
+<div class="playground-tab-inner">
+  <p class="muted playground-lead">
+    Три карточки генерации: нажмите заголовок, чтобы развернуть; повторное нажатие по открытой карточке сворачивает её. Библиотека dream_assets — отдельным блоком ниже.
+  </p>
+
+  <div class="playground-accordion" data-playground-accordion>
+    <article class="playground-acc-item is-expanded" data-pg-acc="qwen">
+      <button type="button" class="playground-acc-trigger" aria-expanded="true">
+        <span class="playground-acc-ico" aria-hidden="true">◆</span>
+        <span class="playground-acc-titles">
+          <span class="playground-acc-title">Qwen Image</span>
+          <span class="muted small playground-acc-sub">DashScope · text-to-image или edit по референсу</span>
+        </span>
+        <span class="playground-acc-chev" aria-hidden="true">▼</span>
+      </button>
+      <div class="playground-acc-body">
+        <div class="playground-user-mount">
+          <div
+            hx-get="/dev/partials/playground/user_buttons?slot=qwen"
+            hx-trigger="load"
+            hx-swap="innerHTML">
+            <p class="muted">Загрузка пользователей…</p>
+          </div>
+        </div>
+        <div id="pg-qwen-asset-host" class="playground-asset-host"></div>
+        <form
+          id="form-playground-qwen"
+          class="playground-gen-form gen-form"
+          hx-post="/dev/api/generate"
+          hx-target="#gen-result-qwen"
+          hx-swap="innerHTML"
+          hx-indicator="#gen-spinner-qwen">
+          <label class="block">Prompt</label>
+          <textarea name="prompt" rows="4" placeholder="Сцена или инструкция к референсу…" required></textarea>
+          <div class="row">
+            <label>Size
+              <select name="size">
+                <option value="1024*1024">1024×1024</option>
+                <option value="1024*1536" selected>1024×1536</option>
+                <option value="1536*1024">1536×1024</option>
+              </select>
+            </label>
+            <label>Model
+              <select name="model">
+                <option value="qwen-image-2.0" selected>qwen-image-2.0</option>
+                <option value="qwen-image-2.0-pro">qwen-image-2.0-pro</option>
+              </select>
+            </label>
+            <label>n
+              <input type="number" name="n" value="1" min="1" max="6"/>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary">Generate</button>
+          <span id="gen-spinner-qwen" class="htmx-indicator muted"> Генерация…</span>
+        </form>
+        <div id="gen-result-qwen" class="gen-result playground-gen-result"></div>
+      </div>
+    </article>
+
+    <article class="playground-acc-item" data-pg-acc="openrouter">
+      <button type="button" class="playground-acc-trigger" aria-expanded="false">
+        <span class="playground-acc-ico playground-acc-ico--or" aria-hidden="true">◇</span>
+        <span class="playground-acc-titles">
+          <span class="playground-acc-title">OpenRouter · Nano Banana</span>
+          <span class="muted small playground-acc-sub"><code>OPENROUTER_IMAGE_MODEL</code> · референс опционально</span>
+        </span>
+        <span class="playground-acc-chev" aria-hidden="true">▼</span>
+      </button>
+      <div class="playground-acc-body" hidden>
+        <div class="playground-user-mount">
+          <div
+            hx-get="/dev/partials/playground/user_buttons?slot=openrouter"
+            hx-trigger="load"
+            hx-swap="innerHTML">
+            <p class="muted">Загрузка пользователей…</p>
+          </div>
+        </div>
+        <div id="pg-openrouter-asset-host" class="playground-asset-host"></div>
+        <form
+          id="form-playground-openrouter"
+          class="playground-gen-form gen-form"
+          hx-post="/dev/api/generate/openrouter"
+          hx-target="#openrouter-gen-result"
+          hx-swap="innerHTML"
+          hx-indicator="#gen-spinner-or">
+          <label class="block">Prompt</label>
+          <textarea name="prompt" rows="4" placeholder="Описание сцены…" required></textarea>
+          <label class="block">Model <span class="muted">(пусто = из настроек)</span></label>
+          <input type="text" name="model" class="playground-mono-input" placeholder="google/gemini-2.5-flash-image"/>
+          <div class="row">
+            <label>aspect_ratio
+              <input type="text" name="aspect_ratio" placeholder="1:1 / 16:9 …" class="playground-mono-input"/>
+            </label>
+            <label>image_size
+              <input type="text" name="image_size" placeholder="1K / 2K …" class="playground-mono-input"/>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary">Generate (OpenRouter)</button>
+          <span id="gen-spinner-or" class="htmx-indicator muted"> Запрос…</span>
+        </form>
+        <div id="openrouter-gen-result" class="gen-result playground-gen-result"></div>
+      </div>
+    </article>
+
+    <article class="playground-acc-item playground-acc-item--full" data-pg-acc="video">
+      <button type="button" class="playground-acc-trigger" aria-expanded="false">
+        <span class="playground-acc-ico" aria-hidden="true">▶</span>
+        <span class="playground-acc-titles">
+          <span class="playground-acc-title">Image-to-video (Wan)</span>
+          <span class="muted small playground-acc-sub">Первый и опционально последний кадр → job</span>
+        </span>
+        <span class="playground-acc-chev" aria-hidden="true">▼</span>
+      </button>
+      <div class="playground-acc-body playground-video-embed" hidden>
+        {% include "partials/video_panel.html" %}
+      </div>
+    </article>
+  </div>
+
+  <section class="playground-dream-assets-block" aria-label="Библиотека dream_assets">
+    <details class="playground-lib-details">
+      <summary class="playground-lib-details-summary">
+        <span class="playground-lib-ico" aria-hidden="true">📚</span>
+        <span class="playground-lib-summary-text">
+          <strong>Библиотека dream_assets</strong>
+          <span class="muted small playground-lib-summary-sub">Превью Mongo по пользователям · не между карточками генерации</span>
+        </span>
+      </summary>
+      <div class="playground-lib-details-body">
+        <div class="split dream-assets-split playground-lib-split">
+          <div class="col-list">
+            <h4 class="playground-subhd">Пользователи</h4>
+            <div
+              class="table-wrap playground-lib-user-wrap"
+              hx-get="/dev/partials/playground/lib_user_list"
+              hx-trigger="load, every 8s"
+              hx-target="#pg-lib-users-inner"
+              hx-swap="innerHTML">
+              <div id="pg-lib-users-inner"><p class="muted">Загрузка…</p></div>
+            </div>
+          </div>
+          <div class="col-detail playground-lib-detail" id="pg-lib-detail">
+            <p class="muted">Выберите user_id слева.</p>
+          </div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="gen-history-section playground-history" aria-label="История генераций">
+    <h3 class="gen-history-title">Последние генерации (этот браузер)</h3>
+    <p class="muted small">После успешного ответа Qwen / OpenRouter.</p>
+    <div id="gen-history" class="gen-history"></div>
+  </section>
+</div>

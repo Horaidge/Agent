@@ -1,0 +1,115 @@
+<style>
+  .dl-live-wrap { background:#0b1220; color:#e2e8f0; border:1px solid #334155; border-radius:12px; padding:12px; }
+  .dl-live-wrap a { color:#93c5fd; }
+  .dl-live-wrap .muted { color:#94a3b8; }
+  .dl-live-wrap .tools-data-table { font-size:13px; }
+</style>
+<article class="pipe-stage-card dream-lite-input-card dl-live-wrap" style="margin:0.8rem 0;">
+  <h4 class="pipe-stage-card-title">Dream Lite · Live Runs</h4>
+  <p class="dream-lite-secondary">Последние запуски и текущие стадии по пользователям. <code>UI rev: 2026-04-29-0135</code></p>
+
+  <form
+    class="dream-lite-form"
+    hx-post="/dev/api/dream/lite/runs/fail_stale"
+    hx-target="#dream-lite-live-runs"
+    hx-swap="innerHTML">
+    <label class="dream-lite-label" for="dream-lite-stale-user-id">User ID (опционально, для точечной очистки)</label>
+    <input id="dream-lite-stale-user-id" type="text" name="user_id" class="dream-lite-model-select" placeholder="например 355777834"/>
+    <button type="submit" class="btn-ghost">Сбросить зависшие active run</button>
+  </form>
+
+  {% if stale_info %}
+  <p class="dream-lite-secondary">{{ stale_info }}</p>
+  {% endif %}
+
+  {% if daily_model_stats %}
+  <div class="table-wrap tools-table-wrap" style="margin-top:0.6rem;">
+    <table class="tools-data-table">
+      <thead>
+        <tr>
+          <th>model (24h approx)</th>
+          <th>runs</th>
+          <th>avg_duration_ms</th>
+          <th>total_tokens</th>
+          <th>estimated_cost_usd_total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in daily_model_stats %}
+        <tr>
+          <td><code>{{ s.model }}</code></td>
+          <td>{{ s.runs_count }}</td>
+          <td>{{ s.avg_duration_ms }}</td>
+          <td>{% if s.usage_unavailable %}<span class="muted">usage_unavailable</span>{% else %}{{ s.total_tokens }}{% endif %}</td>
+          <td><span class="muted">usage_unavailable</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="table-wrap tools-table-wrap" style="margin-top:0.6rem;">
+    <table class="tools-data-table">
+      <thead>
+        <tr>
+          <th>updated_at</th>
+          <th>user_id</th>
+          <th>lite_run_id</th>
+          <th>status</th>
+          <th>phase</th>
+          <th>worker</th>
+          <th>progress</th>
+          <th>assets</th>
+          <th>error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td class="muted">{{ r.updated_at_str }}</td>
+          <td>{{ r.user_id }}</td>
+          <td><code>{{ r.lite_run_id }}</code></td>
+          <td>
+            <span class="exec-status exec-status--{{ r.run_status }}">{{ r.run_status }}</span>
+            {% if r.is_stale_active %}
+            <br/><span class="muted" style="color:#fca5a5;">stale: {{ r.idle_seconds }}s</span>
+            {% else %}
+            <br/><span class="muted">idle: {{ r.idle_seconds }}s</span>
+            {% endif %}
+          </td>
+          <td><code>{{ r.step_phase }}</code></td>
+          <td class="muted">
+            <a
+              class="btn-ghost btn-sm"
+              href="/dev/dream/lite/run_inspector?user_id={{ r.user_id }}&lite_run_id={{ r.lite_run_id }}"
+              style="display:inline-block;min-width:132px;text-align:center;"
+              target="_self">Открыть воркер</a>
+          </td>
+          <td class="muted">
+            env {{ r.gen_env_i }}/{{ r.env_total }},
+            char {{ r.gen_char_i }}/{{ r.char_total }},
+            frame {{ r.gen_frame_i }}/{{ r.frame_total }},
+            anim {{ r.gen_anim_i }}/{{ r.anim_total }}
+            {% if r.final_video_url_ui %}
+            <br/><a href="{{ r.final_video_url_ui }}" target="_blank" rel="noopener">final video</a>
+            {% endif %}
+          </td>
+          <td class="muted">
+            img {{ r.images_ready }}, vid {{ r.videos_ready }}
+            {% if r.first_image_url_ui %}
+            <br/><a href="{{ r.first_image_url_ui }}" target="_blank" rel="noopener">first image</a>
+            {% endif %}
+            {% if r.first_video_url_ui %}
+            <br/><a href="{{ r.first_video_url_ui }}" target="_blank" rel="noopener">first clip</a>
+            {% endif %}
+          </td>
+          <td class="muted">{{ r.last_error_short }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="muted">Нет запусков.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</article>

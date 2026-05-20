@@ -28,16 +28,22 @@ class ImageToolResult:
     error: str | None = None
     model: str | None = None
     size: str | None = None
+    usage: dict[str, Any] | None = None
+    models_tried: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "ok": self.ok,
             "image_urls": self.image_urls,
             "error": self.error,
             "model": self.model,
             "size": self.size,
             "count": len(self.image_urls),
+            "usage": self.usage,
         }
+        if self.models_tried is not None:
+            d["models_tried"] = self.models_tried
+        return d
 
 
 _DEFAULT_BASE_CHARACTER_PROMPT = (
@@ -70,7 +76,14 @@ def tool_generate_base_character(appearance: str | None = None) -> BaseCharacter
     Сгенерировать базового персонажа по тексту внешности (или дефолтный нейтральный портрет).
     """
     if appearance and str(appearance).strip():
-        prompt_used = str(appearance).strip()
+        appearance_text = str(appearance).strip()
+        prompt_used = (
+            "Create a realistic single-person portrait for a recurring main character. "
+            "Follow the user's appearance description precisely, including age range, skin tone, "
+            "face shape, hair, eyes, body build, style and other distinctive traits. "
+            "Do not replace the requested traits with generic defaults. "
+            f"User appearance description: {appearance_text}"
+        )
     else:
         prompt_used = _DEFAULT_BASE_CHARACTER_PROMPT
 

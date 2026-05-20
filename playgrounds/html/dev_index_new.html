@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dream Viz — Dev</title>
+  <link rel="stylesheet" href="/dev/static/dev.css?v=1777416707"/>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script defer src="/dev/static/dev_ui.js?v=1777416707"></script>
+</head>
+<body>
+  <header class="hdr">
+    <h1>Dream Viz — Dev</h1>
+    <p class="muted">Только localhost · polling сообщений каждые 2.5 с</p>
+  </header>
+
+  <div class="tabs">
+    <input type="radio" name="tab" id="tab-msg" checked/>
+    <input type="radio" name="tab" id="tab-playground"/>
+    <input type="radio" name="tab" id="tab-dream"/>
+    <input type="radio" name="tab" id="tab-dream-lite"/>
+    <input type="radio" name="tab" id="tab-dream-lite-workers"/>
+    <input type="radio" name="tab" id="tab-workspaces"/>
+    <input type="radio" name="tab" id="tab-tools"/>
+    <div class="tab-labels">
+      <label for="tab-msg">Messages</label>
+      <label for="tab-playground">Playground</label>
+      <label for="tab-dream">Dream Pipeline</label>
+      <label for="tab-dream-lite">Dream Pipeline Lite</label>
+      <label for="tab-dream-lite-workers">Dream Lite Workers</label>
+      <label for="tab-workspaces">Workspaces</label>
+      <label for="tab-tools">Agent Control</label>
+    </div>
+
+    <section class="tab-panel" id="panel-msg">
+      <div class="split">
+        <div class="col-list">
+          <h2>Входящие</h2>
+          <div class="msg-toolbar">
+            <button
+              type="button"
+              class="btn-ghost btn-msg-clear"
+              hx-post="/dev/api/messages/clear"
+              hx-vals='{"scope": "messages"}'
+              hx-confirm="Удалить все входящие сообщения из MongoDB? Действие необратимо."
+              hx-swap="none"
+            >Очистить сообщения</button>
+            <button
+              type="button"
+              class="btn-ghost btn-msg-clear-all"
+              hx-post="/dev/api/messages/clear"
+              hx-vals='{"scope": "all"}'
+              hx-confirm="Удалить все сообщения, события observability и трейсы чата (model/tool calls)? Действие необратимо."
+              hx-swap="none"
+            >Очистить всё</button>
+          </div>
+          <div
+            class="table-wrap"
+            hx-get="/dev/partials/messages/rows"
+            hx-trigger="load, every 2.5s"
+            hx-target="#message-rows"
+            hx-swap="innerHTML">
+            <table class="msg-table">
+              <thead>
+                <tr>
+                  <th class="th-ico" title="Вид"> </th>
+                  <th>Время</th>
+                  <th>user_id</th>
+                  <th>chat_id</th>
+                  <th>Тип</th>
+                  <th>Статус</th>
+                  <th>Текст</th>
+                </tr>
+              </thead>
+              <tbody id="message-rows">
+                <tr><td colspan="7" class="muted">Загрузка…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="col-detail" id="detail-panel">
+          <h2>Карточка сообщения</h2>
+          <p class="muted">Клик по сообщению слева открывает контекст диалога, execution path модели и advanced-детали.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-playground">
+      <h2>Playground</h2>
+      <div class="playground-tab-inner">
+  <p class="muted playground-lead">
+    Три карточки генерации: нажмите заголовок, чтобы развернуть; повторное нажатие по открытой карточке сворачивает её. Библиотека dream_assets — отдельным блоком ниже.
+  </p>
+
+  <div class="playground-accordion" data-playground-accordion>
+    <article class="playground-acc-item is-expanded" data-pg-acc="qwen">
+      <button type="button" class="playground-acc-trigger" aria-expanded="true">
+        <span class="playground-acc-ico" aria-hidden="true">◆</span>
+        <span class="playground-acc-titles">
+          <span class="playground-acc-title">Qwen Image</span>
+          <span class="muted small playground-acc-sub">DashScope · text-to-image или edit по референсу</span>
+        </span>
+        <span class="playground-acc-chev" aria-hidden="true">▼</span>
+      </button>
+      <div class="playground-acc-body">
+        <div class="playground-user-mount">
+          <div
+            hx-get="/dev/partials/playground/user_buttons?slot=qwen"
+            hx-trigger="load"
+            hx-swap="innerHTML">
+            <p class="muted">Загрузка пользователей…</p>
+          </div>
+        </div>
+        <div id="pg-qwen-asset-host" class="playground-asset-host"></div>
+        <form
+          id="form-playground-qwen"
+          class="playground-gen-form gen-form"
+          hx-post="/dev/api/generate"
+          hx-target="#gen-result-qwen"
+          hx-swap="innerHTML"
+          hx-indicator="#gen-spinner-qwen">
+          <label class="block">Prompt</label>
+          <textarea name="prompt" rows="4" placeholder="Сцена или инструкция к референсу…" required></textarea>
+          <div class="row">
+            <label>Size
+              <select name="size">
+                <option value="1024*1024">1024×1024</option>
+                <option value="1024*1536" selected>1024×1536</option>
+                <option value="1536*1024">1536×1024</option>
+              </select>
+            </label>
+            <label>Model
+              <select name="model">
+                <option value="qwen-image-2.0" selected>qwen-image-2.0</option>
+                <option value="qwen-image-2.0-pro">qwen-image-2.0-pro</option>
+              </select>
+            </label>
+            <label>n
+              <input type="number" name="n" value="1" min="1" max="6"/>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary">Generate</button>
+          <span id="gen-spinner-qwen" class="htmx-indicator muted"> Генерация…</span>
+        </form>
+        <div id="gen-result-qwen" class="gen-result playground-gen-result"></div>
+      </div>
+    </article>
+
+    <article class="playground-acc-item" data-pg-acc="openrouter">
+      <button type="button" class="playground-acc-trigger" aria-expanded="false">
+        <span class="playground-acc-ico playground-acc-ico--or" aria-hidden="true">◇</span>
+        <span class="playground-acc-titles">
+          <span class="playground-acc-title">OpenRouter · Nano Banana</span>
+          <span class="muted small playground-acc-sub"><code>OPENROUTER_IMAGE_MODEL</code> · референс опционально</span>
+        </span>
+        <span class="playground-acc-chev" aria-hidden="true">▼</span>
+      </button>
+      <div class="playground-acc-body" hidden>
+        <div class="playground-user-mount">
+          <div
+            hx-get="/dev/partials/playground/user_buttons?slot=openrouter"
+            hx-trigger="load"
+            hx-swap="innerHTML">
+            <p class="muted">Загрузка пользователей…</p>
+          </div>
+        </div>
+        <div id="pg-openrouter-asset-host" class="playground-asset-host"></div>
+        <form
+          id="form-playground-openrouter"
+          class="playground-gen-form gen-form"
+          hx-post="/dev/api/generate/openrouter"
+          hx-target="#openrouter-gen-result"
+          hx-swap="innerHTML"
+          hx-indicator="#gen-spinner-or">
+          <label class="block">Prompt</label>
+          <textarea name="prompt" rows="4" placeholder="Описание сцены…" required></textarea>
+          <label class="block">Model <span class="muted">(пусто = из настроек)</span></label>
+          <input type="text" name="model" class="playground-mono-input" placeholder="google/gemini-2.5-flash-image"/>
+          <div class="row">
+            <label>aspect_ratio
+              <input type="text" name="aspect_ratio" placeholder="1:1 / 16:9 …" class="playground-mono-input"/>
+            </label>
+            <label>image_size
+              <input type="text" name="image_size" placeholder="1K / 2K …" class="playground-mono-input"/>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary">Generate (OpenRouter)</button>
+          <span id="gen-spinner-or" class="htmx-indicator muted"> Запрос…</span>
+        </form>
+        <div id="openrouter-gen-result" class="gen-result playground-gen-result"></div>
+      </div>
+    </article>
+
+    <article class="playground-acc-item playground-acc-item--full" data-pg-acc="video">
+      <button type="button" class="playground-acc-trigger" aria-expanded="false">
+        <span class="playground-acc-ico" aria-hidden="true">▶</span>
+        <span class="playground-acc-titles">
+          <span class="playground-acc-title">Image-to-video (Wan)</span>
+          <span class="muted small playground-acc-sub">Первый и опционально последний кадр → job</span>
+        </span>
+        <span class="playground-acc-chev" aria-hidden="true">▼</span>
+      </button>
+      <div class="playground-acc-body playground-video-embed" hidden>
+        <div class="video-tab">
+  <p class="video-lead muted">Wan image-to-video: укажите <strong>первый кадр</strong> (файл или asset из библиотеки), при желании — <strong>последний кадр</strong> файлом. Для файлов: <strong>перетащите изображение</strong> на зону или нажмите на неё — загрузка начнётся сразу, превью появится до ответа сервера. Дальше промпт, модель, разрешение и длительность.</p>
+
+  <section class="video-step video-step--frames">
+    <h3 class="video-step-title"><span class="video-step-num">1</span> Кадры</h3>
+    <div class="video-frames-strip">
+      <div class="video-frame-card video-frame-card--first">
+        <div class="video-frame-card-badge video-frame-card-badge--req">обязательно</div>
+        <div class="video-frame-card-head">🎬 Первый кадр</div>
+        <p class="muted small video-frame-card-hint">Стартовое изображение для интерполяции в видео.</p>
+        <div class="video-first-mode-bar" role="group" aria-label="Источник первого кадра">
+          <button type="button" class="video-mode-btn is-active" data-video-first-mode="upload" aria-pressed="true">📤 Файл</button>
+          <button type="button" class="video-mode-btn" data-video-first-mode="library" aria-pressed="false">🗄 Библиотека</button>
+        </div>
+        <div id="video-first-upload-panel" class="video-frame-panel">
+          <form
+            class="video-upload-form video-upload-form--compact"
+            data-video-auto-upload="1"
+            hx-post="/dev/api/video/upload"
+            hx-encoding="multipart/form-data"
+            hx-target="#video-first-frame-upload-slot"
+            hx-swap="innerHTML">
+            <input type="hidden" name="upload_slot" value="first"/>
+            <div class="video-drop-zone" data-video-drop-zone tabindex="0" role="group" aria-label="Загрузка первого кадра: перетащите файл или выберите">
+              <div class="video-drop-preview-wrap">
+                <img class="video-drop-preview" alt="Превью первого кадра" hidden decoding="async"/>
+              </div>
+              <label class="video-drop-label" for="video-upload-first-file">
+                <span class="video-drop-ico" aria-hidden="true">📷</span>
+                <span class="video-drop-text">Перетащите сюда фото или нажмите, чтобы выбрать</span>
+                <span class="video-drop-sub muted small">Загрузка начнётся автоматически</span>
+              </label>
+              <input id="video-upload-first-file" type="file" name="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" required class="visually-hidden"/>
+            </div>
+          </form>
+          <div id="video-first-frame-upload-slot" class="video-upload-result"></div>
+          <p class="muted small video-upload-path-hint">Файлы: <code>data/dev_uploads/video_inputs/</code></p>
+        </div>
+        <div id="video-first-library-panel" class="video-frame-panel video-frame-panel--library" hidden>
+          <p class="muted small">Пользователи с материалами в MongoDB — выберите один asset (радиокнопка).</p>
+          <div
+            class="table-wrap video-user-wrap"
+            hx-get="/dev/partials/video/users"
+            hx-trigger="load"
+            hx-target="#video-user-list-inner"
+            hx-swap="innerHTML">
+            <div id="video-user-list-inner"><p class="muted">Загрузка…</p></div>
+          </div>
+          <div id="video-asset-picker" class="video-asset-picker"></div>
+        </div>
+      </div>
+
+      <div class="video-frame-connector" aria-hidden="true">
+        <span class="video-frame-connector-arrow">→</span>
+        <span class="video-frame-connector-label muted small">интерполяция</span>
+      </div>
+
+      <div class="video-frame-card video-frame-card--last">
+        <div class="video-frame-card-badge video-frame-card-badge--opt">опционально</div>
+        <div class="video-frame-card-head">🎞 Последний кадр</div>
+        <p class="muted small video-frame-card-hint">Wan 2.7: конечный кадр — только загрузка файла (без отдельного поля в форме job).</p>
+        <form
+          class="video-upload-form video-upload-form--compact"
+          data-video-auto-upload="1"
+          hx-post="/dev/api/video/upload"
+          hx-encoding="multipart/form-data"
+          hx-target="#video-last-frame-upload-slot"
+          hx-swap="innerHTML">
+          <input type="hidden" name="upload_slot" value="last"/>
+          <div class="video-drop-zone video-drop-zone--secondary" data-video-drop-zone tabindex="0" role="group" aria-label="Загрузка последнего кадра: перетащите файл или выберите">
+            <div class="video-drop-preview-wrap">
+              <img class="video-drop-preview" alt="Превью последнего кадра" hidden decoding="async"/>
+            </div>
+            <label class="video-drop-label video-drop-label--secondary" for="video-upload-last-file">
+              <span class="video-drop-ico" aria-hidden="true">📷</span>
+              <span class="video-drop-text">Перетащите или нажмите — последний кадр (по желанию)</span>
+              <span class="video-drop-sub muted small">Необязательно · загрузка сразу после выбора</span>
+            </label>
+            <input id="video-upload-last-file" type="file" name="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" class="visually-hidden"/>
+          </div>
+        </form>
+        <div id="video-last-frame-upload-slot" class="video-upload-result"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="video-step">
+    <h3 class="video-step-title"><span class="video-step-num">2</span> Запуск job</h3>
+    <form
+      id="form-video-job"
+      class="video-job-form"
+      hx-post="/dev/api/video/jobs"
+      hx-target="#video-job-live"
+      hx-swap="innerHTML">
+      <input type="hidden" name="source_mode" id="video-source-mode" value="upload"/>
+
+      <label class="block">Провайдер</label>
+      <select name="video_backend" id="video-backend-select" class="video-select video-backend-select">
+        <option value="dashscope" selected>DashScope — прямой API Alibaba (Wan)</option>
+        <option value="openrouter">OpenRouter — <code>alibaba/wan-2.7</code> и др. (<code>POST /api/v1/videos</code>)</option>
+      </select>
+
+      <label class="block">Prompt</label>
+      <textarea name="prompt" rows="4" placeholder="Опишите движение и сцену…" required></textarea>
+
+      <div class="video-params-row">
+        <div id="video-dashscope-model-wrap">
+          <label>Model (DashScope)
+            <select name="model" class="video-select">
+              <option value="wan2.7-i2v" selected>Wan 2.7 i2v (wan2.7-i2v)</option>
+              <option value="wan2.6-i2v-flash">wan2.6-i2v-flash</option>
+              <option value="wan2.2-i2v-plus">wan2.2-i2v-plus</option>
+            </select>
+          </label>
+        </div>
+        <div id="video-openrouter-wrap" class="video-openrouter-wrap" hidden>
+          <label class="block">Модель OpenRouter
+            <input type="text" name="openrouter_model" class="video-select" style="width:100%;max-width:28rem" placeholder="alibaba/wan-2.7" value="alibaba/wan-2.7"/>
+          </label>
+          <label class="block muted small">Provider (JSON, опционально)
+            <textarea name="openrouter_provider_json" class="mono dream-lab-textarea" rows="2" placeholder='{"order": ["Alibaba"]}'></textarea>
+          </label>
+        </div>
+        <label>Resolution
+          <select name="resolution" class="video-select">
+            <option value="480p">480p (не для wan2.7 — см. подсказку)</option>
+            <option value="720p" selected>720p</option>
+            <option value="1080p">1080p</option>
+          </select>
+        </label>
+        <label>Duration (сек)
+          <input type="number" name="duration" value="4" min="2" max="15" class="video-num"/>
+        </label>
+      </div>
+
+      <p class="muted small video-job-hint">
+        <strong>DashScope:</strong> модель Wan, ключ <code>DASHSCOPE_API_KEY</code>, только <strong>720p / 1080p</strong> для wan2.7.
+        <strong>OpenRouter:</strong> ключ <code>OPENROUTER_API_KEY</code>, см. <a href="https://openrouter.ai/alibaba/wan-2.7/api" target="_blank" rel="noopener">документацию WAN 2.7</a>.
+        Первый кадр: загрузка → <code>upload_id</code>; библиотека → <code>dream_asset_id</code>. Последний кадр — после загрузки во второй карточке.
+      </p>
+
+      <button type="submit" class="btn-primary video-submit">Запустить image-to-video</button>
+    </form>
+  </section>
+
+  <section class="video-step">
+    <h3 class="video-step-title"><span class="video-step-num">3</span> Статус и результат</h3>
+    <div id="video-job-live" class="video-job-live">
+      <p class="muted">После запуска здесь появится job и прогресс.</p>
+    </div>
+  </section>
+
+  <section class="video-step video-history">
+    <h3 class="video-step-title">Последние video jobs</h3>
+    <div class="split video-history-split">
+      <div class="table-wrap video-jobs-table-wrap">
+        <table class="msg-table video-jobs-table">
+          <thead>
+            <tr>
+              <th>Статус</th>
+              <th>Время</th>
+              <th>Источник</th>
+              <th>Prompt</th>
+              <th>Model</th>
+            </tr>
+          </thead>
+          <tbody id="video-jobs-tbody"
+            hx-get="/dev/partials/video/jobs_rows"
+            hx-trigger="load, every 6s"
+            hx-swap="innerHTML">
+            <tr><td colspan="5" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-detail video-job-detail-wrap" id="video-job-detail">
+        <p class="muted">Выберите задачу в списке слева.</p>
+      </div>
+    </div>
+  </section>
+</div>
+      </div>
+    </article>
+  </div>
+
+  <section class="playground-dream-assets-block" aria-label="Библиотека dream_assets">
+    <details class="playground-lib-details">
+      <summary class="playground-lib-details-summary">
+        <span class="playground-lib-ico" aria-hidden="true">📚</span>
+        <span class="playground-lib-summary-text">
+          <strong>Библиотека dream_assets</strong>
+          <span class="muted small playground-lib-summary-sub">Превью Mongo по пользователям · не между карточками генерации</span>
+        </span>
+      </summary>
+      <div class="playground-lib-details-body">
+        <div class="split dream-assets-split playground-lib-split">
+          <div class="col-list">
+            <h4 class="playground-subhd">Пользователи</h4>
+            <div
+              class="table-wrap playground-lib-user-wrap"
+              hx-get="/dev/partials/playground/lib_user_list"
+              hx-trigger="load, every 8s"
+              hx-target="#pg-lib-users-inner"
+              hx-swap="innerHTML">
+              <div id="pg-lib-users-inner"><p class="muted">Загрузка…</p></div>
+            </div>
+          </div>
+          <div class="col-detail playground-lib-detail" id="pg-lib-detail">
+            <p class="muted">Выберите user_id слева.</p>
+          </div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="gen-history-section playground-history" aria-label="История генераций">
+    <h3 class="gen-history-title">Последние генерации (этот браузер)</h3>
+    <p class="muted small">После успешного ответа Qwen / OpenRouter.</p>
+    <div id="gen-history" class="gen-history"></div>
+  </section>
+</div>
+    </section>
+
+    <section class="tab-panel" id="panel-dream">
+      <h2>Dream Pipeline</h2>
+      <p class="muted dream-pipeline-tab-lead">
+        Сверху — глобальный prompt для <strong>stage 1</strong> (первичная разметка сна). Ниже: слева список запусков (авто-обновление каждые 2.5 с), справа детальный pipeline выбранного run. Правую колонку обновляйте кнопкой «Обновить данные run» — без периодического HTMX на превью, чтобы видео не перезагружалось и не мигало.
+      </p>
+
+      <div
+        id="dream-stage1-lab-mount"
+        class="dream-stage1-lab-mount"
+        hx-get="/dev/partials/dream/stage1_prompt_lab"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Stage 1 prompt lab…</p>
+      </div>
+
+      <div class="dream-runtime-layout">
+        <div class="split dream-pipeline-split">
+          <div class="col-list dream-pipeline-sidebar">
+            <div
+              hx-get="/dev/partials/dream/sidebar"
+              hx-trigger="load, every 2.5s"
+              hx-target="#dream-sidebar-inner"
+              hx-swap="innerHTML">
+              <div id="dream-sidebar-inner"><p class="muted">Загрузка…</p></div>
+            </div>
+          </div>
+          <div class="col-detail dream-pipeline-main" id="dream-pipeline-detail">
+            <p class="muted">Выберите запуск слева — здесь появится пошаговый pipeline по этому run.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-dream-lite">
+      <h2>Dream Pipeline Lite</h2>
+      <div
+        id="dream-pipeline-lite-mount"
+        class="dream-pipeline-lite-mount"
+        hx-get="/dev/partials/dream/pipeline_lite_tab"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Dream Pipeline Lite…</p>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-dream-lite-workers">
+      <h2>Dream Lite Workers</h2>
+      <div
+        id="dream-pipeline-lite-workers-mount"
+        class="dream-pipeline-lite-mount"
+        hx-get="/dev/partials/dream/pipeline_lite_workers_tab"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Dream Lite Workers…</p>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-tools">
+      <div
+        id="tools-frame-root"
+        class="tools-frame-root"
+        hx-get="/dev/partials/tools/frame"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Tools…</p>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-workspaces">
+      <h2>User Workspaces (Mongo)</h2>
+      <p class="muted">Изолированные пользовательские пространства данных. Один user_id = отдельный workspace с собственными сообщениями, артефактами и pipeline-активностью.</p>
+      <div class="workspace-controls">
+        <form
+          hx-get="/dev/partials/workspaces/list"
+          hx-target="#workspace-list"
+          hx-swap="innerHTML"
+          class="workspace-filters">
+          <label>Период
+            <select name="period">
+              <option value="all" selected>За всё время</option>
+              <option value="day">За день</option>
+              <option value="week">За неделю</option>
+              <option value="month">За месяц</option>
+              <option value="custom">Custom range</option>
+            </select>
+          </label>
+          <label>Сортировка
+            <select name="sort_by">
+              <option value="last_activity" selected>Последняя активность</option>
+              <option value="messages">Количество сообщений</option>
+              <option value="artifacts">Количество артефактов</option>
+              <option value="generations">Количество генераций</option>
+              <option value="created">Дата первого появления</option>
+              <option value="size">Размер пространства</option>
+            </select>
+          </label>
+          <label>Поиск
+            <input type="text" name="search" placeholder="user_id / chat_id / trace_id"/>
+          </label>
+          <label>Custom start
+            <input type="date" name="custom_start"/>
+          </label>
+          <label>Custom end
+            <input type="date" name="custom_end"/>
+          </label>
+          <button type="submit" class="btn-ghost">Применить</button>
+        </form>
+      </div>
+
+      <div class="split workspace-split">
+        <div class="col-list workspace-list-pane">
+          <div
+            hx-get="/dev/partials/workspaces/list"
+            hx-trigger="load, every 15s"
+            hx-target="#workspace-list"
+            hx-swap="innerHTML">
+            <div id="workspace-list"><p class="muted">Загрузка…</p></div>
+          </div>
+        </div>
+        <div class="col-detail workspace-detail-pane" id="workspace-detail">
+          <p class="muted">Выберите workspace слева.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="muted">
+    <code>DEV_DEBUG_UI=true</code> · ключи API в UI не передаются
+  </footer>
+</body>
+</html>

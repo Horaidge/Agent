@@ -73,8 +73,30 @@ class SceneFrameData:
 # Scene / plan models
 # ---------------------------------------------------------------------------
 
+
+class DreamSceneMotion(BaseModel):
+    """Намерение движения / раскадровка — задаётся на Stage 0, не генерируется отдельным LLM."""
+
+    type: str = Field(
+        default="movement",
+        description="approach | contact | movement | static",
+    )
+    description: str = Field(
+        default="",
+        description="Что происходит в динамике (не финальный статичный кадр).",
+    )
+    camera_behavior: str = Field(
+        default="static",
+        description="zoom | follow | static",
+    )
+    timing: str = Field(
+        default="start",
+        description="start | mid | end — фаза бита относительно клипа",
+    )
+
+
 class DreamSceneOutline(BaseModel):
-    """Сцена после шага 1 — только смысл и метаданные, без промптов картинки/видео."""
+    """Сцена после шага 1 — смысл, motion intent, без промптов картинки."""
 
     scene_index: int = Field(ge=1)
     title: str = ""
@@ -85,10 +107,12 @@ class DreamSceneOutline(BaseModel):
     mood: str = ""
     duration_sec: int = Field(default=4, ge=2, le=15)
     camera_motion: bool = False
+    actors: list[str] = Field(default_factory=list)
+    motion: DreamSceneMotion = Field(default_factory=DreamSceneMotion)
 
 
 class DreamSceneItem(BaseModel):
-    """Один смысловой кадр / сцена — полный план после всех LLM-шагов."""
+    """Один смысловой кадр / сцена — полный план после LLM image-step + motion из Stage 0."""
 
     scene_index: int = Field(ge=1)
     title: str = ""
@@ -100,9 +124,12 @@ class DreamSceneItem(BaseModel):
     character_requirement: str = "main_character"
     environment_requirement: str = ""
     mood: str = ""
+    motion: DreamSceneMotion = Field(default_factory=DreamSceneMotion)
     animation_prompt: str = ""
     duration_sec: int = Field(default=4, ge=2, le=15)
     camera_motion: bool = False
+    actors: list[str] = Field(default_factory=list)
+    actor_ids: list[str] = Field(default_factory=list)
 
 
 class DreamScenePlan(BaseModel):

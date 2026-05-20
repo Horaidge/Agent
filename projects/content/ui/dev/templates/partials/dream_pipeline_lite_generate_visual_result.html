@@ -1,0 +1,361 @@
+<section class="dream-lite-visual-res" aria-label="Шаг 3 · генерация изображений">
+  {% if error %}
+  <p class="error" role="alert">{{ error | e }}</p>
+  {% else %}
+  <article class="pipe-stage-card dream-lite-pipe-card dream-lite-pipe-card--visual">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Шаг 3 · Визуальная цепочка</h4>
+    <p class="dream-lite-secondary">
+      Окружения и персонажи — пластинами, затем кадры генерируются в той же операции.
+      Continuity prev-link определяется scene-aware логикой шага 2b, без фиксированного технического лимита длины цепочки.
+    </p>
+    {% if simple_mode is defined and simple_mode %}
+    <p class="dream-lite-secondary"><span class="dream-lite-pill dream-lite-pill--ok">Простой режим включён</span> · В image API отправляются только Dreamer + окружение; previous frame в шаге 3 отключён.</p>
+    {% endif %}
+    {% if (frame_results is defined and frame_results) or (frames_for_step4_json is defined and frames_for_step4_json) %}
+    <div class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner" id="dream-lite-step3-snapshot-block" aria-label="Snapshot шага 3">
+      <h5 class="dream-lite-subhead">Snapshot для шагов 4/5 (Mongo, только Dev)</h5>
+      <p class="dream-lite-secondary">
+        После успешной генерации кадров snapshot в базу пишется <strong>автоматически</strong>.
+        Кнопка ниже — чтобы принудительно перезаписать его текущими полями шага 1–3 (сон, окружение, раскадровка, JSON кадров).
+      </p>
+      <form
+        class="dream-lite-form dream-lite-form--step3-snapshot"
+        hx-post="/dev/api/dream/lite/step3_snapshot_save"
+        hx-target="#dream-lite-step3-snapshot-msg"
+        hx-swap="innerHTML"
+        hx-include="#dream-lite-dream-text, #dream-lite-env-store, #dream-lite-frames-store, #dream-lite-frames-prev-link-store, #dream-lite-frame-results-json">
+        <input type="hidden" name="image_model" value="{{ selected_image_model | default('', true) | e }}"/>
+        <input type="hidden" name="simple_mode" value="{% if simple_mode is defined and simple_mode %}1{% else %}0{% endif %}"/>
+        <textarea name="bases_bundle_json" id="dream-lite-step3-snapshot-bases" class="visually-hidden" aria-hidden="true">{{ bases_bundle_json | default('', true) }}</textarea>
+        <textarea name="frame_results_json" id="dream-lite-step3-snapshot-frames" class="visually-hidden" aria-hidden="true">{{ (frames_for_step4_json | default([], true)) | tojson }}</textarea>
+        <button type="submit" class="btn-primary">Сохранить итоги 3 шага для шагов 4/5</button>
+      </form>
+      <div id="dream-lite-step3-snapshot-msg" class="dream-lite-out" aria-live="polite"></div>
+    </div>
+    {% endif %}
+    {% if generation_run_id is defined and generation_run_id %}
+    <p class="dream-lite-secondary">Новый запуск генерации: <code class="mono">{{ generation_run_id }}</code> (для A/B не переиспользуется предыдущий run).</p>
+    <details class="dream-lite-api-tab">
+      <summary class="dream-lite-api-tab-summary">Оценка качества (сохраняется в логах)</summary>
+      <form
+        class="dream-lite-form dream-lite-form--frame-contract"
+        hx-post="/dev/api/dream/lite/image_feedback"
+        hx-target="#dream-lite-image-feedback-out"
+        hx-swap="innerHTML">
+        <input type="hidden" name="generation_run_id" value="{{ generation_run_id | e }}"/>
+        <input type="hidden" name="model_id" value="{{ selected_image_model | e }}"/>
+        <input type="hidden" name="user_id" value="{{ dream_lite_playground_user_id if dream_lite_playground_user_id is defined else 0 }}"/>
+        <label class="dream-lite-label">Качество референсов (1..5)</label>
+        <input class="dream-lite-model-select" type="number" min="1" max="5" name="refs_score" required/>
+        <label class="dream-lite-label">Качество картинки (1..5)</label>
+        <input class="dream-lite-model-select" type="number" min="1" max="5" name="image_score" required/>
+        <label class="dream-lite-label">Комментарий (опц.)</label>
+        <textarea class="dream-lite-prompt-textarea" name="comment" rows="2"></textarea>
+        <button type="submit" class="btn-ghost">Сохранить оценку</button>
+      </form>
+      <div id="dream-lite-image-feedback-out" class="dream-lite-out" aria-live="polite"></div>
+    </details>
+    {% endif %}
+
+    {% if image_models_catalog is defined and image_models_catalog %}
+    <div class="dream-lite-model-panel" aria-label="Модели OpenRouter">
+      <h5 class="dream-lite-subhead dream-lite-subhead--inline">Модели генерации изображений</h5>
+      <p class="dream-lite-secondary dream-lite-model-panel-hint">В запрос уходит <strong>slug</strong> из колонки <code class="mono">id</code>. Поле API <code class="mono">modalities</code> задаёт <strong>выход</strong> ответа (картинка ± текст ассистента); <strong>вход</strong> по-прежнему текст + референсы в <code class="mono">messages</code>. Авто-fallback Dream Lite перебирает только модели с выходом <code class="mono">image+text</code> (Gemini image, GPT image на OpenRouter). Flux/Seedream вручную — у них на OpenRouter обычно выход только <code class="mono">image</code>.</p>
+      <ul class="dream-lite-model-legend">
+        {% for m in image_models_catalog %}
+        <li class="dream-lite-model-legend-item">
+          <strong class="dream-lite-model-legend-id">{{ m.label | e }}</strong>
+          <code class="mono dream-lite-model-slug">{{ m.id | e }}</code>
+          {% if m.is_settings_default %}<span class="dream-lite-pill">дефолт .env</span>{% endif %}
+          {% if m.is_settings_fallback %}<span class="dream-lite-pill dream-lite-pill--muted">fallback .env</span>{% endif %}
+          {% if m.tested %}<span class="dream-lite-pill dream-lite-pill--ok">tested</span>{% endif %}
+          {% if m.tested_status and m.tested_status != 'untested' %}<span class="dream-lite-pill dream-lite-pill--muted">{{ m.tested_status | e }}</span>{% endif %}
+          {% if m.runs_count %}<span class="dream-lite-secondary">runs: {{ m.runs_count }}</span>{% endif %}
+          <span class="dream-lite-model-cost">{{ m.cost_hint | default('Цена: см. каталог OpenRouter', true) | e }}</span>
+          <span class="dream-lite-model-desc">{{ m.description | e }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if step3_phase is defined and step3_phase == 'awaiting_frames' and frame_plans %}
+    <div class="dream-lite-frame-plans-wrap" aria-label="План кадров до генерации">
+      <h5 class="dream-lite-subhead">План кадров — что уйдёт в image API</h5>
+      <p class="dream-lite-secondary">Технический план референсов и приоритета данных перед вызовом image API. <strong>Полный текст сна в image API не уходит</strong> — только референсы и бриф кадра ниже.</p>
+      {% for p in frame_plans %}
+      <div class="pipe-s0-scene-card dream-lite-visual-frame-card dream-lite-plan-card{% if p.use_previous_frame_resolved %} dream-lite-frame-card--uses-prev{% endif %}{% if p.forced_prev_chain_break %} dream-lite-frame-card--chain-reset{% endif %}">
+        <div class="pipe-s0-scene-head dream-lite-frame-title">{{ p.title | e }} · план</div>
+        <p class="dream-lite-frame-badges">
+          <span class="dream-lite-pill dream-lite-pill--{% if p.is_keyframe %}ok{% else %}muted{% endif %}">{% if p.is_keyframe %}key{% else %}non-key{% endif %}</span>
+          {% if p.keyframe_reason %}<span class="dream-lite-secondary small">{{ p.keyframe_reason | e }}</span>{% endif %}
+        </p>
+        {% if p.use_previous_frame_resolved or p.forced_prev_chain_break %}
+        <p class="dream-lite-frame-badges">{% if p.use_previous_frame_resolved %}<span class="dream-lite-pill dream-lite-pill--prev-chain">Зависит от предыдущего кадра</span>{% endif %}{% if p.forced_prev_chain_break %}<span class="dream-lite-pill dream-lite-pill--chain-break">Принудительный разрыв continuity</span>{% endif %}</p>
+        {% endif %}
+        {% if p.opora %}
+        <p class="pipe-s0-field pipe-s0-field--short"><span class="dream-lite-k">Опора (текст шага 2)</span> · {{ p.opora | e }}</p>
+        {% endif %}
+        <details class="dream-lite-api-tab" open>
+          <summary class="dream-lite-api-tab-summary">Референсы в модель</summary>
+          <p class="dream-lite-refs-one-line">{{ p.refs_summary_line | e }}</p>
+          {% if p.ref_slots %}
+          <p class="dream-lite-ref-api-order dream-lite-secondary" aria-label="Порядок image_url в API">В запросе (image_url): {% for s in p.ref_slots | sort(attribute='order') %}{% if s.in_api is not defined or s.in_api %}<span class="dream-lite-api-seq-pill" title="позиция multipart">{{ s.order }}. {{ s.label | e }}</span>{% endif %}{% endfor %}</p>
+          {% endif %}
+          <div class="dream-lite-ref-stack dream-lite-ref-stack--in-tab" aria-label="Референсы: сначала предыдущий кадр с индексом 0 при цепочке, затем опоры">
+            {% for s in p.ref_slots %}
+            <div class="dream-lite-ref-slot dream-lite-ref-slot--{{ s.tier | e }}">
+              <span class="dream-lite-ref-order" title="В API — позиция {{ s.order }}">{{ s.display_index if s.display_index is defined else ((s.order | int) - 1) }}</span>
+              <div class="dream-lite-ref-slot-body">
+                <div class="dream-lite-ref-slot-label">{{ s.label | e }}</div>
+                {% if s.detail %}<div class="dream-lite-ref-slot-detail">{{ s.detail | e }}</div>{% endif %}
+                {% if s.pending %}
+                <p class="dream-lite-ref-pending">Файл ещё не сгенерирован — подставится после предыдущего кадра.</p>
+                {% elif s.url %}
+                <div class="dream-lite-ref-thumb-wrap">
+                  <img src="{{ s.url | e }}" alt="" class="dream-lite-ref-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </details>
+        <details class="dream-lite-api-tab" open>
+          <summary class="dream-lite-api-tab-summary">Текст в модель (только описание кадра из раскадровки)</summary>
+          <pre class="dream-lite-prompt-readout dream-lite-prompt-readout--user">{{ p.img_prompt | e }}</pre>
+        </details>
+        <details class="dream-lite-tech-fold">
+          <summary class="dream-lite-tech-fold-summary">Технические поля (шаг 2)</summary>
+          <ul class="dream-lite-plan-meta">
+            <li><span class="dream-lite-k">Окружение</span> · {{ p.environment_label | e }}</li>
+            <li><span class="dream-lite-k">base_reference</span> · {% if p.base_reference %}{{ p.base_reference | e }}{% else %}—{% endif %}</li>
+            <li><span class="dream-lite-k">Персонажи</span> · {{ p.characters_line | e }}</li>
+            <li><span class="dream-lite-k">Предыдущий кадр в API</span> · {{ p.use_previous_frame_resolved | e }}{% if p.forced_prev_chain_break %} · принудительный разрыв continuity{% endif %}</li>
+            <li><span class="dream-lite-k">keyframe</span> · {{ p.is_keyframe | e }}{% if p.keyframe_reason %} · {{ p.keyframe_reason | e }}{% endif %}</li>
+            <li><span class="dream-lite-k">ref_bundle</span> · {{ p.ref_bundle | e }} · <em>{{ p.ref_note | e }}</em></li>
+          </ul>
+        </details>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form
+      class="dream-lite-form dream-lite-form--visual-frames"
+      hx-post="/dev/api/dream/lite/generate_visuals_frames"
+      hx-target="#dream-lite-visual-out"
+      hx-swap="innerHTML"
+      hx-include="#dream-lite-dream-text, #dream-lite-frames-store, #dream-lite-frames-prev-link-store"
+      hx-indicator="#dream-lite-spinner-visual-frames"
+      hx-timeout="600000">
+      <textarea name="bases_bundle_json" class="visually-hidden" aria-hidden="true">{{ bases_bundle_json }}</textarea>
+      <input type="hidden" name="simple_mode" value="{% if simple_mode is defined and simple_mode %}1{% else %}0{% endif %}"/>
+      <label class="dream-lite-label" for="dream-lite-image-model-frames">Модель для кадров</label>
+      <select id="dream-lite-image-model-frames" name="image_model" class="dream-lite-model-select">
+        {% if image_models_catalog is defined %}
+        {% for m in image_models_catalog %}
+        <option value="{{ m.id | e }}" {% if selected_image_model is defined and m.id == selected_image_model %}selected{% endif %}>{{ m.label | e }} — {{ m.cost_hint | default('Цена: см. каталог OpenRouter', true) | e }}</option>
+        {% endfor %}
+        {% endif %}
+      </select>
+      <button type="submit" class="btn-primary">Сгенерировать кадры по плану</button>
+      <span id="dream-lite-spinner-visual-frames" class="htmx-indicator dream-lite-indicator">Генерация кадров…</span>
+    </form>
+    <p class="dream-lite-secondary dream-lite-hint">Раскадровка и ответ классификатора prev подставляются из шага 2: <code class="mono">#dream-lite-frames-store</code> и <code class="mono">#dream-lite-frames-prev-link-store</code> (без второго prev в шаге 3 не будет).</p>
+    {% endif %}
+
+    <details class="pipe-json-details dream-lite-arch-details">
+      <summary class="pipe-json-details-summary dream-lite-secondary">Словарь полей (шаг 2 → шаг 3)</summary>
+      <ul class="dream-lite-secondary dream-lite-arch-list">
+        <li><strong>character_references</strong> — листы персонажей для кадра <strong>без</strong> prev; при цепочке prev в multipart <strong>только</strong> предыдущий кадр (листы и пластина не дублируются). В карточке слот 0 — предыдущий кадр (наглядный порядок UI).</li>
+        <li><strong>base_reference</strong> — id окружения из шага 1.</li>
+        <li><strong>use_previous_frame</strong> — см. разрешённое значение «в API» в карточке плана.</li>
+        <li><strong>ref_bundle</strong> — <code class="mono">standard</code> (окружение + персонажи) | <code class="mono">chain_prev_only</code> (только предыдущий кадр).</li>
+      </ul>
+    </details>
+
+    {% if char_results %}
+    <h5 class="dream-lite-subhead">Персонажи (референсы)</h5>
+    <div class="dream-lite-visual-env-grid dream-lite-visual-char-grid">
+      {% for ch in char_results %}
+      <div class="pipe-s0-scene-card dream-lite-visual-card">
+        <div class="pipe-s0-scene-head">{{ ch.title | e }}</div>
+        {% if ch.ok and ch.urls %}
+        <div class="dream-lite-visual-img-wrap">
+          {% for u in ch.urls %}
+          <img src="{{ u }}" alt="{{ ch.title | e }}" class="dream-lite-visual-img" loading="lazy" referrerpolicy="no-referrer"/>
+          {% endfor %}
+        </div>
+        {% elif ch.error %}
+        <p class="err dream-lite-visual-err">{{ ch.error | e }}</p>
+        {% else %}
+        <p class="dream-lite-secondary">Нет изображения.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if env_results %}
+    <h5 class="dream-lite-subhead">Окружения (база)</h5>
+    <div class="dream-lite-visual-env-grid">
+      {% for e in env_results %}
+      <div class="pipe-s0-scene-card dream-lite-visual-card">
+        <div class="pipe-s0-scene-head">{{ e.title | e }}</div>
+        {% if e.ok and e.urls %}
+        <div class="dream-lite-visual-img-wrap">
+          {% for u in e.urls %}
+          <img src="{{ u }}" alt="{{ e.title | e }}" class="dream-lite-visual-img" loading="lazy" referrerpolicy="no-referrer"/>
+          {% endfor %}
+        </div>
+        {% elif e.error %}
+        <p class="err dream-lite-visual-err">{{ e.error | e }}</p>
+        {% else %}
+        <p class="dream-lite-secondary">Нет изображения.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if frame_results %}
+    {% if selected_image_model is defined and selected_image_model %}
+    <p class="dream-lite-secondary">Модель в форме (slug): <code class="mono">{{ selected_image_model | e }}</code> — фактический вызов см. в «Ответ image API».</p>
+    {% endif %}
+
+    <section class="dream-lite-filmstrip-section pipe-stage-card dream-lite-pipe-card" id="dream-lite-filmstrip" aria-label="Лента кадров">
+      <h5 class="dream-lite-subhead">Итоговая лента кадров (порядок до монтажа)</h5>
+      <p class="dream-lite-secondary">Последовательность ключевых кадров после шага 3. Ниже — план монтажа (шаг 4) и переходы.</p>
+      <div class="dream-lite-filmstrip-scroll" role="list">
+        {% for f in frame_results if f.urls and f.urls[0] %}
+        <figure class="dream-lite-filmstrip-item" role="listitem">
+          <a class="dream-lite-filmstrip-link" href="{{ f.urls[0] | e }}" target="_blank" rel="noopener noreferrer" title="Полный размер">
+            <img src="{{ f.urls[0] | e }}" alt="{{ f.title | e }}" class="dream-lite-filmstrip-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+          </a>
+          <figcaption class="dream-lite-filmstrip-cap">{{ f.title | e }}</figcaption>
+        </figure>
+        {% else %}
+        <p class="dream-lite-secondary dream-lite-filmstrip-empty">Нет успешных кадров для ленты — проверьте ошибки в логе API и модель.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <details class="dream-lite-api-tab dream-lite-image-api-log" open>
+      <summary class="dream-lite-api-tab-summary">Ответ image API по кадрам (провайдер)</summary>
+      <p class="dream-lite-secondary">Для каждого кадра: последняя модель в цепочке (если ошибка), полный текст ошибки, при сбое — список всех перепробованных id (fallback реально вызывался).</p>
+      <ul class="dream-lite-image-api-log-list">
+        {% for f in frame_results %}
+        <li>
+          <span class="dream-lite-k">{{ f.title | e }}</span>
+          {% if f.ok %}<span class="dream-lite-pill dream-lite-pill--ok">ok</span>{% else %}<span class="dream-lite-pill dream-lite-pill--err">ошибка</span>{% endif %}
+          {% if f.requested_model is defined and f.requested_model %}· requested: <code class="mono">{{ f.requested_model | e }}</code>{% endif %}
+          {% if f.effective_model is defined and f.effective_model %}· effective: <code class="mono">{{ f.effective_model | e }}</code>{% endif %}
+          {% if f.openrouter_models_tried is defined and f.openrouter_models_tried %}
+          · перепробованы: {% for m in f.openrouter_models_tried %}<code class="mono">{{ m | e }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+          {% endif %}
+          {% if f.duration_ms is defined %}· duration: <code class="mono">{{ f.duration_ms }}</code>ms{% endif %}
+          {% if f.provider_latency_ms is defined %}· provider_latency: <code class="mono">{{ f.provider_latency_ms }}</code>ms{% endif %}
+          {% if f.total_tokens is defined and f.total_tokens %}· tokens: in={{ f.tokens_in }}, out={{ f.tokens_out }}, total={{ f.total_tokens }}{% elif f.usage_unavailable %}· usage_unavailable{% endif %}
+          {% if f.primary_model_error is defined and f.primary_model_error %}· primary_error: <span class="err dream-lite-api-log-err">{{ f.primary_model_error | e }}</span>{% endif %}
+          {% if f.error %}· <span class="err dream-lite-api-log-err">{{ f.error | e }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+
+    <h5 class="dream-lite-subhead">Кадры — детали (референсы, промпт, превью)</h5>
+    <div class="dream-lite-frames-grid" role="list">
+      {% for f in frame_results %}
+      <div class="pipe-s0-scene-card dream-lite-visual-frame-card{% if f.use_previous_frame_resolved %} dream-lite-frame-card--uses-prev{% endif %}{% if f.forced_prev_chain_break is defined and f.forced_prev_chain_break %} dream-lite-frame-card--chain-reset{% endif %}" role="listitem">
+        <div class="pipe-s0-scene-head dream-lite-frame-title">{{ f.title | e }}</div>
+        <p class="dream-lite-frame-badges">
+          <span class="dream-lite-pill dream-lite-pill--{% if f.is_keyframe %}ok{% else %}muted{% endif %}">{% if f.is_keyframe %}key{% else %}non-key{% endif %}</span>
+          {% if f.generation_status == 'skipped_non_keyframe' %}<span class="dream-lite-pill dream-lite-pill--muted">не генерировался (light mode)</span>{% endif %}
+          {% if f.keyframe_reason %}<span class="dream-lite-secondary small">{{ f.keyframe_reason | e }}</span>{% endif %}
+        </p>
+        {% if f.use_previous_frame_resolved or (f.forced_prev_chain_break is defined and f.forced_prev_chain_break) %}
+        <p class="dream-lite-frame-badges">{% if f.use_previous_frame_resolved %}<span class="dream-lite-pill dream-lite-pill--prev-chain">Зависит от предыдущего кадра</span>{% endif %}{% if f.forced_prev_chain_break is defined and f.forced_prev_chain_break %}<span class="dream-lite-pill dream-lite-pill--chain-break">Принудительный разрыв continuity</span>{% endif %}</p>
+        {% endif %}
+        {% if f.opora %}
+        <p class="pipe-s0-field pipe-s0-field--short"><span class="dream-lite-k">Опора (текст шага 2)</span> · {{ f.opora | e }}</p>
+        {% endif %}
+        {% if f.izmenenie %}
+        <p class="pipe-s0-field pipe-s0-field--short"><span class="dream-lite-k">Изменение</span> · {{ f.izmenenie | e }}</p>
+        {% endif %}
+        {% if f.kad %}
+        <p class="pipe-s0-field pipe-s0-field--desc dream-lite-kad-text"><span class="dream-lite-k">Кадр · результат</span> · {{ f.kad | e }}</p>
+        {% endif %}
+        {% if f.self_contained_warnings is defined and f.self_contained_warnings %}
+        <p class="dream-lite-secondary">Self-contained guardrail: исправлены continuation-маркеры в frame_text.</p>
+        {% endif %}
+        <details class="dream-lite-api-tab" open>
+          <summary class="dream-lite-api-tab-summary">Референсы в модель</summary>
+          <p class="dream-lite-refs-one-line">{% if f.refs_summary_line is defined and f.refs_summary_line %}{{ f.refs_summary_line | e }}{% else %}{{ f.ref_note | e }}{% endif %}</p>
+          {% if f.ref_slots is defined and f.ref_slots %}
+          <p class="dream-lite-ref-api-order dream-lite-secondary" aria-label="Порядок image_url в API">В запросе (image_url): {% for s in f.ref_slots | sort(attribute='order') %}{% if s.in_api is not defined or s.in_api %}<span class="dream-lite-api-seq-pill" title="позиция multipart">{{ s.order }}. {{ s.label | e }}</span>{% endif %}{% endfor %}</p>
+          <div class="dream-lite-ref-stack dream-lite-ref-stack--in-tab" aria-label="Референсы: 0 — предыдущий кадр при цепочке">
+            {% for s in f.ref_slots %}
+            <div class="dream-lite-ref-slot dream-lite-ref-slot--{{ s.tier | e }}">
+              <span class="dream-lite-ref-order" title="В API — позиция {{ s.order }}">{{ s.display_index if s.display_index is defined else ((s.order | int) - 1) }}</span>
+              <div class="dream-lite-ref-slot-body">
+                <div class="dream-lite-ref-slot-label">{{ s.label | e }}</div>
+                {% if s.detail %}<div class="dream-lite-ref-slot-detail">{{ s.detail | e }}</div>{% endif %}
+                {% if s.pending %}
+                <p class="dream-lite-ref-pending">Плейсхолдер предыдущего кадра.</p>
+                {% elif s.url %}
+                <div class="dream-lite-ref-thumb-wrap">
+                  <img src="{{ s.url | e }}" alt="" class="dream-lite-ref-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </details>
+        {% if f.img_prompt is defined and f.img_prompt %}
+        <details class="dream-lite-api-tab" open>
+          <summary class="dream-lite-api-tab-summary">Текст в модель (фактический промпт)</summary>
+          <pre class="dream-lite-prompt-readout dream-lite-prompt-readout--user">{{ f.img_prompt | e }}</pre>
+        </details>
+        {% endif %}
+        <details class="dream-lite-tech-fold">
+          <summary class="dream-lite-tech-fold-summary">Технические поля</summary>
+          <ul class="dream-lite-plan-meta">
+            <li><span class="dream-lite-k">Окружение</span> · {% if f.environment_label is defined and f.environment_label %}{{ f.environment_label | e }}{% else %}—{% endif %}</li>
+            <li><span class="dream-lite-k">base_reference</span> · {% if f.base_reference %}{{ f.base_reference | e }}{% else %}—{% endif %}</li>
+            <li><span class="dream-lite-k">Персонажи</span> · {% if f.characters_line is defined and f.characters_line %}{{ f.characters_line | e }}{% elif f.character_references %}{{ f.character_references | join(", ") | e }}{% else %}—{% endif %}</li>
+            <li><span class="dream-lite-k">Предыдущий кадр в API</span> · {{ f.use_previous_frame_resolved | e }}{% if f.forced_prev_chain_break is defined and f.forced_prev_chain_break %} · принудительный разрыв continuity{% endif %}</li>
+            <li><span class="dream-lite-k">keyframe</span> · {{ f.is_keyframe | e }}{% if f.keyframe_reason %} · {{ f.keyframe_reason | e }}{% endif %}</li>
+            <li><span class="dream-lite-k">ref_bundle</span> · {{ f.ref_bundle | e }} · <em>{{ f.ref_note | e }}</em></li>
+            {% if f.request_at is defined %}<li><span class="dream-lite-k">request_at</span> · {{ f.request_at }}</li>{% endif %}
+            {% if f.first_response_at is defined %}<li><span class="dream-lite-k">first_response_at</span> · {{ f.first_response_at }}</li>{% endif %}
+            {% if f.completed_at is defined %}<li><span class="dream-lite-k">completed_at</span> · {{ f.completed_at }}</li>{% endif %}
+            {% if f.duration_ms is defined %}<li><span class="dream-lite-k">duration_ms</span> · {{ f.duration_ms }}</li>{% endif %}
+            {% if f.provider_latency_ms is defined %}<li><span class="dream-lite-k">provider_latency_ms</span> · {{ f.provider_latency_ms }}</li>{% endif %}
+            <li><span class="dream-lite-k">usage</span> · {% if f.total_tokens is defined and f.total_tokens %}tokens_in={{ f.tokens_in }}, tokens_out={{ f.tokens_out }}, total={{ f.total_tokens }}{% else %}usage_unavailable{% endif %}</li>
+          </ul>
+        </details>
+        {% if f.ok and f.urls %}
+        <div class="dream-lite-visual-img-wrap dream-lite-visual-img-wrap--frame">
+          {% for u in f.urls %}
+          <a href="{{ u | e }}" target="_blank" rel="noopener noreferrer" class="dream-lite-frame-img-link" title="Открыть изображение в полном размере (новая вкладка)">
+            <img src="{{ u }}" alt="{{ f.title | e }}" class="dream-lite-visual-img dream-lite-visual-img--frame" loading="lazy" referrerpolicy="no-referrer"/>
+          </a>
+          {% endfor %}
+        </div>
+        <p class="dream-lite-secondary dream-lite-frame-zoom-hint">Клик по кадру — просмотр в новой вкладке (для data:-URL открывается страница с картинкой; длинные ссылки иначе дают пустую вкладку в браузере).</p>
+        {% elif f.error %}
+        <p class="err dream-lite-visual-err">{{ f.error | e }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </article>
+  {% if not error and frames_for_step4_json is defined %}
+  <textarea id="dream-lite-frame-results-json" name="frame_results_json" class="visually-hidden" aria-hidden="true" hx-swap-oob="true">{{ frames_for_step4_json | tojson }}</textarea>
+  {% endif %}
+  {% endif %}
+</section>

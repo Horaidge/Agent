@@ -1,0 +1,298 @@
+{% if not run %}
+<p class="muted">Выберите run из таблицы выше.</p>
+{% else %}
+<style>
+  .dl-wrap { background:#0b1220; color:#e5e7eb; border:1px solid #334155; border-radius:12px; padding:14px; font-size:14px; }
+  .dl-title { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+  .dl-chip { background:#1e293b; border:1px solid #334155; border-radius:999px; padding:2px 10px; font-size:12px; }
+  .dl-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .dl-sec { background:#111827; border:1px solid #374151; border-radius:10px; padding:10px; margin-top:10px; }
+  .dl-sec h4 { margin:0 0 8px; font-size:16px; }
+  .dl-kv { font-size:13px; line-height:1.5; margin:2px 0; }
+  .dl-img-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+  .dl-img-card { border:1px solid #334155; border-radius:8px; padding:8px; background:#0b1220; }
+  .dl-img-card img { width:100%; max-height:160px; object-fit:cover; border-radius:6px; display:block; margin-bottom:6px; }
+  .dl-mono { background:#0b1220; border:1px solid #334155; border-radius:8px; padding:8px; white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+  .dl-ok { color:#10b981; }
+  .dl-fail { color:#f87171; }
+  .dl-wrap a { color:#93c5fd; }
+  .dl-wrap .tools-data-table { font-size:13px; }
+  .dl-wrap details > summary { cursor:pointer; color:#cbd5e1; }
+  .dl-edit-form textarea { width:100%; min-height:260px; background:#0b1220; color:#e2e8f0; border:1px solid #334155; border-radius:8px; padding:10px; }
+  .dl-edit-form .btn-ghost { margin-top:8px; }
+</style>
+<article class="tool-card tool-card--enabled" style="margin-top:0.8rem;">
+  <div class="dl-wrap">
+  <div class="dl-title">
+  <header class="tool-card-hd">
+    <code class="tool-card-name">Dream Lite Inspector · {{ run.lite_run_id }}</code>
+    <span class="badge badge-cat">user={{ run.user_id }}</span>
+    <span class="badge badge-async">status={{ run.run_status }}</span>
+  </header>
+  </div>
+  <p class="muted small">Текущий этап: <code>{{ run.step_phase }}</code></p>
+  <p class="muted small">Вариант пайплайна: <code>{{ pipeline_variant }}</code></p>
+  <p class="muted small">Конфиг-профиль: <code>{{ config_profile_name }}</code> · ревизия <code>{{ config_profile_revision }}</code></p>
+  <form
+    class="dream-lite-form"
+    hx-post="/dev/api/dream/lite/profile/activate_from_run"
+    hx-target="#dream-lite-profile-activate-result"
+    hx-swap="innerHTML"
+    style="margin-top:6px;">
+    <input type="hidden" name="user_id" value="{{ run.user_id }}"/>
+    <input type="hidden" name="lite_run_id" value="{{ run.lite_run_id }}"/>
+    <button type="submit" class="btn-ghost btn-sm">Сделать run_config эталоном</button>
+  </form>
+  <div id="dream-lite-profile-activate-result" class="muted small" style="margin-top:4px;"></div>
+  <details class="dl-sec" style="margin-top:8px;">
+    <summary>run_config</summary>
+    <pre class="dl-mono">{{ run_config_json }}</pre>
+  </details>
+
+  <div class="dl-sec">
+  <h4>Effective Step Request (anti-drift)</h4>
+  <table class="tools-data-table">
+    <thead><tr><th>stage</th><th>prompt source</th><th>contract</th><th>effective payload</th></tr></thead>
+    <tbody>
+      {% for s in effective_step_requests %}
+      <tr>
+        <td><code>{{ s.stage }}</code></td>
+        <td class="muted">{{ s.prompt_source }}</td>
+        <td><pre class="dl-mono">{{ s.contract | tojson }}</pre></td>
+        <td><pre class="dl-mono">{{ s.payload | tojson }}</pre></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Нет данных по effective steps.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="dl-grid">
+    <div class="dl-sec">
+      <p class="tool-spec-kv"><strong>Прогресс генерации</strong></p>
+      <ul class="tool-spec-list">
+        <li>env: <code>{{ run.gen_env_i }}</code> / <code>{{ run.env_total }}</code></li>
+        <li>char: <code>{{ run.gen_char_i }}</code> / <code>{{ run.char_total }}</code></li>
+        <li>frame: <code>{{ run.gen_frame_i }}</code> / <code>{{ run.frame_total }}</code></li>
+        <li>anim: <code>{{ run.gen_anim_i }}</code> / <code>{{ run.anim_total }}</code></li>
+      </ul>
+      <p class="tool-spec-kv"><strong>Сборка</strong></p>
+      <ul class="tool-spec-list">
+        <li>final_video_url: {% if run.final_video_url_ui %}<a href="{{ run.final_video_url_ui }}" target="_blank" rel="noopener"><code>{{ run.final_video_url }}</code></a>{% else %}<code>—</code>{% endif %}</li>
+        <li>final_assembly_error: <code>{{ run.final_assembly_error or '—' }}</code></li>
+      </ul>
+      <p class="tool-spec-kv"><strong>Последняя ошибка</strong></p>
+      <pre class="mono tool-copy-block">{{ run.last_error or '—' }}</pre>
+    </div>
+    <div class="dl-sec">
+      <p class="tool-spec-kv"><strong>Timeline стадий</strong></p>
+      <table class="tools-data-table">
+        <thead><tr><th>stage</th><th>state</th></tr></thead>
+        <tbody>
+          {% for st in stage_rows %}
+          <tr>
+            <td><code>{{ st.id }}</code></td>
+            <td><span class="exec-status exec-status--{{ st.state }}">{{ st.state }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Журнал выполнения (модели / fallback / ошибки)</h4>
+  <table class="tools-data-table">
+    <thead><tr><th>ts</th><th>event</th><th>phase</th><th>model</th><th>provider</th><th>status</th><th>job</th><th>fallback</th><th>error</th></tr></thead>
+    <tbody>
+      {% for t in trace_rows %}
+      <tr>
+        <td class="muted"><code>{{ t.ts }}</code></td>
+        <td><code>{{ t.event or '—' }}</code></td>
+        <td><code>{{ t.phase or '—' }}</code></td>
+        <td class="muted">{{ t.model or '—' }}</td>
+        <td class="muted">{{ t.provider or '—' }}</td>
+        <td class="muted">{{ t.status or '—' }}</td>
+        <td class="muted"><code>{{ t.job_id or '—' }}</code></td>
+        <td class="muted">{{ t.fallback or '—' }}</td>
+        <td class="muted">{{ t.error or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="muted">Событий пока нет.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 1: Окружения и персонажи (карточки)</h4>
+  <details>
+    <summary>Окружения ({{ env_cards|length }})</summary>
+    <pre class="dl-mono">{{ env_cards | tojson }}</pre>
+  </details>
+  <details>
+    <summary>Персонажи ({{ char_cards|length }})</summary>
+    <pre class="dl-mono">{{ char_cards | tojson }}</pre>
+  </details>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 2: Раскадровка</h4>
+  <details open>
+    <summary>Кадры ({{ frame_cards|length }})</summary>
+    <pre class="dl-mono">{{ frame_cards | tojson }}</pre>
+  </details>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 3: Сгенерированные изображения</h4>
+  <p class="dl-kv"><strong>Окружения:</strong></p>
+  <div class="dl-img-grid">
+    {% for it in generated_env_items %}
+    <div class="dl-img-card">
+      {% if it.image_url_ui %}<img src="{{ it.image_url_ui }}" alt="{{ it.title }}">{% endif %}
+      <div class="dl-kv"><strong>{{ it.title }}</strong></div>
+      <div class="dl-kv {% if it.ok %}dl-ok{% else %}dl-fail{% endif %}">{{ 'ok' if it.ok else 'failed' }}</div>
+      {% if it.error %}<div class="dl-kv dl-fail">{{ it.error }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <p class="dl-kv" style="margin-top:8px;"><strong>Персонажи:</strong></p>
+  <div class="dl-img-grid">
+    {% for it in generated_char_items %}
+    <div class="dl-img-card">
+      {% if it.image_url_ui %}<img src="{{ it.image_url_ui }}" alt="{{ it.title }}">{% endif %}
+      <div class="dl-kv"><strong>{{ it.title }}</strong></div>
+      <div class="dl-kv {% if it.ok %}dl-ok{% else %}dl-fail{% endif %}">{{ 'ok' if it.ok else 'failed' }}</div>
+      {% if it.error %}<div class="dl-kv dl-fail">{{ it.error }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 4: Кадры (images)</h4>
+  <table class="tools-data-table">
+    <thead><tr><th>idx</th><th>title</th><th>status</th><th>preview</th><th>used_in_transition_segments</th><th>error</th></tr></thead>
+    <tbody>
+      {% for f in frames %}
+      <tr>
+        <td><code>{{ f.index }}</code></td>
+        <td class="muted">{{ f.title or '—' }}</td>
+        <td>
+          {% if f.ok %}
+          <span class="exec-status exec-status--completed">ok</span>
+          {% else %}
+          <span class="exec-status exec-status--failed">failed</span>
+          {% endif %}
+        </td>
+        <td class="muted">{% if f.img_url_ui %}<a href="{{ f.img_url_ui }}" target="_blank" rel="noopener">image</a>{% else %}—{% endif %}</td>
+        <td class="muted">{% if f.used_in_transition_segments %}{{ f.used_in_transition_segments | join(', ') }}{% else %}—{% endif %}</td>
+        <td class="muted">{{ f.error or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">Сгенерированных кадров пока нет.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 5: План монтажа (структура)</h4>
+  <p class="tool-spec-kv"><strong>Scenes</strong></p>
+  <table class="tools-data-table">
+    <thead><tr><th>scene</th><th>from</th><th>to</th><th>type</th><th>note</th></tr></thead>
+    <tbody>
+      {% for s in scene_rows %}
+      <tr>
+        <td><code>{{ s.scene_index }}</code></td>
+        <td><code>{{ s.from_frame_index }}</code></td>
+        <td><code>{{ s.to_frame_index }}</code></td>
+        <td><code>{{ s.scene_type or '—' }}</code></td>
+        <td class="muted">{{ s.note or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Сцены не заданы.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="tool-spec-kv"><strong>Transitions</strong></p>
+  <table class="tools-data-table">
+    <thead><tr><th>from</th><th>to</th><th>type</th><th>segment_mode</th><th>motion_prompt / cut_reason</th></tr></thead>
+    <tbody>
+      {% for t in transition_rows %}
+      <tr>
+        <td><code>{{ t.from_frame_index }}</code></td>
+        <td><code>{{ t.to_frame_index }}</code></td>
+        <td><code>{{ t.transition_type }}</code></td>
+        <td><code>{{ t.segment_mode or 'pairwise' }}</code></td>
+        <td class="muted">{{ t.motion_prompt or t.cut_reason or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Переходы не заданы.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <details style="margin-top:8px;">
+    <summary>План монтажа (JSON)</summary>
+    <pre class="dl-mono">{{ transition_plan_json }}</pre>
+  </details>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 6: Transition / clips</h4>
+  <p class="tool-spec-kv"><strong>Transition / clips</strong></p>
+  <table class="tools-data-table">
+    <thead><tr><th>segment</th><th>from→to</th><th>status</th><th>url</th><th>error</th></tr></thead>
+    <tbody>
+      {% for c in clips %}
+      <tr>
+        <td><code>{{ c.segment_index }}</code></td>
+        <td><code>{{ c.from_frame_index }}</code>→<code>{{ c.to_frame_index }}</code></td>
+        <td><span class="exec-status exec-status--{{ c.status_ui }}">{{ c.status }}</span></td>
+        <td class="muted">{% if c.video_url_ui %}<a href="{{ c.video_url_ui }}" target="_blank" rel="noopener">clip</a>{% else %}—{% endif %}</td>
+        <td class="muted">{{ c.error_short }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Клипов пока нет.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% if failed_transitions %}
+  <div class="dl-sec">
+  <p class="tool-spec-kv"><strong>failed_transitions</strong></p>
+  <pre class="mono tool-copy-block">{{ failed_transitions | tojson }}</pre>
+  </div>
+  {% endif %}
+
+  <div class="dl-sec">
+  <p class="tool-spec-kv"><strong>Редактирование run-описаний</strong></p>
+  {% if save_info %}
+  <p class="muted small">{{ save_info }}</p>
+  {% endif %}
+  <form
+    class="dream-lite-form dl-edit-form"
+    hx-post="/dev/api/dream/lite/run_patch"
+    hx-target="#dream-lite-run-detail"
+    hx-swap="innerHTML">
+    <input type="hidden" name="user_id" value="{{ run.user_id }}"/>
+    <input type="hidden" name="lite_run_id" value="{{ run.lite_run_id }}"/>
+    <label class="dream-lite-label">JSON patch (разрешены: dream_text, step1_raw, step2_raw, step2_prev_link_raw, transition_plan_raw)</label>
+    <textarea name="patch_json" rows="14" class="dream-lite-textarea dream-lite-textarea--mono">{{ editable_payload_json }}</textarea>
+    <button type="submit" class="btn-ghost">Сохранить изменения в Mongo</button>
+  </form>
+  </div>
+
+  <div class="dl-sec">
+  <p class="tool-spec-kv"><strong>Полные данные стадий (read-only)</strong></p>
+  <details class="pipe-json-details">
+    <summary class="pipe-json-details-summary">Открыть JSON детализацию run</summary>
+    <pre class="mono tool-copy-block">{{ details_payload_json }}</pre>
+  </details>
+  </div>
+  </div>
+</article>
+{% endif %}

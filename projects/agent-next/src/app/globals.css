@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@theme inline {
+  --color-background: var(--color-midnight-void);
+  --color-surface: var(--color-deep-space);
+  --color-text: var(--color-polar-white);
+  --color-text-muted: var(--color-ash-gray);
+  --color-border: var(--color-dark-carbon);
+  --color-accent: var(--color-amber-glow);
+  --color-status-green: var(--color-neon-green);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.agent-scene {
+  position: relative;
+}

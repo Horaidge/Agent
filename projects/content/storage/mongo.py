@@ -9,6 +9,11 @@ from core.observability.repository import ObservabilityRepository
 from core.observability.service import ObservabilityService
 from storage.chat_repository import ChatStoreRepository
 from storage.dream_asset_repository import DreamAssetRepository
+from storage.dream_lite_artifact_repository import DreamLiteArtifactRepository
+from storage.dream_lite_asset_repository import DreamLiteAssetRepository
+from storage.dream_lite_run_repository import DreamLiteRunRepository
+from storage.dream_lite_step3_snapshot_repository import DreamLiteStep3SnapshotRepository
+from storage.dream_lite_summary_repository import DreamLiteSummaryRepository
 from storage.dream_run_repository import DreamRunRepository
 from storage.dream_scene_repository import DreamSceneRepository
 from storage.generated_frame_repository import GeneratedFrameRepository
@@ -16,7 +21,9 @@ from storage.generated_image_repository import GeneratedImageRepository
 from storage.repository import MessageRepository
 from storage.scene_video_repository import SceneVideoRepository
 from storage.story_video_repository import StoryVideoRepository
+from storage.telegram_access_repository import TelegramAccessRepository
 from storage.user_profile_repository import UserProfileRepository
+from storage.dev_usage_ledger_repository import DevUsageLedgerRepository
 from storage.video_job_repository import VideoJobRepository
 
 
@@ -76,6 +83,15 @@ def build_video_job_repository(
     )
 
 
+def build_dev_usage_ledger_repository(
+    settings: Settings,
+    sync_client: MongoClient,
+) -> DevUsageLedgerRepository:
+    db = settings.mongodb_db
+    name = settings.mongodb_collection_dev_usage
+    return DevUsageLedgerRepository(sync_client[db][name])
+
+
 def build_user_profile_repository(
     settings: Settings,
     motor_client: AsyncIOMotorClient,
@@ -128,6 +144,69 @@ def build_dream_run_repository(
     )
 
 
+def build_dream_lite_run_repository(
+    settings: Settings,
+    motor_client: AsyncIOMotorClient,
+    sync_client: MongoClient,
+) -> DreamLiteRunRepository:
+    db = settings.mongodb_db
+    name = settings.mongodb_collection_dream_lite_runs
+    profile_name = settings.mongodb_collection_dream_lite_profiles
+    return DreamLiteRunRepository(
+        motor_client[db][name],
+        sync_client[db][name],
+        motor_client[db][profile_name],
+        sync_client[db][profile_name],
+    )
+
+
+def build_dream_lite_artifact_repository(
+    settings: Settings,
+    motor_client: AsyncIOMotorClient,
+    sync_client: MongoClient,
+) -> DreamLiteArtifactRepository:
+    db = settings.mongodb_db
+    name = settings.mongodb_collection_dream_lite_artifacts
+    return DreamLiteArtifactRepository(
+        motor_client[db][name],
+        sync_client[db][name],
+    )
+
+
+def build_dream_lite_summary_repository(
+    settings: Settings,
+    motor_client: AsyncIOMotorClient,
+    sync_client: MongoClient,
+) -> DreamLiteSummaryRepository:
+    db = settings.mongodb_db
+    name = settings.mongodb_collection_dream_lite_summaries
+    return DreamLiteSummaryRepository(
+        motor_client[db][name],
+        sync_client[db][name],
+    )
+
+
+def build_dream_lite_asset_repository(
+    settings: Settings,
+    motor_client: AsyncIOMotorClient,
+    sync_client: MongoClient,
+) -> DreamLiteAssetRepository:
+    db = settings.mongodb_db
+    name = settings.mongodb_collection_dream_lite_assets
+    return DreamLiteAssetRepository(
+        motor_client[db][name],
+        sync_client[db][name],
+    )
+
+
+def build_dream_lite_step3_snapshot_repository(
+    settings: Settings,
+    sync_client: MongoClient,
+) -> DreamLiteStep3SnapshotRepository:
+    db = settings.mongodb_db
+    return DreamLiteStep3SnapshotRepository(sync_client[db]["dream_lite_step3_snapshots"])
+
+
 def build_dream_scene_repository(
     settings: Settings,
     motor_client: AsyncIOMotorClient,
@@ -165,6 +244,14 @@ def build_story_video_repository(
         motor_client[db][name],
         sync_client[db][name],
     )
+
+
+def build_telegram_access_repository(
+    settings: Settings,
+    sync_client: MongoClient,
+) -> TelegramAccessRepository:
+    db = settings.mongodb_db
+    return TelegramAccessRepository(sync_client[db]["telegram_access_control"])
 
 
 def build_observability(

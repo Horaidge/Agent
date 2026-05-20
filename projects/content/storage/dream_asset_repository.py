@@ -94,6 +94,19 @@ class DreamAssetRepository:
             out.append(d)
         return out
 
+    async def count_by_owner(self, owner_user_id: int, query: dict[str, Any] | None = None) -> int:
+        q = {"owner_user_id": owner_user_id}
+        if query:
+            q.update(query)
+        return await self._async.count_documents(q)
+
+    async def delete_by_owner(self, owner_user_id: int, query: dict[str, Any] | None = None) -> int:
+        q = {"owner_user_id": owner_user_id}
+        if query:
+            q.update(query)
+        r = await self._async.delete_many(q)
+        return int(getattr(r, "deleted_count", 0) or 0)
+
     def list_distinct_owner_ids_sync(self) -> list[int]:
         """Пользователи, у которых есть хотя бы один asset (для dev UI)."""
         return sorted(

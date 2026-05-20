@@ -90,34 +90,84 @@ def build_model_messages(
     `history_rows` — документы из conversation_messages (хронологический порядок).
     """
     out: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
-    for row in history_rows:
+    i = 0
+    n = len(history_rows)
+    while i < n:
+        row = history_rows[i]
         role = row.get("role")
         if role == "user":
             out.append({"role": "user", "content": row.get("text") or ""})
-        elif role == "assistant":
+            i += 1
+            continue
+        if role == "assistant":
             meta = row.get("metadata") or {}
             tc = meta.get("tool_calls")
-            if tc:
-                item = {"role": "assistant", "tool_calls": tc}
-                txt = row.get("text")
-                item["content"] = txt if txt else None
-                out.append(item)
-            else:
-                out.append(
-                    {"role": "assistant", "content": row.get("text") or ""}
+            if not tc:
+                out.append({"role": "assistant", "content": row.get("text") or ""})
+                i += 1
+                continue
+
+            # OpenAI требует, чтобы assistant.tool_calls сразу сопровождался tool-сообщениями
+            # с каждым tool_call_id. Если история битая (обрыв записи), пропускаем этот блок.
+            ids_required = {
+                str((x or {}).get("id") or "").strip()
+                for x in tc
+                if isinstance(x, dict) and str((x or {}).get("id") or "").strip()
+            }
+            if not ids_required:
+                logger.warning("Пропуск tool-блока: assistant.tool_calls без валидных id")
+                i += 1
+                continue
+            j = i + 1
+            tool_rows: list[dict[str, Any]] = []
+            ids_seen: set[str] = set()
+            has_bad_tool_row = False
+            while j < n:
+                rj = history_rows[j]
+                if rj.get("role") != "tool":
+                    break
+                mj = rj.get("metadata") or {}
+                tid = str(mj.get("tool_call_id") or "").strip()
+                if not tid or tid not in ids_required:
+                    has_bad_tool_row = True
+                    j += 1
+                    continue
+                ids_seen.add(tid)
+                tool_rows.append(rj)
+                j += 1
+
+            if has_bad_tool_row or not ids_required.issubset(ids_seen):
+                logger.warning(
+                    "Пропуск битого tool-блока: missing=%s bad_tool_rows=%s",
+                    sorted(ids_required - ids_seen),
+                    has_bad_tool_row,
                 )
-        elif role == "tool":
-            meta = row.get("metadata") or {}
-            tid = meta.get("tool_call_id") or ""
-            out.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tid,
-                    "content": row.get("text") or "",
-                }
-            )
-        else:
-            logger.warning("Пропуск неизвестной роли в истории: %s", role)
+                i = j
+                continue
+
+            item = {"role": "assistant", "tool_calls": tc}
+            txt = row.get("text")
+            item["content"] = txt if txt else None
+            out.append(item)
+            for tr in tool_rows:
+                tm = tr.get("metadata") or {}
+                tid = str(tm.get("tool_call_id") or "").strip()
+                out.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tid,
+                        "content": tr.get("text") or "",
+                    }
+                )
+            i = j
+            continue
+        if role == "tool":
+            # orphan tool (без предшествующего assistant.tool_calls) не отправляем в модель
+            i += 1
+            continue
+
+        logger.warning("Пропуск неизвестной роли в истории: %s", role)
+        i += 1
     return out
 
 

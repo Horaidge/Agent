@@ -497,7 +497,13 @@ flowchart LR
 
 Для **`wan2.7-i2v`** тело запроса должно содержать **`input.media`** (массив с `type: first_frame` и `url` — публичный URL или data URI), а не только устаревшее для этой версии поле **`input.img_url`**. Иначе задача может уйти в `FAILED` с сообщением вроде `Field required: input.media`. Реализация: `_model_uses_wan27_media_input` / `_build_input_image_to_video` в `wan_i2v_client.py`.
 
-Ручной скрипт: `scripts/test_wan_video.py`.
+Опционально для той же модели добавляется второй элемент **`type: last_frame`** с URL конечного кадра (интерполяция движения между ключевыми кадрами). Проброс из tool: аргумент **`last_frame_url`** → `create_video_task(..., last_frame_url=...)`.
+
+Ручной скрипт: `scripts/test_wan_video.py` (флаг `--last-frame-url`). Сводка по роли Режиссёр/Сборщик и OpenRouter: **`docs/assembler_tools.md`**.
+
+### OpenRouter (изображения для Сборщика)
+
+Отдельный tool **`generate_image_openrouter`**: ключ **`OPENROUTER_API_KEY`** только из окружения, см. `core/config/settings.py` и `services/images/openrouter_image_client.py`. Тест: `scripts/test_openrouter_image.py`.
 
 ---
 
@@ -543,9 +549,10 @@ flowchart LR
 1. **Сообщения Telegram не приходят** — нет публичного HTTPS webhook; нужен туннель (ngrok / cloudflared) и `setWebhook`.
 2. **`OPENAI_API_KEY` не задан** — оркестратор не вызывает модель; пользователь видит заглушку.
 3. **DashScope / Wan** — проверить `DASHSCOPE_API_KEY`, регион endpoint, **точное имя модели** и лимиты размера картинки (для data URI — разумный размер файла).
-4. **Dev UI 403** — запрос не с localhost; задумано специально.
-5. **Два клиента Mongo** — async Motor для хендлеров, sync PyMongo для части UI и фоновых sync-путей; не смешивать контракты без необходимости.
-6. **Редактирование кода** — минимальные изменения по задаче; не удалять observability/dev без явного запроса.
+4. **OpenRouter / изображения Сборщика** — `OPENROUTER_API_KEY`, при необходимости `OPENROUTER_IMAGE_MODEL`.
+5. **Dev UI 403** — запрос не с localhost; задумано специально.
+6. **Два клиента Mongo** — async Motor для хендлеров, sync PyMongo для части UI и фоновых sync-путей; не смешивать контракты без явного запроса.
+7. **Редактирование кода** — минимальные изменения по задаче; не удалять observability/dev без явного запроса.
 
 ---
 

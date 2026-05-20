@@ -69,13 +69,45 @@ def tasks_base_url_from_synthesis(synthesis_url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
-def _normalize_resolution(resolution: str) -> str:
+def _normalize_resolution(resolution: str, model: str) -> str:
+    """
+    Документация Wan 2.7 i2v: только 720P и 1080P (по умолчанию у провайдера 1080P).
+    См. https://www.alibabacloud.com/help/en/document_detail/3025059.html
+    """
     r = (resolution or "720p").strip().upper()
     if r.endswith("P"):
-        return r
-    if r.isdigit():
-        return f"{r}P"
+        pass
+    elif r.isdigit():
+        r = f"{r}P"
+    else:
+        r = "720P"
+    m = (model or "").lower().replace("_", ".")
+    if "wan2.7" in m:
+        if r in ("480P", "480"):
+            logger.warning(
+                "wan2.7-i2v не поддерживает 480P (только 720P/1080P) — подставляю 720P"
+            )
+            r = "720P"
+        if r not in ("720P", "1080P"):
+            logger.warning(
+                "wan2.7-i2v: значение resolution=%s вне допустимого — подставляю 720P",
+                r,
+            )
+            r = "720P"
     return r
+
+
+def _normalize_duration(duration: int, model: str) -> int:
+    """wan2.7-i2v: целое 2–15 с (документация Alibaba)."""
+    d = int(duration)
+    m = (model or "").lower().replace("_", ".")
+    if "wan2.7" in m:
+        if d < 2:
+            d = 2
+        if d > 15:
+            logger.warning("wan2.7-i2v: duration ограничен 15 с (было %s)", d)
+            d = 15
+    return d
 
 
 def _model_uses_wan27_media_input(model: str) -> bool:
@@ -92,17 +124,40 @@ def _build_input_image_to_video(
     prompt: str,
     image_url: str,
     model: str,
+    last_frame_url: str | None = None,
 ) -> dict[str, Any]:
+    """
+    Для wan2.7-i2v: `input.media[]` с first_frame (стартовый кадр) и опционально last_frame
+    (конечный ключевой кадр для интерполяции движения). URL — https или data URI.
+
+    Имена типов соответствуют спецификации DashScope image-to-video для линейки Wan 2.7;
+    при смене контракта провайдера см. актуальную доку Model Studio.
+    """
+    lf = (last_frame_url or "").strip()
     if _model_uses_wan27_media_input(model):
+        if (image_url or "").strip().startswith("data:"):
+            logger.info(
+                "wan2.7-i2v: first_frame передаётся как data URI — в HTTP-доке чаще указывают "
+                "публичный HTTPS; при зависании задачи на RUNNING попробуйте URL с интернета "
+                "или регион/ключ intl (DASHSCOPE_VIDEO_ENDPOINT)."
+            )
+        media: list[dict[str, str]] = [
+            {
+                "type": "first_frame",
+                "url": image_url,
+            }
+        ]
+        if lf:
+            media.append({"type": "last_frame", "url": lf})
         return {
             "prompt": prompt,
-            "media": [
-                {
-                    "type": "first_frame",
-                    "url": image_url,
-                }
-            ],
+            "media": media,
         }
+    if lf:
+        logger.warning(
+            "Wan i2v: last_frame задан, но модель %s использует img_url — конечный кадр игнорируется",
+            model,
+        )
     return {
         "prompt": prompt,
         "img_url": image_url,
@@ -116,6 +171,7 @@ def _build_payload(
     model: str,
     duration: int,
     resolution: str,
+    last_frame_url: str | None = None,
 ) -> dict[str, Any]:
     return {
         "model": model,
@@ -123,10 +179,11 @@ def _build_payload(
             prompt=prompt,
             image_url=image_url,
             model=model,
+            last_frame_url=last_frame_url,
         ),
         "parameters": {
-            "resolution": _normalize_resolution(resolution),
-            "duration": int(duration),
+            "resolution": _normalize_resolution(resolution, model),
+            "duration": _normalize_duration(duration, model),
             "prompt_extend": True,
         },
     }
@@ -134,7 +191,14 @@ def _build_payload(
 
 def _parse_task_response(data: dict[str, Any]) -> VideoTaskStatusResult:
     out = data.get("output") if isinstance(data.get("output"), dict) else {}
-    status = str(out.get("task_status") or out.get("status") or "UNKNOWN").upper()
+    # DashScope может отдавать task_status в output или на корне ответа
+    status = str(
+        out.get("task_status")
+        or out.get("status")
+        or data.get("task_status")
+        or data.get("status")
+        or "UNKNOWN"
+    ).upper()
     video_url = out.get("video_url")
     if video_url is not None:
         video_url = str(video_url)
@@ -168,11 +232,12 @@ def create_video_task(
     model: str = "wan2.7-i2v",
     duration: int = 4,
     resolution: str = "720p",
+    last_frame_url: str | None = None,
     api_key: str | None = None,
     synthesis_url: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
-    Создаёт асинхронную задачу image-to-video (first frame).
+    Создаёт асинхронную задачу image-to-video (first frame; для wan2.7 — опционально last frame).
 
     Возвращает (task_id, raw_response_dict).
     """
@@ -184,6 +249,7 @@ def create_video_task(
         model=model,
         duration=duration,
         resolution=resolution,
+        last_frame_url=last_frame_url,
     )
     headers = {
         "Authorization": f"Bearer {key}",
@@ -298,6 +364,7 @@ async def create_video_task_async(
     model: str = "wan2.7-i2v",
     duration: int = 4,
     resolution: str = "720p",
+    last_frame_url: str | None = None,
     api_key: str | None = None,
     synthesis_url: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
@@ -309,6 +376,7 @@ async def create_video_task_async(
         model=model,
         duration=duration,
         resolution=resolution,
+        last_frame_url=last_frame_url,
     )
     headers = {
         "Authorization": f"Bearer {key}",

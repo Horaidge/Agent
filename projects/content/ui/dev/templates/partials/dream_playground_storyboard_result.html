@@ -1,0 +1,73 @@
+<section class="dream-storyboard-pipeline-res" aria-label="Результат раскадровки">
+  <header class="dream-storyboard-pipeline-head">
+    <h4 class="dream-storyboard-pipeline-title">Раскадровка · черновой визуал</h4>
+    {% if notice %}
+    <p class="muted small dream-storyboard-pipeline-notice">{{ notice | e }}</p>
+    {% endif %}
+  </header>
+
+  {% if ref_results %}
+  <div class="dream-storyboard-section">
+    <h5 class="dream-storyboard-section-title">Глобальные референсы</h5>
+    <p class="muted small dream-storyboard-section-lead">Сначала окружения, затем персонажи и объекты. Уже с картинкой в плане — пропуск вызова (используется preview).</p>
+    <div class="dream-storyboard-refs-grid">
+      {% for r in ref_results %}
+      <article class="dream-storyboard-card {% if not r.ok and not r.skipped %}dream-storyboard-card--err{% endif %}">
+        <header class="dream-storyboard-card-head">
+          <span class="dream-storyboard-card-lbl">{{ r.label | e }}</span>
+          <code class="dream-storyboard-card-id">{{ r.ref_id | e }}</code>
+          {% if r.kind %}<span class="dream-world-chip">{{ r.kind | e }}</span>{% endif %}
+          {% if r.skipped %}<span class="dream-world-chip dream-world-chip--muted">из плана</span>{% endif %}
+        </header>
+        {% if r.ok and r.urls %}
+        <div class="dream-storyboard-img-wrap">
+          {% for u in r.urls %}
+          <img src="{{ u }}" alt="{{ r.label | e }}" class="dream-storyboard-preview-img" loading="lazy" referrerpolicy="no-referrer"/>
+          {% endfor %}
+        </div>
+        {% elif r.error %}
+        <p class="err dream-storyboard-err">{{ r.error | e }}</p>
+        {% else %}
+        <p class="muted small">Нет изображения.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if keyframe_results %}
+  <div class="dream-storyboard-section dream-storyboard-section--keyframes">
+    <h5 class="dream-storyboard-section-title">Ключевые кадры · последовательность</h5>
+    <p class="muted small dream-storyboard-section-lead">Каждый следующий кадр по возможности строится с опорой на предыдущий и референсы из плана (см. подпись под кадром).</p>
+    <div class="dream-storyboard-kf-strip" role="list">
+      {% for k in keyframe_results %}
+      <article class="dream-storyboard-kf-card" role="listitem">
+        <header class="dream-storyboard-kf-head">
+          <span class="dream-storyboard-kf-idx">Кадр {{ k.frame_index }}</span>
+          <span class="dream-storyboard-kf-lbl">{{ k.label | e }}</span>
+        </header>
+        {% if k.ok and k.urls %}
+        <div class="dream-storyboard-img-wrap dream-storyboard-img-wrap--kf">
+          {% for u in k.urls %}
+          <img src="{{ u }}" alt="Кадр {{ k.frame_index }}: {{ k.label | e }}" class="dream-storyboard-preview-img dream-storyboard-preview-img--kf" loading="lazy" referrerpolicy="no-referrer"/>
+          {% endfor %}
+        </div>
+        {% elif k.error %}
+        <p class="err dream-storyboard-err">{{ k.error | e }}</p>
+        {% else %}
+        <p class="muted small">Нет изображения.</p>
+        {% endif %}
+        {% if k.refs_used %}
+        <p class="muted small dream-storyboard-kf-refs">Опора: {{ k.refs_used | join(', ') }}</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not ref_results and not keyframe_results %}
+  <p class="muted small">В плане нет элементов для раскадровки (global_references / key_frames).</p>
+  {% endif %}
+</section>

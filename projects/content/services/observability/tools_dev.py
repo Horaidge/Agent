@@ -1,9 +1,10 @@
 """
 Dev UI: реестр инструментов, агрегаты по MongoDB и лёгкие overrides на диске.
 
-Источники данных (без новых коллекций):
+Источники данных:
 - статический каталог из `services.tools.openai_definitions` + метаданные;
 - `tool_calls`, `video_jobs`;
+- `dev_usage_ledger` (опционально) для учёта dev-генераций;
 - `observability_events` для таймлайна по trace_id;
 - файлы `prompts/*.md` для Policies.
 """
@@ -21,9 +22,19 @@ from core.observability.repository import ObservabilityRepository
 from services.llm.system_prompt_loader import (
     get_global_model_policy_path,
     get_system_prompt_path,
+    load_system_prompt,
+    merge_with_global_model_policy,
 )
 from services.tools.openai_definitions import OPENAI_TOOLS_CATALOG
+from services.tools.openai_definitions import get_tools_for_runtime
+from services.tools.tool_dev_specs import get_tool_dev_spec
 from storage.chat_repository import ChatStoreRepository
+from storage.dev_usage_ledger_repository import DevUsageLedgerRepository
+from storage.dream_run_repository import DreamRunRepository
+from storage.dream_scene_repository import DreamSceneRepository
+from storage.generated_frame_repository import GeneratedFrameRepository
+from storage.scene_video_repository import SceneVideoRepository
+from storage.story_video_repository import StoryVideoRepository
 from storage.video_job_repository import VideoJobRepository
 
 
@@ -150,7 +161,13 @@ def _static_tool_catalog() -> list[dict[str, Any]]:
     for schema in OPENAI_TOOLS_CATALOG:
         fn = (schema.get("function") or {}).get("name") or "unknown"
         desc = (schema.get("function") or {}).get("description") or ""
-        is_async = fn in ("generate_dream_pipeline", "image_to_video")
+        if fn == "generate_dream_pipeline":
+            tool_kind = "pipeline"
+        elif fn == "image_to_video":
+            tool_kind = "async_atomic"
+        else:
+            tool_kind = "atomic"
+        is_async = tool_kind in ("async_atomic", "pipeline")
         category = (
             "dream"
             if "dream" in fn
@@ -162,6 +179,7 @@ def _static_tool_catalog() -> list[dict[str, Any]]:
                 "description": desc,
                 "category": category,
                 "tool_type": "async" if is_async else "sync",
+                "type": tool_kind,
                 "schema": schema,
             }
         )
@@ -218,12 +236,577 @@ def build_registry_rows(
                 "success_count": ok,
                 "success_rate": rate,
                 "last_used": last_iso,
+                "dev_detail": get_tool_dev_spec(name),
+                "is_pipeline": base.get("type") == "pipeline",
             }
         )
 
     # image_to_video: статистика из video_jobs (если есть вызовы без chat tool_calls)
     # считаем все джобы за период как «вызовы» инструмента
     return rows
+
+
+def _map_pipeline_stage(raw: str | None, status: str | None) -> str:
+    s = (status or "").strip().lower()
+    st = (raw or "").strip().lower()
+    if s == "awaiting_character":
+        return "waiting_input"
+    if st in ("decomposing",):
+        return "running"
+    if st in ("generating_images",):
+        return "generating_images"
+    if st in ("animating",):
+        return "animating"
+    if st in ("assembling",):
+        return "assembling"
+    if s in ("completed",):
+        return "completed"
+    if s in ("failed",):
+        return "failed"
+    if s in ("started",):
+        return "running"
+    if s in ("awaiting_character",):
+        return "waiting_input"
+    return "created"
+
+
+def list_pipeline_jobs(
+    *,
+    dream_run_repo: DreamRunRepository | None,
+    limit: int = 60,
+    only_active: bool = False,
+) -> list[dict[str, Any]]:
+    if dream_run_repo is None:
+        return []
+    try:
+        docs = dream_run_repo.list_recent_sync(limit=limit)
+    except Exception:
+        return []
+    out: list[dict[str, Any]] = []
+    for d in docs:
+        run_id = str(d.get("_id") or "")
+        status = str(d.get("status") or "created").lower()
+        stage = _map_pipeline_stage(d.get("current_stage"), status)
+        if only_active and status in ("completed", "failed"):
+            continue
+        ca = d.get("created_at")
+        ua = d.get("updated_at")
+        ca_iso = ca.isoformat() if hasattr(ca, "isoformat") else str(ca or "")
+        ua_iso = ua.isoformat() if hasattr(ua, "isoformat") else str(ua or "")
+        elapsed_ms = None
+        try:
+            if hasattr(ca, "__class__") and hasattr(ua, "__class__") and ca and ua:
+                elapsed_ms = int((ua - ca).total_seconds() * 1000)
+        except Exception:
+            elapsed_ms = None
+        out.append(
+            {
+                "job_id": run_id,
+                "pipeline_name": "generate_dream_pipeline",
+                "user_id": d.get("user_id"),
+                "trace_id": d.get("trace_id"),
+                "status": status,
+                "stage": stage,
+                "created_at": ca_iso,
+                "updated_at": ua_iso,
+                "elapsed_ms": elapsed_ms,
+                "scene_count": int(d.get("scene_count") or 0),
+            }
+        )
+    return out
+
+
+def pipeline_definitions() -> list[dict[str, Any]]:
+    spec = get_tool_dev_spec("generate_dream_pipeline") or {}
+    schema = (spec.get("openai") or {})
+    return [
+        {
+            "name": "generate_dream_pipeline",
+            "description": spec.get("module_summary")
+            or "Полный workflow визуализации сна (LLM + tools + backend).",
+            "type": "pipeline",
+            "async": True,
+            "input_params": schema.get("parameters") or [],
+            "tools_used": [
+                "generate_image",
+                "image_to_video",
+                "video_trim_start",
+                "last_frame_as_reference",
+            ],
+            "entrypoint": {
+                "invoker": "dream intent detector / explicit tool call",
+                "input_fields": ["dream_text", "telegram_user_id"],
+                "creates": "dream_runs job",
+                "returns_immediately": {
+                    "job_id": "dream_run._id",
+                    "run_id": "dream_run._id",
+                    "status": "started|awaiting_character",
+                },
+            },
+            "output_contract": {
+                "job_id": "string",
+                "run_id": "string",
+                "status": "created|running|waiting_input|generating_images|animating|assembling|completed|failed",
+                "final_video": "url_or_local_path_or_null",
+                "error_state": "null_or_error_text",
+            },
+            "user_context_loaded": [
+                "avatar yes/no",
+                "images count",
+                "environment refs",
+                "previous dream assets",
+                "base character profile",
+            ],
+            "llm_stages": [
+                "decomposition",
+                "image_prompts",
+                "animation_prompts",
+            ],
+            "stage_details": [
+                {
+                    "id": "decomposition",
+                    "executor": "llm",
+                    "input": ["dream_text", "user_context"],
+                    "output": ["dream_summary", "scene_outlines"],
+                    "error_mode": "invalid_json_or_empty_scenes",
+                },
+                {
+                    "id": "image_prompts",
+                    "executor": "llm",
+                    "input": ["scene_outlines", "dream_summary", "user_context"],
+                    "output": ["visual_prompts_by_scene", "reference_type"],
+                    "error_mode": "invalid_json_or_missing_prompts",
+                },
+                {
+                    "id": "generate_images",
+                    "executor": "tool:generate_image",
+                    "input": ["visual_prompt", "style/context"],
+                    "output": ["generated_frames"],
+                    "error_mode": "provider_error_timeout",
+                },
+                {
+                    "id": "animate",
+                    "executor": "tool:image_to_video",
+                    "input": ["frame_image", "animation_prompt"],
+                    "output": ["scene_videos", "video_jobs"],
+                    "error_mode": "provider_failed_or_timeout",
+                },
+                {
+                    "id": "assemble",
+                    "executor": "backend",
+                    "input": ["scene_videos"],
+                    "output": ["final_video_asset"],
+                    "error_mode": "ffmpeg_or_io_failure",
+                },
+            ],
+            "execution_stages": [
+                "created",
+                "running",
+                "waiting_input",
+                "generating_images",
+                "animating",
+                "assembling",
+                "completed",
+                "failed",
+            ],
+            "visual_chain": [
+                "Stage 1: resolve_style",
+                "Stage 2: load_user_context",
+                "Stage 3: resolve_avatar (main character)",
+                "Stage 4: resolve_actors (secondary characters)",
+                "Stage 5: LLM -> decomposition + scene_actor_mapping",
+                "Stage 6: LLM -> build prompts with style + actors",
+                "Stage 7: Tool -> generate_image/edit_image (per scene)",
+                "Stage 8: Tool -> image_to_video (per scene)",
+                "Stage 8.1: Tool -> video_trim_start (optional, motion ramp-up cleanup)",
+                "Stage 8.2: Tool -> last_frame_as_reference (optional, overlap continuity)",
+                "Stage 9: Backend -> assemble video",
+            ],
+            "interaction": {
+                "supports_waiting_input": True,
+                "example": "awaiting_character -> user appearance -> resume pipeline",
+            },
+            "waiting_input_rules": {
+                "when": "no face/base character data for user",
+                "question": "Опиши внешность или отправь 'анон'",
+                "resume": "pipeline resumes after next user reply is consumed",
+            },
+            "storage_objects": [
+                "dream_runs",
+                "dream_scenes",
+                "generated_frames",
+                "scene_videos",
+                "story_videos",
+                "video_jobs",
+            ],
+            "security_scope": {
+                "accepts_only_validated_fields": True,
+                "rejects_arbitrary_commands": True,
+                "user_scope_only": True,
+                "cross_user_read": False,
+            },
+        }
+    ]
+
+
+def _tool_contract(tool_row: dict[str, Any]) -> dict[str, Any]:
+    name = str(tool_row.get("name") or "")
+    params = (((tool_row.get("dev_detail") or {}).get("openai") or {}).get("parameters") or [])
+    required = [str(p.get("name")) for p in params if p.get("required")]
+    optional = [str(p.get("name")) for p in params if not p.get("required")]
+    defaults = (tool_row.get("dev_detail") or {}).get("python_defaults") or {}
+
+    provider = "unknown"
+    returns = "unknown"
+    errors = ["validation_error", "provider_error", "timeout"]
+    latency = "sync"
+    if name == "generate_image":
+        provider = "Qwen Image / DashScope"
+        returns = "image_urls[]"
+        errors = ["missing_prompt", "dashscope_error", "empty_result", "network_timeout"]
+        latency = "sync (provider dependent)"
+    elif name == "image_to_video":
+        provider = "Wan video provider"
+        returns = "job_id + async status via video_jobs"
+        errors = ["missing_image_url", "provider_reject", "poll_timeout", "job_failed"]
+        latency = "async (queued job)"
+    elif name == "video_trim_start":
+        provider = "video post-processing (ffmpeg/service)"
+        returns = "trimmed_video_url | artifact reference"
+        errors = ["missing_video_url", "invalid_trim_range", "ffmpeg_failed"]
+        latency = "sync/async (implementation dependent)"
+    elif name == "last_frame_as_reference":
+        provider = "video frame extractor (ffmpeg/service)"
+        returns = "reference_image_url"
+        errors = ["missing_video_url", "frame_extract_failed", "decode_error"]
+        latency = "sync/async (implementation dependent)"
+
+    return {
+        "name": name,
+        "type": tool_row.get("type"),
+        "async": tool_row.get("tool_type") == "async",
+        "description": tool_row.get("description_ui") or "",
+        "required_params": required,
+        "optional_params": optional,
+        "defaults": defaults,
+        "provider": provider,
+        "returns": returns,
+        "errors": errors,
+        "latency_behavior": latency,
+    }
+
+
+def pipeline_runtime_overview(dream_run_repo: DreamRunRepository | None) -> dict[str, Any]:
+    if dream_run_repo is None:
+        return {
+            "active_runs": 0,
+            "queue": 0,
+            "failed_runs": 0,
+            "stuck_stage": 0,
+            "retries": 0,
+        }
+    try:
+        docs = dream_run_repo.list_recent_sync(limit=300)
+    except Exception:
+        docs = []
+    active = 0
+    queue = 0
+    failed = 0
+    stuck = 0
+    retries = 0
+    now = datetime.now(UTC)
+    for d in docs:
+        st = str(d.get("status") or "").lower()
+        if st in ("started", "decomposing", "generating_images", "animating", "assembling"):
+            active += 1
+        if st in ("created", "awaiting_character"):
+            queue += 1
+        if st == "failed":
+            failed += 1
+        if st in ("started", "decomposing", "generating_images", "animating", "assembling"):
+            ua = d.get("updated_at")
+            if hasattr(ua, "__class__"):
+                try:
+                    if (now - ua).total_seconds() > 1800:
+                        stuck += 1
+                except Exception:
+                    pass
+        retries += int(d.get("retry_count") or 0)
+    return {
+        "active_runs": active,
+        "queue": queue,
+        "failed_runs": failed,
+        "stuck_stage": stuck,
+        "retries": retries,
+    }
+
+
+def build_prompt_dynamic_context(
+    *,
+    atomic_rows: list[dict[str, Any]],
+    pipeline_defs: list[dict[str, Any]],
+    runtime: dict[str, Any],
+) -> dict[str, str]:
+    enabled_atomic = [r for r in atomic_rows if bool(r.get("enabled", True))]
+    tools_payload = [_tool_contract(r) for r in enabled_atomic]
+    pipelines_payload: list[dict[str, Any]] = []
+    for p in pipeline_defs:
+        pipelines_payload.append(
+            {
+                "name": p.get("name"),
+                "type": "pipeline",
+                "async": bool(p.get("async")),
+                "entrypoint": p.get("entrypoint"),
+                "returns": p.get("output_contract"),
+                "user_context_loaded": p.get("user_context_loaded"),
+                "stage_details": p.get("stage_details"),
+                "storage_objects": p.get("storage_objects"),
+                "waiting_input_rules": p.get("waiting_input_rules"),
+                "security_scope": p.get("security_scope"),
+                "tool_call_graph": "generate_dream_pipeline -> generate_image (per scene) -> image_to_video (per scene) -> assemble",
+            }
+        )
+    payload = {
+        "active_tool_names": [t["name"] for t in tools_payload]
+        + [p.get("name") for p in pipelines_payload if p.get("name")],
+        "tools": tools_payload,
+        "pipelines": pipelines_payload,
+        "runtime": runtime,
+    }
+    json_text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+
+    md_lines: list[str] = ["## Tools contracts (dynamic)"]
+    for t in tools_payload:
+        md_lines.append(f"- {t['name']} (type={t['type']}, async={str(t['async']).lower()})")
+        md_lines.append(f"  - provider: {t['provider']}")
+        md_lines.append(f"  - required_params: {', '.join(t['required_params']) if t['required_params'] else 'none'}")
+        md_lines.append(f"  - optional_params: {', '.join(t['optional_params']) if t['optional_params'] else 'none'}")
+        md_lines.append(f"  - defaults: {json.dumps(t['defaults'], ensure_ascii=False)}")
+        md_lines.append(f"  - returns: {t['returns']}")
+        md_lines.append(f"  - errors: {', '.join(t['errors'])}")
+        md_lines.append(f"  - latency: {t['latency_behavior']}")
+    md_lines.append("")
+    md_lines.append("## Pipeline contracts (dynamic)")
+    for p in pipelines_payload:
+        md_lines.append(f"- {p['name']} (type=pipeline, async={str(p['async']).lower()})")
+        md_lines.append(f"  - entrypoint: {json.dumps(p['entrypoint'], ensure_ascii=False)}")
+        md_lines.append(f"  - returns: {json.dumps(p['returns'], ensure_ascii=False)}")
+        md_lines.append(f"  - user_context_loaded: {', '.join(p['user_context_loaded'] or [])}")
+        md_lines.append("  - stage_details:")
+        for st in p.get("stage_details") or []:
+            md_lines.append(
+                f"    - {st.get('id')} [{st.get('executor')}]: in={st.get('input')} out={st.get('output')} errors={st.get('error_mode')}"
+            )
+        md_lines.append(f"  - waiting_input_rules: {json.dumps(p['waiting_input_rules'], ensure_ascii=False)}")
+        md_lines.append(f"  - storage_objects: {', '.join(p['storage_objects'] or [])}")
+        md_lines.append(f"  - security_scope: {json.dumps(p['security_scope'], ensure_ascii=False)}")
+        md_lines.append(f"  - tool_call_graph: {p['tool_call_graph']}")
+    md_lines.append("")
+    md_lines.append("## Runtime / observability")
+    md_lines.append(f"- active_runs: {runtime.get('active_runs', 0)}")
+    md_lines.append(f"- queue: {runtime.get('queue', 0)}")
+    md_lines.append(f"- failed_runs: {runtime.get('failed_runs', 0)}")
+    md_lines.append(f"- stuck_stage: {runtime.get('stuck_stage', 0)}")
+    md_lines.append(f"- retries: {runtime.get('retries', 0)}")
+    return {
+        "markdown": "\n".join(md_lines),
+        "json": json_text,
+    }
+
+
+def pipeline_storage_summary(
+    *,
+    dream_scene_repo: DreamSceneRepository | None,
+    frame_repo: GeneratedFrameRepository | None,
+    scene_video_repo: SceneVideoRepository | None,
+    story_repo: StoryVideoRepository | None,
+) -> dict[str, Any]:
+    def _count(repo: Any) -> int:
+        if repo is None:
+            return 0
+        coll = getattr(repo, "_sync", None)
+        if coll is None:
+            return 0
+        try:
+            return int(coll.count_documents({}))
+        except Exception:
+            return 0
+
+    return {
+        "scenes": _count(dream_scene_repo),
+        "images": _count(frame_repo),
+        "videos": _count(scene_video_repo),
+        "story_videos": _count(story_repo),
+    }
+
+
+def _dur_ms(start: Any, end: Any) -> int | None:
+    try:
+        if start and end and hasattr(start, "__class__") and hasattr(end, "__class__"):
+            return int((end - start).total_seconds() * 1000)
+    except Exception:
+        return None
+    return None
+
+
+def pipeline_job_detail(
+    *,
+    run_id: str | None,
+    dream_run_repo: DreamRunRepository | None,
+    dream_scene_repo: DreamSceneRepository | None,
+    frame_repo: GeneratedFrameRepository | None,
+    scene_video_repo: SceneVideoRepository | None,
+    story_repo: StoryVideoRepository | None,
+    video_job_repo: VideoJobRepository,
+) -> dict[str, Any] | None:
+    if not run_id or dream_run_repo is None:
+        return None
+    run = dream_run_repo.find_by_id_sync(run_id)
+    if not run:
+        return None
+    scenes = (
+        dream_scene_repo.list_by_dream_run_sync(run_id)
+        if dream_scene_repo is not None
+        else []
+    )
+    frames = (
+        frame_repo.list_by_dream_run_sync(run_id)
+        if frame_repo is not None
+        else []
+    )
+    sv = (
+        scene_video_repo.list_by_dream_run_sync(run_id)
+        if scene_video_repo is not None
+        else []
+    )
+    story = None
+    if story_repo is not None:
+        tr = str(run.get("trace_id") or "")
+        if tr:
+            try:
+                story = story_repo._sync.find_one({"trace_id": tr})  # type: ignore[attr-defined]
+            except Exception:
+                story = None
+    stage_progress = run.get("stage_progress") or {}
+    stages: list[dict[str, Any]] = []
+    for sid, st in stage_progress.items():
+        if not isinstance(st, dict):
+            continue
+        stages.append(
+            {
+                "id": sid,
+                "status": st.get("status"),
+                "started_at": st.get("started_at"),
+                "ended_at": st.get("ended_at"),
+                "duration_ms": _dur_ms(st.get("started_at"), st.get("ended_at")),
+                "done": st.get("done"),
+                "total": st.get("total"),
+                "error": st.get("error"),
+            }
+        )
+    stages.sort(key=lambda x: x.get("id") or "")
+
+    scene_actor_mapping: list[dict[str, Any]] = []
+    used_actor_ids: set[str] = set()
+    for s in scenes:
+        actor_names = list(s.get("actors") or [])
+        actor_ids = [str(x) for x in (s.get("actor_ids") or []) if x]
+        for aid in actor_ids:
+            used_actor_ids.add(aid)
+        scene_actor_mapping.append(
+            {
+                "scene_index": s.get("scene_index"),
+                "title": s.get("title") or "",
+                "actors": actor_names,
+                "actor_ids": actor_ids,
+            }
+        )
+    scene_actor_mapping.sort(key=lambda x: int(x.get("scene_index") or 0))
+
+    child_calls: list[dict[str, Any]] = []
+    for f in frames:
+        child_calls.append(
+            {
+                "scene_index": f.get("scene_index"),
+                "tool": "generate_image",
+                "status": f.get("status") or "generated",
+                "started_at": f.get("generation_started_at"),
+                "duration_ms": _dur_ms(
+                    f.get("generation_started_at"),
+                    f.get("generation_completed_at"),
+                ),
+                "result": (f.get("image_url") or "")[:200],
+            }
+        )
+    by_job_id = {str(v.get("video_job_id") or ""): v for v in sv}
+    for jid, row in by_job_id.items():
+        if not jid:
+            continue
+        vj = video_job_repo.get_job_sync(jid)
+        child_calls.append(
+            {
+                "scene_index": row.get("scene_index"),
+                "tool": "image_to_video",
+                "status": (vj or {}).get("status") or row.get("status") or "queued",
+                "started_at": (vj or {}).get("created_at") or row.get("created_at"),
+                "duration_ms": _dur_ms(
+                    (vj or {}).get("created_at"),
+                    (vj or {}).get("updated_at"),
+                ),
+                "result": ((vj or {}).get("video_url") or row.get("video_url") or "")[:200],
+            }
+        )
+    child_calls.sort(key=lambda x: (int(x.get("scene_index") or 0), x.get("tool") or ""))
+
+    vj_stats = video_job_repo._sync.aggregate(  # type: ignore[attr-defined]
+        [
+            {"$match": {"dream_run_id": run_id}},
+            {"$group": {"_id": "$status", "cnt": {"$sum": 1}}},
+        ]
+    )
+    queue = {"queued": 0, "running": 0, "failed": 0, "waiting_input": 0}
+    for s in vj_stats:
+        name = str(s.get("_id") or "").lower()
+        cnt = int(s.get("cnt") or 0)
+        if name in ("created", "queued"):
+            queue["queued"] += cnt
+        elif name in ("running",):
+            queue["running"] += cnt
+        elif name in ("failed",):
+            queue["failed"] += cnt
+    if str(run.get("status") or "").lower() == "awaiting_character":
+        queue["waiting_input"] = 1
+
+    return {
+        "run": run,
+        "stages": stages,
+        "child_calls": child_calls,
+        "style": run.get("style") or {},
+        "actor_bindings": run.get("actor_bindings") or {},
+        "scene_actor_mapping": scene_actor_mapping,
+        "resolved_actors_count": len(used_actor_ids),
+        "current_stage": _map_pipeline_stage(run.get("current_stage"), run.get("status")),
+        "elapsed_ms": _dur_ms(run.get("created_at"), run.get("updated_at")),
+        "active_tasks": queue["running"],
+        "pending_tasks": queue["queued"],
+        "queue": queue,
+        "user_context": {
+            "avatar": bool((run.get("asset_context_snapshot") or {}).get("has_face")),
+            "images_count": len(frames),
+            "has_base_character": bool(
+                (run.get("asset_context_snapshot") or {}).get("has_base_character")
+            ),
+            "base_character_asset_id": (run.get("asset_context_snapshot") or {}).get("base_character_asset_id"),
+            "selected_character_asset_id": (run.get("asset_context_snapshot") or {}).get("selected_character_asset_id"),
+            "scope": "user-scoped only",
+        },
+        "storage": {
+            "scenes": len(scenes),
+            "images": len(frames),
+            "videos": len(sv),
+            "final_result": bool(story),
+        },
+    }
 
 
 def merge_video_stats_from_aggregate(
@@ -390,6 +973,8 @@ def _map_video_job_status(raw: str) -> tuple[str, str]:
         return "completed", "completed"
     if raw in ("failed",):
         return "failed", "failed"
+    if raw in ("stale_timeout",):
+        return "failed", "stale_timeout"
     return "waiting_provider", raw or "unknown"
 
 
@@ -417,11 +1002,12 @@ def get_execution_detail(
             return None
         raw_st = (doc.get("status") or "").lower()
         ui_st, _ = _map_video_job_status(raw_st)
+        terminal_failed = raw_st in {"failed", "stale_timeout"}
         steps = [
-            {"id": "queued", "title": "Queued", "status": "ok" if raw_st != "failed" else "skip"},
-            {"id": "provider", "title": "Sent to provider", "status": "ok" if raw_st in ("running", "succeeded", "failed") else "pending"},
-            {"id": "poll", "title": "Polling", "status": "ok" if raw_st in ("succeeded", "failed") else ("running" if raw_st == "running" else "pending")},
-            {"id": "result", "title": "Result", "status": "ok" if raw_st == "succeeded" else ("failed" if raw_st == "failed" else "pending")},
+            {"id": "queued", "title": "Queued", "status": "ok" if not terminal_failed else "skip"},
+            {"id": "provider", "title": "Sent to provider", "status": "ok" if raw_st in ("running", "succeeded", "failed", "stale_timeout") else "pending"},
+            {"id": "poll", "title": "Polling", "status": "ok" if raw_st in ("succeeded", "failed", "stale_timeout") else ("running" if raw_st == "running" else "pending")},
+            {"id": "result", "title": "Result", "status": "ok" if raw_st == "succeeded" else ("failed" if terminal_failed else "pending")},
         ]
         return {
             "kind": "video_job",
@@ -543,11 +1129,67 @@ def analytics_summary(
     }
 
 
+def prompt_file_meta(text: str | None) -> dict[str, Any]:
+    """Краткое описание файла промпта для Dev UI (без полного текста в summary)."""
+    raw = text if text is not None else ""
+    stripped = raw.strip()
+    lines = len(raw.splitlines()) if raw else 0
+    first_line = ""
+    if stripped:
+        first_line = stripped.split("\n", 1)[0].strip()
+        if len(first_line) > 140:
+            first_line = first_line[:137] + "…"
+    snippet = stripped[:320]
+    if len(stripped) > 320:
+        snippet = snippet.rstrip() + "…"
+    return {
+        "chars": len(raw),
+        "lines": lines,
+        "headline": first_line or "(пусто)",
+        "snippet": snippet if stripped else "—",
+        "is_empty": not stripped,
+    }
+
+
+def build_chat_effective_prompt_context(*, data_dir: Path) -> dict[str, Any]:
+    try:
+        task_system = load_system_prompt()
+    except Exception as exc:  # noqa: BLE001
+        task_system = f"[Ошибка чтения system prompt: {exc}]"
+    effective = merge_with_global_model_policy(task_system)
+    runtime_tools = get_tools_for_runtime(data_dir=data_dir)
+    runtime_tool_names: list[str] = []
+    for schema in runtime_tools:
+        fn = (schema.get("function") or {}).get("name")
+        if isinstance(fn, str) and fn.strip():
+            runtime_tool_names.append(fn.strip())
+    return {
+        "effective_system_prompt": effective,
+        "runtime_tool_names": runtime_tool_names,
+        "runtime_tools_json": json.dumps(runtime_tools, ensure_ascii=False, indent=2, default=str),
+    }
+
+
 def read_policy_files() -> dict[str, str]:
+    from services.llm.system_prompt_loader import (
+        get_dream_beat_planner_path,
+        get_dream_decomposition_path,
+        get_dream_scene_motion_decompose_path,
+    )
+
     gp = get_global_model_policy_path()
     sp = get_system_prompt_path()
+    dbeat = get_dream_beat_planner_path()
+    dmotion = get_dream_scene_motion_decompose_path()
+    dd = get_dream_decomposition_path()
     out: dict[str, str] = {}
-    for key, path in (("global_model_policy", gp), ("system_prompt", sp)):
+    for key, path in (
+        ("global_model_policy", gp),
+        ("system_prompt", sp),
+        ("dream_beat_planner", dbeat),
+        ("dream_scene_motion_decompose", dmotion),
+        ("dream_decomposition", dd),
+    ):
         try:
             out[key] = path.read_text(encoding="utf-8") if path.is_file() else ""
         except OSError:
@@ -556,10 +1198,22 @@ def read_policy_files() -> dict[str, str]:
 
 
 def write_policy_file(which: str, content: str) -> None:
+    from services.llm.system_prompt_loader import (
+        get_dream_beat_planner_path,
+        get_dream_decomposition_path,
+        get_dream_scene_motion_decompose_path,
+    )
+
     if which == "global_model_policy":
         path = get_global_model_policy_path()
     elif which == "system_prompt":
         path = get_system_prompt_path()
+    elif which == "dream_beat_planner":
+        path = get_dream_beat_planner_path()
+    elif which == "dream_scene_motion_decompose":
+        path = get_dream_scene_motion_decompose_path()
+    elif which == "dream_decomposition":
+        path = get_dream_decomposition_path()
     else:
         raise ValueError("unknown policy file")
     path.write_text(content, encoding="utf-8")
@@ -578,6 +1232,13 @@ def build_tools_frame_context(
     exec_status: str | None = None,
     exec_user: str | None = None,
     only_errors: bool = False,
+    dream_run_repo: DreamRunRepository | None = None,
+    dream_scene_repo: DreamSceneRepository | None = None,
+    generated_frame_repo: GeneratedFrameRepository | None = None,
+    scene_video_repo: SceneVideoRepository | None = None,
+    story_video_repo: StoryVideoRepository | None = None,
+    pipeline_job_id: str | None = None,
+    usage_ledger_repo: DevUsageLedgerRepository | None = None,
 ) -> dict[str, Any]:
     """Данные для полной вкладки Tools (один HTMX-ответ)."""
     start, end = get_tools_period_bounds(
@@ -619,8 +1280,56 @@ def build_tools_frame_context(
         custom_end=custom_end,
         only_active=True,
     )
+    pipeline_defs = pipeline_definitions()
+    pipeline_jobs = list_pipeline_jobs(
+        dream_run_repo=dream_run_repo,
+        limit=80,
+        only_active=False,
+    )
+    pipeline_live = list_pipeline_jobs(
+        dream_run_repo=dream_run_repo,
+        limit=40,
+        only_active=True,
+    )
+    storage_summary = pipeline_storage_summary(
+        dream_scene_repo=dream_scene_repo,
+        frame_repo=generated_frame_repo,
+        scene_video_repo=scene_video_repo,
+        story_repo=story_video_repo,
+    )
+    selected_pipeline = pipeline_job_detail(
+        run_id=pipeline_job_id,
+        dream_run_repo=dream_run_repo,
+        dream_scene_repo=dream_scene_repo,
+        frame_repo=generated_frame_repo,
+        scene_video_repo=scene_video_repo,
+        story_repo=story_video_repo,
+        video_job_repo=video_job_repo,
+    )
+    runtime_overview = pipeline_runtime_overview(dream_run_repo)
+    enabled_pipeline_rows = [r for r in rows if r.get("type") == "pipeline" and bool(r.get("enabled", True))]
+    enabled_pipeline_names = {str(r.get("name")) for r in enabled_pipeline_rows}
+    filtered_pipeline_defs = [p for p in pipeline_defs if str(p.get("name")) in enabled_pipeline_names]
+    prompt_dynamic_context = build_prompt_dynamic_context(
+        atomic_rows=[r for r in rows if r.get("type") in ("atomic", "async_atomic")],
+        pipeline_defs=filtered_pipeline_defs,
+        runtime=runtime_overview,
+    )
     policies_files = read_policy_files()
     policies_extra = load_policies_extra(data_dir)
+    prompt_meta = {
+        "system_prompt": prompt_file_meta(policies_files.get("system_prompt")),
+        "global_model_policy": prompt_file_meta(
+            policies_files.get("global_model_policy")
+        ),
+        "dream_beat_planner": prompt_file_meta(policies_files.get("dream_beat_planner")),
+        "dream_scene_motion_decompose": prompt_file_meta(
+            policies_files.get("dream_scene_motion_decompose")
+        ),
+        "dream_decomposition": prompt_file_meta(
+            policies_files.get("dream_decomposition")
+        ),
+    }
     analytics = analytics_summary(
         chat_store=chat_store,
         video_job_repo=video_job_repo,
@@ -630,14 +1339,51 @@ def build_tools_frame_context(
         custom_end=custom_end,
         video_agg=video_agg,
     )
+    chat_effective = build_chat_effective_prompt_context(data_dir=data_dir)
+
+    usage_ledger_rows: list[dict[str, Any]] = []
+    if usage_ledger_repo is not None:
+        try:
+            usage_ledger_rows = usage_ledger_repo.aggregate_by_category_sync(
+                since=start, until=end
+            )
+        except Exception:  # noqa: BLE001
+            usage_ledger_rows = []
+    try:
+        chat_llm_usage = chat_store.aggregate_model_token_usage_global_sync(
+            since=start, until=end
+        )
+    except Exception:  # noqa: BLE001
+        chat_llm_usage = {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
 
     return {
         "registry_rows": rows,
+        "atomic_tools": [r for r in rows if r.get("type") in ("atomic", "async_atomic")],
+        "pipeline_registry_rows": [r for r in rows if r.get("type") == "pipeline"],
         "registry_view": (registry_view or "grid").lower(),
         "executions": executions,
         "live_items": live,
+        "pipeline_definitions": pipeline_defs,
+        "active_tool_names": [
+            str(r.get("name"))
+            for r in rows
+            if bool(r.get("enabled", True))
+        ],
+        "pipeline_jobs": pipeline_jobs,
+        "pipeline_live": pipeline_live,
+        "pipeline_storage": storage_summary,
+        "pipeline_runtime": runtime_overview,
+        "selected_pipeline": selected_pipeline,
+        "selected_pipeline_job_id": pipeline_job_id or "",
+        "prompt_dynamic_context": prompt_dynamic_context,
         "policies": policies_files,
         "policies_extra": policies_extra,
+        "prompt_meta": prompt_meta,
         "analytics": analytics,
         "period": period,
         "custom_start": custom_start or "",
@@ -647,4 +1393,9 @@ def build_tools_frame_context(
         "exec_user": exec_user or "",
         "only_errors": only_errors,
         "poll_interval_sec": 2.5,
+        "usage_analytics": {
+            "chat_llm": chat_llm_usage,
+            "ledger_by_category": usage_ledger_rows,
+        },
+        "chat_effective_prompt": chat_effective,
     }

@@ -52,6 +52,12 @@ class DreamSceneRepository:
             out.append(d)
         return out
 
+    async def delete_by_dream_run_ids(self, run_ids: list[str]) -> int:
+        if not run_ids:
+            return 0
+        r = await self._async.delete_many({"dream_run_id": {"$in": run_ids}})
+        return int(getattr(r, "deleted_count", 0) or 0)
+
     def list_by_dream_run_sync(self, dream_run_id: str) -> list[dict[str, Any]]:
         cur = self._sync.find({"dream_run_id": dream_run_id}).sort("scene_index", 1)
         out: list[dict[str, Any]] = []

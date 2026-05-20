@@ -127,6 +127,9 @@ class MessageRepository:
         r = await self._async.delete_many({"telegram_user_id": telegram_user_id})
         return int(getattr(r, "deleted_count", 0) or 0)
 
+    async def count_by_telegram_user_id(self, telegram_user_id: int) -> int:
+        return await self._async.count_documents({"telegram_user_id": telegram_user_id})
+
     def get_message_by_id_sync(self, doc_id: str) -> dict[str, Any] | None:
         """Один документ inbound по _id (строка ObjectId)."""
         try:

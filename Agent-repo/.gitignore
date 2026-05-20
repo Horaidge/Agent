@@ -1,0 +1,12 @@
+# Секреты — не коммитить
+config/.env
+app/.env
+app/.env.local
+app/.env.*.local
+
+# Зависимости и сборка
+app/node_modules/
+app/.next/
+app/out/
+
+.DS_Store

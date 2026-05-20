@@ -2,8 +2,17 @@
 <p class="err">{{ error }}</p>
 {% else %}
 <div class="video-upload-ok">
-  <p class="muted">Файл сохранён: <code>{{ filename }}</code></p>
+  <p class="muted video-upload-ok-line">
+    {% if slot == 'last' %}
+    🎞 Последний кадр загружен: <code>{{ filename }}</code>
+    {% else %}
+    🎬 Первый кадр загружен: <code>{{ filename }}</code>
+    {% endif %}
+  </p>
+  {% if slot == 'last' %}
+  <input type="hidden" name="last_frame_upload_id" value="{{ upload_id }}" form="form-video-job"/>
+  {% else %}
   <input type="hidden" name="upload_id" value="{{ upload_id }}" form="form-video-job"/>
-  <p class="muted video-hint">Теперь нажмите «Запустить видео» в форме ниже (режим «Загрузка файла»).</p>
+  {% endif %}
 </div>
 {% endif %}

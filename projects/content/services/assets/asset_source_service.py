@@ -89,6 +89,34 @@ def download_telegram_file_bytes(bot_token: str, file_id: str) -> tuple[bytes, s
     return content, mime
 
 
+def resolve_dream_asset_image_ref_for_qwen(
+    asset: dict[str, Any],
+    *,
+    bot_token: str,
+) -> str | None:
+    """
+    Строка для Qwen Image (edit / multimodal): публичный https URL, либо data URI.
+
+    Сгенерированные ассеты (базовый персонаж и т.д.) кладут результат в ``source_image_url``.
+    Загрузки из Telegram часто имеют только ``telegram_file_id`` — без этого разрешения
+    референс в пайплайне «теряется», и вызывается только text-to-image.
+    """
+    raw = (asset.get("source_image_url") or "").strip()
+    if raw.startswith(("http://", "https://")):
+        return raw
+    if raw.startswith("data:"):
+        return raw
+    fid = asset.get("telegram_file_id")
+    if fid and (bot_token or "").strip():
+        try:
+            uri, _ = dream_asset_to_data_uri(asset, bot_token=bot_token)
+            return uri
+        except AssetSourceError as e:
+            logger.warning("resolve_dream_asset_image_ref_for_qwen: %s", e)
+            return None
+    return None
+
+
 def dream_asset_to_data_uri(
     asset: dict[str, Any],
     *,

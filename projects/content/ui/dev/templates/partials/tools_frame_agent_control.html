@@ -1,0 +1,653 @@
+<div class="tools-frame-inner">
+  <form class="tools-header tools-filters"
+    hx-get="/dev/partials/tools/frame"
+    hx-target="#tools-frame-root"
+    hx-swap="innerHTML"
+    hx-trigger="submit, change from:select delay:100ms, change from:input delay:400ms"
+    hx-include="this">
+    <div class="tools-shell-header">
+      <div class="tools-header-row">
+        <h2 class="tools-title">Agent Control</h2>
+        <p class="muted tools-sub">Единый orchestration layer: Prompt, Tools, Pipelines, Live, Analytics.</p>
+      </div>
+      <div class="tools-filter-row">
+        <label>Период
+          <select name="period">
+            <option value="day" {% if period == 'day' %}selected{% endif %}>День</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>Неделя</option>
+            <option value="month" {% if period == 'month' or not period %}selected{% endif %}>Месяц</option>
+            <option value="all" {% if period == 'all' %}selected{% endif %}>Всё время</option>
+            <option value="custom" {% if period == 'custom' %}selected{% endif %}>Custom</option>
+          </select>
+        </label>
+        <label>Custom start <input type="date" name="custom_start" value="{{ custom_start }}"/></label>
+        <label>Custom end <input type="date" name="custom_end" value="{{ custom_end }}"/></label>
+        <input type="hidden" name="registry_view" value="{{ registry_view or 'grid' }}" id="tools-registry-view-field"/>
+        <input type="hidden" name="pipeline_job_id" value="{{ selected_pipeline_job_id or '' }}"/>
+        <button type="submit" class="btn-ghost">Применить</button>
+      </div>
+    </div>
+  </form>
+
+  <section class="tools-orchestration-summary">
+    <div class="tools-kpi-strip">
+      <div class="tools-kpi-pill"><span class="tools-kpi-val">{{ atomic_tools|length }}</span><span class="tools-kpi-lbl">atomic</span></div>
+      <div class="tools-kpi-pill"><span class="tools-kpi-val">{{ pipeline_definitions|length }}</span><span class="tools-kpi-lbl">pipelines</span></div>
+      <div class="tools-kpi-pill"><span class="tools-kpi-val">{{ pipeline_live|length }}</span><span class="tools-kpi-lbl">pipeline live</span></div>
+      <div class="tools-kpi-pill"><span class="tools-kpi-val">{{ analytics.total_calls }}</span><span class="tools-kpi-lbl">tool calls*</span></div>
+      <div class="tools-kpi-pill tools-kpi-pill--warn"><span class="tools-kpi-val">{{ analytics.failed_calls }}</span><span class="tools-kpi-lbl">errors*</span></div>
+    </div>
+  </section>
+
+  <div class="tools-substrip tools-substrip--wide" role="tablist">
+    <button type="button" class="tools-tab-btn" data-tool-tab="prompt">Prompt</button>
+    <button type="button" class="tools-tab-btn is-active" data-tool-tab="tools">Tools</button>
+    <button type="button" class="tools-tab-btn" data-tool-tab="pipelines">Pipelines</button>
+    <button type="button" class="tools-tab-btn" data-tool-tab="live">Live</button>
+    <button type="button" class="tools-tab-btn" data-tool-tab="analytics">Analytics</button>
+  </div>
+
+  <section data-tool-pane="prompt" class="tools-pane" hidden>
+    <h3 class="tools-pane-title">Prompt</h3>
+    <article class="tool-call-details">
+      <summary style="list-style:none; cursor:default;">Pipeline rules</summary>
+      <div class="tool-call-details-body">
+        <p class="muted small">Pipeline: {% for p in pipeline_definitions %}<code>{{ p.name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+        <p class="muted small">Условие запуска dream pipeline: intent=dream и confidence ≥ 0.45; при нехватке user-данных pipeline уходит в <code>waiting_input</code>.</p>
+      </div>
+    </article>
+
+    <article class="tool-call-details" style="margin:0.6rem 0 0.8rem;">
+      <summary style="list-style:none; cursor:default;">Как устроены prompt-файлы</summary>
+      <div class="tool-call-details-body">
+        <p class="muted small"><code>prompts/system_prompt.md</code> — основной сценарный prompt для диалога и выбора поведения модели в чате.</p>
+        <p class="muted small"><code>prompts/global_model_policy.md</code> — дополнительная глобальная политика; подмешивается к system layer во всех вызовах модели.</p>
+        <p class="muted small"><code>prompts/dream_beat_planner.md</code> — Beat Planner (0A), только beats + header_context. Редактор во вкладке Planning → 0A.</p>
+        <p class="muted small"><code>prompts/dream_decomposition.md</code> — Сценарист (0B), beats → scenes. Редактор → 0B.</p>
+        <p class="muted small"><code>prompts/dream_scene_motion_decompose.md</code> — production <code>decompose_dream_scenes</code> (сцены + motion для старого шага pipeline). Пустой — встроенный дефолт из кода.</p>
+      </div>
+    </article>
+
+    <div class="prompt-files-grid">
+      <article class="prompt-preview-card">
+        <header class="prompt-preview-hd">
+          <code class="prompt-preview-name">prompts/system_prompt.md</code>
+          <span class="muted prompt-preview-meta">{{ prompt_meta.system_prompt.lines }} строк · {{ prompt_meta.system_prompt.chars }} симв.</span>
+        </header>
+        <p class="prompt-preview-headline">{{ prompt_meta.system_prompt.headline }}</p>
+        <p class="prompt-preview-snippet muted">{{ prompt_meta.system_prompt.snippet }}</p>
+        <details class="prompt-editor-details">
+          <summary class="prompt-details-summary">Редактировать полный текст</summary>
+          <form
+            class="prompt-editor-form"
+            hx-post="/dev/api/prompts/system-md"
+            hx-target="#prompt-system-save-msg"
+            hx-swap="innerHTML">
+            <textarea name="content" class="prompt-editor-textarea mono" rows="18">{{ policies.system_prompt }}</textarea>
+            <div class="prompt-editor-actions">
+              <button type="submit" class="btn-ghost">Сохранить</button>
+              <span id="prompt-system-save-msg" class="prompt-save-msg"></span>
+            </div>
+          </form>
+        </details>
+      </article>
+
+      <article class="prompt-preview-card">
+        <header class="prompt-preview-hd">
+          <code class="prompt-preview-name">prompts/global_model_policy.md</code>
+          <span class="muted prompt-preview-meta">{{ prompt_meta.global_model_policy.lines }} строк · {{ prompt_meta.global_model_policy.chars }} симв.</span>
+        </header>
+        <p class="prompt-preview-headline">{{ prompt_meta.global_model_policy.headline }}</p>
+        <p class="prompt-preview-snippet muted">{{ prompt_meta.global_model_policy.snippet }}</p>
+        <details class="prompt-editor-details">
+          <summary class="prompt-details-summary">Редактировать полный текст</summary>
+          <form
+            class="prompt-editor-form"
+            hx-post="/dev/api/prompts/global-policy-md"
+            hx-target="#prompt-global-save-msg"
+            hx-swap="innerHTML">
+            <textarea name="content" class="prompt-editor-textarea mono" rows="12">{{ policies.global_model_policy }}</textarea>
+            <div class="prompt-editor-actions">
+              <button type="submit" class="btn-ghost">Сохранить</button>
+              <span id="prompt-global-save-msg" class="prompt-save-msg"></span>
+            </div>
+          </form>
+        </details>
+      </article>
+
+      <article class="prompt-preview-card">
+        <header class="prompt-preview-hd">
+          <code class="prompt-preview-name">prompts/dream_beat_planner.md</code>
+          <span class="muted prompt-preview-meta">{{ prompt_meta.dream_beat_planner.lines }} строк · {{ prompt_meta.dream_beat_planner.chars }} симв.</span>
+        </header>
+        <p class="prompt-preview-headline">{{ prompt_meta.dream_beat_planner.headline }}</p>
+        <p class="prompt-preview-snippet muted">{{ prompt_meta.dream_beat_planner.snippet }}</p>
+        <details class="prompt-editor-details">
+          <summary class="prompt-details-summary">Редактировать полный текст</summary>
+          <form
+            class="prompt-editor-form"
+            hx-post="/dev/api/prompts/dream-beat-planner-md"
+            hx-target="#prompt-dream-beat-save-msg"
+            hx-swap="innerHTML">
+            <textarea name="content" class="prompt-editor-textarea mono" rows="16">{{ policies.dream_beat_planner }}</textarea>
+            <div class="prompt-editor-actions">
+              <button type="submit" class="btn-ghost">Сохранить</button>
+              <span id="prompt-dream-beat-save-msg" class="prompt-save-msg"></span>
+            </div>
+          </form>
+        </details>
+      </article>
+
+      <article class="prompt-preview-card">
+        <header class="prompt-preview-hd">
+          <code class="prompt-preview-name">prompts/dream_decomposition.md</code> <span class="muted">(Сценарист 0B)</span>
+          <span class="muted prompt-preview-meta">{{ prompt_meta.dream_decomposition.lines }} строк · {{ prompt_meta.dream_decomposition.chars }} симв.</span>
+        </header>
+        <p class="prompt-preview-headline">{{ prompt_meta.dream_decomposition.headline }}</p>
+        <p class="prompt-preview-snippet muted">{{ prompt_meta.dream_decomposition.snippet }}</p>
+        <details class="prompt-editor-details">
+          <summary class="prompt-details-summary">Редактировать полный текст</summary>
+          <form
+            class="prompt-editor-form"
+            hx-post="/dev/api/prompts/dream-decomposition-md"
+            hx-target="#prompt-dream-decomp-save-msg"
+            hx-swap="innerHTML">
+            <textarea name="content" class="prompt-editor-textarea mono" rows="18">{{ policies.dream_decomposition }}</textarea>
+            <div class="prompt-editor-actions">
+              <button type="submit" class="btn-ghost">Сохранить</button>
+              <span id="prompt-dream-decomp-save-msg" class="prompt-save-msg"></span>
+            </div>
+          </form>
+        </details>
+      </article>
+
+      <article class="prompt-preview-card">
+        <header class="prompt-preview-hd">
+          <code class="prompt-preview-name">prompts/dream_scene_motion_decompose.md</code>
+          <span class="muted prompt-preview-meta">{{ prompt_meta.dream_scene_motion_decompose.lines }} строк · {{ prompt_meta.dream_scene_motion_decompose.chars }} симв.</span>
+        </header>
+        <p class="prompt-preview-headline">{{ prompt_meta.dream_scene_motion_decompose.headline }}</p>
+        <p class="prompt-preview-snippet muted">{{ prompt_meta.dream_scene_motion_decompose.snippet }}</p>
+        <details class="prompt-editor-details">
+          <summary class="prompt-details-summary">Редактировать полный текст</summary>
+          <form
+            class="prompt-editor-form"
+            hx-post="/dev/api/prompts/dream-scene-motion-decompose-md"
+            hx-target="#prompt-dream-motion-save-msg"
+            hx-swap="innerHTML">
+            <textarea name="content" class="prompt-editor-textarea mono" rows="18">{{ policies.dream_scene_motion_decompose }}</textarea>
+            <div class="prompt-editor-actions">
+              <button type="submit" class="btn-ghost">Сохранить</button>
+              <span id="prompt-dream-motion-save-msg" class="prompt-save-msg"></span>
+            </div>
+          </form>
+        </details>
+      </article>
+    </div>
+
+    <article class="tool-call-details" style="margin-top:0.9rem;">
+      <summary style="list-style:none; cursor:default;">Active tools for model (runtime)</summary>
+      <div class="tool-call-details-body">
+        <p class="muted small">Выбери инструменты, которые модель должна видеть и вызывать прямо сейчас. После сохранения набор применяется в runtime без ручных правок кода.</p>
+        <form
+          hx-post="/dev/api/tools/active-set"
+          hx-target="#tools-frame-root"
+          hx-swap="innerHTML">
+          <input type="hidden" name="period" value="{{ period or 'month' }}"/>
+          <input type="hidden" name="custom_start" value="{{ custom_start or '' }}"/>
+          <input type="hidden" name="custom_end" value="{{ custom_end or '' }}"/>
+          <div class="tool-spec-list">
+            {% for row in registry_rows %}
+            <label style="display:block; margin:0.25rem 0;">
+              <input type="checkbox" name="selected_tools" value="{{ row.name }}" {% if row.enabled %}checked{% endif %}/>
+              <code>{{ row.name }}</code>
+              <span class="muted small">type={{ row.type }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <div class="prompt-editor-actions">
+            <button type="submit" class="btn-primary">Применить набор tools</button>
+          </div>
+        </form>
+      </div>
+    </article>
+
+    <article class="tool-call-details" style="margin-top:0.9rem;">
+      <summary style="list-style:none; cursor:default;">Tools & Pipelines context (dynamic)</summary>
+      <div class="tool-call-details-body">
+        <p class="muted small">Блок формируется из текущего Tool Registry и Pipeline definitions. Используйте для быстрого copy/paste в промпты модели.</p>
+        <div class="tool-call-copy-actions">
+          <button type="button" class="btn-ghost btn-sm" data-copy-target="prompt-context-md">Копировать Markdown context</button>
+          <button type="button" class="btn-ghost btn-sm" data-copy-target="prompt-context-json">Копировать JSON context</button>
+        </div>
+
+        <p class="muted small tool-copy-caption">Prompt-ready Markdown</p>
+        <pre id="prompt-context-md" class="mono tool-copy-block">{{ prompt_dynamic_context.markdown }}</pre>
+
+        <p class="muted small tool-copy-caption">Prompt-ready JSON</p>
+        <pre id="prompt-context-json" class="mono tool-copy-block">{{ prompt_dynamic_context.json }}</pre>
+      </div>
+    </article>
+
+    <article class="tool-call-details" style="margin-top:0.9rem;">
+      <summary style="list-style:none; cursor:default;">Effective prompt sent to chat model</summary>
+      <div class="tool-call-details-body">
+        <p class="muted small">Ниже — фактический system-блок, который собирается в рантайме для чат-модели (с учётом add-on и global policy), и список доступных tools.</p>
+        <p class="muted small">runtime tools: {% for n in chat_effective_prompt.runtime_tool_names %}<code>{{ n }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+        <p class="muted small tool-copy-caption">Effective system prompt</p>
+        <pre id="prompt-effective-system" class="mono tool-copy-block">{{ chat_effective_prompt.effective_system_prompt }}</pre>
+        <p class="muted small tool-copy-caption">Runtime tools JSON</p>
+        <pre id="prompt-runtime-tools-json" class="mono tool-copy-block">{{ chat_effective_prompt.runtime_tools_json }}</pre>
+      </div>
+    </article>
+  </section>
+
+  <section data-tool-pane="tools" class="tools-pane tools-pane--active">
+    <h3 class="tools-pane-title">Tool Registry</h3>
+    <p class="muted small">Типы: <code>atomic</code>, <code>async_atomic</code>, <code>pipeline</code>.</p>
+    <h4>Atomic Tools</h4>
+    <div class="tools-card-grid tools-card-grid--wide">
+      {% for row in atomic_tools %}
+      <article class="tool-card {% if row.enabled %}tool-card--enabled{% else %}tool-card--disabled{% endif %}">
+        <header class="tool-card-hd">
+          <code class="tool-card-name">{{ row.name }}</code>
+          <span class="badge badge-cat">type={{ row.type }}</span>
+          {% if row.tool_type == 'async' %}<span class="badge badge-async">async</span>{% endif %}
+        </header>
+        <p class="tool-card-desc">{{ row.description_ui }}</p>
+        {% if row.dev_detail and row.dev_detail.call_contract %}
+        {% set safe_tool_name = row.name|replace(' ', '-') %}
+        <details class="tool-call-details">
+          <summary>Как вызывается инструмент</summary>
+          <div class="tool-call-details-body">
+            <p class="muted small">{{ row.dev_detail.call_contract.invocation_rule }}</p>
+            <div class="tool-call-copy-actions">
+              <button type="button" class="btn-ghost btn-sm" data-copy-target="tool-args-json-{{ safe_tool_name }}">Копировать arguments</button>
+              <button type="button" class="btn-ghost btn-sm" data-copy-target="tool-call-json-{{ safe_tool_name }}">Копировать payload</button>
+            </div>
+            <div class="tool-call-copy-grid">
+              <div><pre id="tool-args-json-{{ safe_tool_name }}" class="mono tool-copy-block">{{ row.dev_detail.call_contract.arguments_min_json }}</pre></div>
+              <div><pre id="tool-call-json-{{ safe_tool_name }}" class="mono tool-copy-block">{{ row.dev_detail.call_contract.call_payload_json }}</pre></div>
+            </div>
+          </div>
+        </details>
+        {% endif %}
+        {% if row.name == 'generate_image' or row.name == 'generate_image_openrouter' or row.name == 'image_to_video' %}
+        <details class="tool-call-details">
+          <summary>Test tool{% if row.name == 'generate_image_openrouter' %} · Nano Banana (OpenRouter){% endif %}</summary>
+          <div class="tool-call-details-body">
+            <form
+              hx-post="/dev/api/tools/playground/run"
+              hx-target="#tool-playground-result-{{ safe_tool_name }}"
+              hx-swap="innerHTML">
+              <input type="hidden" name="tool_name" value="{{ row.name }}"/>
+              <p class="muted small">Example arguments</p>
+              <pre class="mono tool-copy-block">{{ row.dev_detail.call_contract.arguments_min_json if row.dev_detail and row.dev_detail.call_contract else '{}' }}</pre>
+              <p class="muted small">Schema parameters</p>
+              <pre class="mono tool-copy-block">{{ row.dev_detail.openai.parameters | tojson }}</pre>
+              <label class="block muted small">JSON input (arguments)</label>
+              <textarea class="prompt-editor-textarea mono" name="arguments_json" rows="8">{{ row.dev_detail.call_contract.arguments_min_json if row.dev_detail and row.dev_detail.call_contract else '{}' }}</textarea>
+              <div class="prompt-editor-actions">
+                <button type="submit" class="btn-ghost">Run</button>
+              </div>
+            </form>
+            <div id="tool-playground-result-{{ safe_tool_name }}" class="muted small">Запуск ещё не выполнялся.</div>
+          </div>
+        </details>
+        {% endif %}
+        {% with dev_detail=row.dev_detail %}
+          {% include "partials/tool_dev_detail.html" %}
+        {% endwith %}
+        <details class="tool-call-details">
+          <summary>Tool contract</summary>
+          <div class="tool-call-details-body">
+            <p class="muted small">provider:
+              {% if row.name == 'generate_image' %}<code>Qwen Image / DashScope</code>{% elif row.name == 'generate_image_openrouter' %}<code>OpenRouter · image (Nano Banana / Gemini image)</code>{% elif row.name == 'image_to_video' %}<code>Wan provider</code>{% else %}<code>unknown</code>{% endif %}
+            </p>
+            <p class="muted small">output type:
+              {% if row.name == 'generate_image' %}<code>image_urls[]</code>{% elif row.name == 'generate_image_openrouter' %}<code>image_urls[]</code> (часто data URI){% elif row.name == 'image_to_video' %}<code>job_id + async status</code>{% else %}<code>unknown</code>{% endif %}
+            </p>
+            <p class="muted small">latency / async behavior:
+              {% if row.tool_type == 'async' %}<code>async queued job</code>{% else %}<code>sync provider call</code>{% endif %}
+            </p>
+            {% if row.dev_detail and row.dev_detail.python_defaults %}
+            <p class="muted small">defaults:</p>
+            <pre class="mono tool-copy-block">{{ row.dev_detail.python_defaults | tojson }}</pre>
+            {% endif %}
+            {% if row.dev_detail and row.dev_detail.openai and row.dev_detail.openai.parameters %}
+            <p class="muted small">optional params:
+              {% for p in row.dev_detail.openai.parameters %}{% if not p.required %}<code>{{ p.name }}</code>{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}
+            </p>
+            {% endif %}
+            <p class="muted small">error modes:
+              {% if row.name == 'generate_image' %}<code>missing_prompt</code>, <code>provider_error</code>, <code>empty_result</code>
+              {% elif row.name == 'generate_image_openrouter' %}<code>missing_prompt</code>, нет <code>OPENROUTER_API_KEY</code>, пустой <code>images</code> в ответе
+              {% elif row.name == 'image_to_video' %}<code>missing_image_url</code>, <code>provider_failed</code>, <code>poll_timeout</code>
+              {% else %}<code>validation_error</code>, <code>runtime_error</code>{% endif %}
+            </p>
+          </div>
+        </details>
+        <dl class="tool-card-kpi">
+          <div><dt>Category</dt><dd><span class="badge badge-cat">{{ row.category }}</span></dd></div>
+          <div><dt>Calls</dt><dd>{{ row.total_calls }}</dd></div>
+          <div><dt>Success</dt><dd>{% if row.success_rate is not none %}{{ '%.0f'|format(row.success_rate * 100) }}%{% else %}—{% endif %}</dd></div>
+          <div><dt>Last</dt><dd class="muted">{{ row.last_used or '—' }}</dd></div>
+        </dl>
+      </article>
+      {% else %}
+      <p class="muted">Нет atomic tools.</p>
+      {% endfor %}
+    </div>
+
+    <h4 style="margin-top:0.9rem;">Pipelines / Workflows</h4>
+    <div class="tools-card-grid tools-card-grid--wide">
+      {% for row in pipeline_registry_rows %}
+      <article class="tool-card tool-card--enabled">
+        <header class="tool-card-hd">
+          <code class="tool-card-name">{{ row.name }}</code>
+          <span class="badge badge-cat">type=pipeline</span>
+          <span class="badge badge-async">async=true</span>
+        </header>
+        <p class="tool-card-desc">{{ row.description_ui }}</p>
+        {% set p = (pipeline_definitions[0] if pipeline_definitions else None) %}
+        {% if p %}
+        <div class="tool-call-copy-grid">
+          <div>
+            <p class="tool-spec-kv"><strong>Inputs</strong></p>
+            <ul class="tool-spec-list">{% for prm in p.input_params %}<li><code>{{ prm.name }}</code> : {{ prm.type or '—' }}</li>{% endfor %}</ul>
+            <p class="tool-spec-kv"><strong>Tools used</strong></p>
+            <ul class="tool-spec-list">{% for t in p.tools_used %}<li><code>{{ t }}</code></li>{% endfor %}</ul>
+          </div>
+          <div>
+            <p class="tool-spec-kv"><strong>LLM stages</strong></p>
+            <ul class="tool-spec-list">{% for s in p.llm_stages %}<li>{{ s }}</li>{% endfor %}</ul>
+            <p class="tool-spec-kv"><strong>Execution states</strong></p>
+            <ul class="tool-spec-list">{% for s in p.execution_stages %}<li><code>{{ s }}</code></li>{% endfor %}</ul>
+          </div>
+        </div>
+        {% endif %}
+      </article>
+      {% else %}
+      <p class="muted">Pipeline пока не найден в registry.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section data-tool-pane="pipelines" class="tools-pane" hidden>
+    <h3 class="tools-pane-title">Pipelines</h3>
+    <article class="tool-call-details" style="margin-bottom:0.8rem;">
+      <summary style="list-style:none; cursor:default;">Runtime / observability</summary>
+      <div class="tool-call-details-body">
+        <ul class="tool-spec-list">
+          <li>active_runs: <code>{{ pipeline_runtime.active_runs }}</code></li>
+          <li>queue: <code>{{ pipeline_runtime.queue }}</code></li>
+          <li>failed_runs: <code>{{ pipeline_runtime.failed_runs }}</code></li>
+          <li>stuck_stage: <code>{{ pipeline_runtime.stuck_stage }}</code></li>
+          <li>retries: <code>{{ pipeline_runtime.retries }}</code></li>
+        </ul>
+      </div>
+    </article>
+    <article class="tool-call-details" style="margin:0 0 0.8rem;">
+      <summary style="list-style:none; cursor:default;">Run as model</summary>
+      <div class="tool-call-details-body">
+        <form hx-post="/dev/api/pipeline/run" hx-target="#pipeline-run-result" hx-swap="innerHTML">
+          <div class="row">
+            <label>user_id <input type="text" name="user_id" value="1"/></label>
+            <label>chat_id (optional) <input type="text" name="chat_id" value=""/></label>
+          </div>
+          {% if dream_decompose_model_choices is defined and dream_decompose_model_choices %}
+          <label class="block">Модель Stage 0 (декомпозиция, один вызов на run)</label>
+          <select name="decompose_model" class="dream-decompose-model-select">
+            {% for m in dream_decompose_model_choices %}
+            <option value="{{ m }}" {% if default_dream_decompose_model is defined and m == default_dream_decompose_model %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <p class="muted small" style="margin:0.35rem 0 0.6rem;">
+            Чат и image prompts (Stage 2): <code class="mono">{{ openai_model_label if openai_model_label is defined else 'gpt-4.1-nano' }}</code> — отдельно от Stage 0.
+          </p>
+          {% endif %}
+          <label class="block">dream_text</label>
+          <textarea name="dream_text" rows="4" class="prompt-editor-textarea mono" placeholder="Опишите сон..."></textarea>
+          <div class="prompt-editor-actions"><button type="submit" class="btn-primary">Run pipeline</button></div>
+        </form>
+        <div id="pipeline-run-result" class="muted small">Пока не запускали.</div>
+      </div>
+    </article>
+
+    {% for p in pipeline_definitions %}
+    <article class="tool-card tool-card--enabled">
+      <header class="tool-card-hd">
+        <code class="tool-card-name">{{ p.name }}</code>
+        <span class="badge badge-cat">type=pipeline</span>
+        <span class="badge badge-async">async=true</span>
+      </header>
+      <p class="tool-card-desc">{{ p.description }}</p>
+      <p class="tool-spec-kv"><strong>Entrypoint</strong></p>
+      <pre class="mono tool-copy-block">{{ p.entrypoint | tojson }}</pre>
+      <p class="tool-spec-kv"><strong>Output contract</strong></p>
+      <pre class="mono tool-copy-block">{{ p.output_contract | tojson }}</pre>
+      <p class="tool-spec-kv"><strong>User context contract</strong></p>
+      <ul class="tool-spec-list">{% for x in p.user_context_loaded %}<li>{{ x }}</li>{% endfor %}</ul>
+      <ol class="tool-spec-list">{% for s in p.visual_chain %}<li>{{ s }}</li>{% endfor %}</ol>
+      <ul class="tool-spec-list">{% for s in p.execution_stages %}<li><code>{{ s }}</code></li>{% endfor %}</ul>
+      <p class="tool-spec-kv"><strong>Stage details</strong></p>
+      <table class="tools-data-table">
+        <thead><tr><th>stage</th><th>executor</th><th>input</th><th>output</th><th>error</th></tr></thead>
+        <tbody>
+          {% for st in p.stage_details %}
+          <tr>
+            <td><code>{{ st.id }}</code></td>
+            <td>{{ st.executor }}</td>
+            <td class="muted">{{ st.input | tojson }}</td>
+            <td class="muted">{{ st.output | tojson }}</td>
+            <td class="muted">{{ st.error_mode }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="tool-spec-kv"><strong>Waiting input rules</strong></p>
+      <pre class="mono tool-copy-block">{{ p.waiting_input_rules | tojson }}</pre>
+      <p class="tool-spec-kv"><strong>Storage contract</strong></p>
+      <ul class="tool-spec-list">{% for s in p.storage_objects %}<li>{{ s }}</li>{% endfor %}</ul>
+      <p class="tool-spec-kv"><strong>Security boundary</strong></p>
+      <pre class="mono tool-copy-block">{{ p.security_scope | tojson }}</pre>
+    </article>
+    {% endfor %}
+    <div class="table-wrap tools-table-wrap">
+      <table class="tools-data-table">
+        <thead><tr><th>job_id</th><th>user_id</th><th>status</th><th>stage</th><th>created_at</th><th>updated_at</th></tr></thead>
+        <tbody>
+          {% for j in pipeline_jobs %}
+          <tr>
+            <td><a href="/dev/partials/tools/frame?period={{ period }}&pipeline_job_id={{ j.job_id }}"><code>{{ j.job_id }}</code></a></td>
+            <td>{{ j.user_id }}</td>
+            <td><span class="exec-status exec-status--{{ j.status }}">{{ j.status }}</span></td>
+            <td><code>{{ j.stage }}</code></td>
+            <td class="muted">{{ j.created_at }}</td>
+            <td class="muted">{{ j.updated_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="muted">Нет pipeline jobs.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if selected_pipeline %}
+    <article class="tool-card tool-card--enabled" style="margin-top:0.9rem;">
+      <header class="tool-card-hd">
+        <code class="tool-card-name">Pipeline Inspector · {{ selected_pipeline.run._id }}</code>
+        <span class="badge badge-cat">status={{ selected_pipeline.run.status }}</span>
+      </header>
+      <div class="tool-call-copy-grid">
+        <div>
+          <p class="tool-spec-kv"><strong>Style used</strong></p>
+          <pre class="mono tool-copy-block">{{ selected_pipeline.style | tojson }}</pre>
+          <p class="tool-spec-kv"><strong>Resolved actors</strong></p>
+          <ul class="tool-spec-list">
+            <li>count: <code>{{ selected_pipeline.resolved_actors_count }}</code></li>
+            <li>bindings: <code>{{ selected_pipeline.actor_bindings | tojson }}</code></li>
+          </ul>
+          <p class="tool-spec-kv"><strong>User context</strong></p>
+          <ul class="tool-spec-list">
+            <li>avatar: <code>{{ 'yes' if selected_pipeline.user_context.avatar else 'no' }}</code></li>
+            <li>images count: <code>{{ selected_pipeline.user_context.images_count }}</code></li>
+            <li>has_base_character: <code>{{ 'yes' if selected_pipeline.user_context.has_base_character else 'no' }}</code></li>
+            <li>base_character_asset_id: <code>{{ selected_pipeline.user_context.base_character_asset_id or '—' }}</code></li>
+            <li>selected_character_asset_id: <code>{{ selected_pipeline.user_context.selected_character_asset_id or '—' }}</code></li>
+            <li>scope: <code>{{ selected_pipeline.user_context.scope }}</code></li>
+          </ul>
+          <p class="tool-spec-kv"><strong>Current execution</strong></p>
+          <ul class="tool-spec-list">
+            <li>current stage: <code>{{ selected_pipeline.current_stage }}</code></li>
+            <li>elapsed: <code>{% if selected_pipeline.elapsed_ms %}{{ (selected_pipeline.elapsed_ms / 1000)|round(1) }}s{% else %}—{% endif %}</code></li>
+            <li>active tasks: <code>{{ selected_pipeline.active_tasks }}</code></li>
+            <li>pending tasks: <code>{{ selected_pipeline.pending_tasks }}</code></li>
+          </ul>
+        </div>
+        <div>
+          <p class="tool-spec-kv"><strong>Queue / Jobs</strong></p>
+          <ul class="tool-spec-list">
+            <li>queued: <code>{{ selected_pipeline.queue.queued }}</code></li>
+            <li>running: <code>{{ selected_pipeline.queue.running }}</code></li>
+            <li>failed: <code>{{ selected_pipeline.queue.failed }}</code></li>
+            <li>waiting_input: <code>{{ selected_pipeline.queue.waiting_input }}</code></li>
+          </ul>
+        </div>
+      </div>
+      <p class="tool-spec-kv"><strong>Pipeline flow</strong></p>
+      <table class="tools-data-table">
+        <thead><tr><th>stage</th><th>status</th><th>started</th><th>duration</th><th>error</th></tr></thead>
+        <tbody>
+          {% for st in selected_pipeline.stages %}
+          <tr><td><code>{{ st.id }}</code></td><td>{{ st.status }}</td><td class="muted">{{ st.started_at or '—' }}</td><td>{% if st.duration_ms %}{{ (st.duration_ms / 1000)|round(2) }}s{% else %}—{% endif %}</td><td class="muted">{{ st.error or '—' }}</td></tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">Нет stage progress.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <p class="tool-spec-kv"><strong>Scene actor mapping</strong></p>
+      <table class="tools-data-table">
+        <thead><tr><th>scene</th><th>title</th><th>actors</th><th>actor_ids</th></tr></thead>
+        <tbody>
+          {% for s in selected_pipeline.scene_actor_mapping %}
+          <tr>
+            <td><code>{{ s.scene_index }}</code></td>
+            <td>{{ s.title or '—' }}</td>
+            <td class="muted">{{ s.actors | join(', ') if s.actors else '—' }}</td>
+            <td class="muted">{{ s.actor_ids | join(', ') if s.actor_ids else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted">Нет scene actor bindings.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <p class="tool-spec-kv"><strong>Tool calls inside pipeline</strong></p>
+      <table class="tools-data-table">
+        <thead><tr><th>scene</th><th>tool</th><th>status</th><th>time</th><th>result</th></tr></thead>
+        <tbody>
+          {% for c in selected_pipeline.child_calls %}
+          <tr><td>{{ c.scene_index }}</td><td><code>{{ c.tool }}</code></td><td>{{ c.status }}</td><td>{% if c.duration_ms %}{{ (c.duration_ms / 1000)|round(2) }}s{% else %}—{% endif %}</td><td class="muted">{{ c.result or '—' }}</td></tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">Нет child tool calls.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+    {% else %}
+    <p class="muted">Выберите pipeline job:</p>
+    <ul class="tool-spec-list">
+      {% for j in pipeline_jobs[:8] %}
+      <li><a href="/dev/partials/tools/frame?period={{ period }}&pipeline_job_id={{ j.job_id }}">{{ j.job_id }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <section data-tool-pane="live" class="tools-pane" hidden>
+    <h3 class="tools-pane-title">Live</h3>
+    <p class="muted small" style="margin:0 0 0.85rem;">
+      <strong>Pipeline</strong> — активные запуски Dream (<code>dream_runs</code>, не завершённые и не проваленные). Если репозиторий недоступен или нет run’ов, блок пустой.
+      <strong>Видео-jobs</strong> — очередь Wan <code>image_to_video</code> в статусах queued / running / ожидание провайдера.
+    </p>
+    <h4 class="tools-pane-subtitle">Активные pipeline</h4>
+    <div class="tools-card-grid">
+      {% for j in pipeline_live %}
+      <article class="tool-live-card tool-exec--running">
+        <span class="live-pulse" aria-hidden="true"></span>
+        <div><code>{{ j.pipeline_name }}</code> · user={{ j.user_id }}</div>
+        <div class="muted">stage=<code>{{ j.stage }}</code> · status=<code>{{ j.status }}</code></div>
+        <div class="muted small">job <code>{{ j.job_id }}</code></div>
+      </article>
+      {% else %}
+      <p class="muted">Нет активных pipeline (или <code>dream_run_repo</code> не подключён).</p>
+      {% endfor %}
+    </div>
+    <h4 class="tools-pane-subtitle" style="margin-top:1rem;">Активные video jobs</h4>
+    <div class="table-wrap tools-table-wrap">
+      <table class="tools-data-table">
+        <thead><tr><th>kind</th><th>status</th><th>user</th><th>prompt / detail</th><th>ссылка</th></tr></thead>
+        <tbody>
+          {% for it in live_items %}
+          <tr>
+            <td><code>{{ it.kind }}</code></td>
+            <td><span class="exec-status exec-status--{{ it.ui_status }}">{{ it.status }}</span></td>
+            <td class="muted">{{ it.user_id or it.internal_user_id or '—' }}</td>
+            <td class="muted small">{{ (it.input_summary or '')[:120] }}{% if (it.input_summary or '')|length > 120 %}…{% endif %}</td>
+            <td>{% if it.detail_href %}<a href="{{ it.detail_href }}">detail</a>{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">Нет активных video jobs.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section data-tool-pane="analytics" class="tools-pane" hidden>
+    <h3 class="tools-pane-title">Analytics</h3>
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card kpi-tools"><span class="kpi-val">{{ analytics.total_tools }}</span><span class="kpi-lbl">tools</span></div>
+      <div class="analytics-kpi-card kpi-calls"><span class="kpi-val">{{ pipeline_jobs|length }}</span><span class="kpi-lbl">pipeline jobs</span></div>
+    </div>
+    {% set ua = usage_analytics %}
+    <h4>Токены чата (LLM, коллекция model_calls)</h4>
+    <p class="muted small">Сумма по полю <code>usage.*</code> за выбранный период фильтра выше. Новые вызовы пишут usage из ответа OpenAI.</p>
+    <ul class="top-tools-list">
+      <li>вызовов модели: <code>{{ ua.chat_llm.calls }}</code></li>
+      <li>prompt_tokens: <code>{{ ua.chat_llm.prompt_tokens }}</code></li>
+      <li>completion_tokens: <code>{{ ua.chat_llm.completion_tokens }}</code></li>
+      <li>total_tokens: <code>{{ ua.chat_llm.total_tokens }}</code></li>
+    </ul>
+    <h4>Dev: расход из журнала (Mongo <code>dev_usage_ledger</code>)</h4>
+    <p class="muted small">События из Playground, формы Qwen, создание video job и т.д. Токены — когда провайдер отдаёт usage (например OpenRouter для картинок).</p>
+    <div class="table-wrap tools-table-wrap">
+      <table class="tools-data-table">
+        <thead><tr><th>category</th><th>events</th><th>in</th><th>out</th><th>total</th><th>USD*</th></tr></thead>
+        <tbody>
+          {% for row in ua.ledger_by_category %}
+          <tr>
+            <td><code>{{ row.category }}</code></td>
+            <td>{{ row.events }}</td>
+            <td class="muted">{{ row.input_tokens }}</td>
+            <td class="muted">{{ row.output_tokens }}</td>
+            <td class="muted">{{ row.total_tokens }}</td>
+            <td class="muted">{% if row.cost_usd %}{{ '%.6f'|format(row.cost_usd) }}{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="muted">Пока нет записей за период (или журнал пуст).</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <h4>Storage / Data</h4>
+    <ul class="top-tools-list">
+      <li>scenes: <code>{{ pipeline_storage.scenes }}</code></li>
+      <li>images: <code>{{ pipeline_storage.images }}</code></li>
+      <li>videos: <code>{{ pipeline_storage.videos }}</code></li>
+      <li>story_videos: <code>{{ pipeline_storage.story_videos }}</code></li>
+    </ul>
+  </section>
+</div>

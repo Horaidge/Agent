@@ -10,19 +10,25 @@ from typing import AsyncIterator
 # До import gradio: отключаем телеметрию (иначе запросы к api.gradio.app / HF)
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "false")
 
+from core.config.settings import detach_gradio_root_path_env, get_settings
+
+detach_gradio_root_path_env()
+
 from aiogram import Dispatcher
 from fastapi import FastAPI
 import gradio as gr
 
 from bot.asset_handlers import create_dream_asset_router
+from bot.dream_lite_handlers import router as dream_lite_telegram_router
+from bot.dream_lite_middleware import DreamLiteResourcesMiddleware
 from bot.handlers import router as telegram_router
 from bot.media_handlers import router as media_log_router
 from bot.middlewares import MessageServiceMiddleware
+from bot.telegram_access_middleware import TelegramAccessMiddleware
 from bot.user_menu_handlers import router as user_menu_router
 from bot.user_menu_middleware import UserDataServiceMiddleware
 from bot.webhook import register_telegram_webhook
 from bot.webhook_management import set_webhook_from_settings
-from core.config.settings import get_settings
 from core.integrations.telegram_client import create_telegram_bot
 from core.logging_dev_filter import install_dev_access_log_filter
 from core.observability.repository import ensure_observability_indexes
@@ -43,15 +49,30 @@ from services.message_service import MessageService
 from services.user_data_service import UserDataService
 from services.video.video_job_service import VideoJobService
 from storage.chat_repository import ensure_chat_indexes
+from storage.dev_usage_ledger_repository import ensure_dev_usage_ledger_indexes
 from storage.dream_asset_repository import ensure_dream_asset_indexes
 from storage.generated_image_repository import ensure_generated_image_indexes
 from storage.filesystem import ensure_data_dirs
+from storage.dream_lite_artifact_repository import ensure_dream_lite_artifact_indexes
+from storage.dream_lite_asset_repository import ensure_dream_lite_asset_indexes
+from storage.dream_lite_run_repository import (
+    ensure_dream_lite_profile_indexes,
+    ensure_dream_lite_run_indexes,
+)
+from storage.dream_lite_summary_repository import ensure_dream_lite_summary_indexes
+from storage.dream_lite_step3_snapshot_repository import ensure_dream_lite_step3_snapshot_indexes
 from storage.dream_run_repository import ensure_dream_run_indexes
 from storage.dream_scene_repository import ensure_dream_scene_indexes
 from storage.generated_frame_repository import ensure_generated_frame_indexes
 from storage.mongo import (
     build_chat_store,
+    build_dev_usage_ledger_repository,
     build_dream_asset_repository,
+    build_dream_lite_artifact_repository,
+    build_dream_lite_asset_repository,
+    build_dream_lite_run_repository,
+    build_dream_lite_step3_snapshot_repository,
+    build_dream_lite_summary_repository,
     build_dream_run_repository,
     build_dream_scene_repository,
     build_generated_frame_repository,
@@ -60,6 +81,7 @@ from storage.mongo import (
     build_observability,
     build_scene_video_repository,
     build_story_video_repository,
+    build_telegram_access_repository,
     build_user_profile_repository,
     build_video_job_repository,
 )
@@ -68,6 +90,7 @@ from storage.story_video_repository import ensure_story_video_indexes
 from storage.user_profile_repository import ensure_user_profile_indexes
 from storage.repository import ensure_indexes
 from storage.video_job_repository import ensure_video_job_indexes
+from api.dream_lite_montage_json import build_dream_lite_montage_json_router
 from ui.banner import print_local_app_banner, schedule_open_gradio_in_browser
 from ui.gradio_app import build_gradio_app
 from ui.prompts_editor_api import create_prompts_editor_router
@@ -99,6 +122,21 @@ def create_app() -> FastAPI:
     dream_run_repo = build_dream_run_repository(
         settings, motor_client, sync_client
     )
+    dream_lite_run_repo = build_dream_lite_run_repository(
+        settings, motor_client, sync_client
+    )
+    dream_lite_artifact_repo = build_dream_lite_artifact_repository(
+        settings, motor_client, sync_client
+    )
+    dream_lite_summary_repo = build_dream_lite_summary_repository(
+        settings, motor_client, sync_client
+    )
+    dream_lite_asset_repo = build_dream_lite_asset_repository(
+        settings, motor_client, sync_client
+    )
+    dream_lite_step3_snapshot_repo = build_dream_lite_step3_snapshot_repository(
+        settings, sync_client
+    )
     dream_scene_repo = build_dream_scene_repository(
         settings, motor_client, sync_client
     )
@@ -108,12 +146,17 @@ def create_app() -> FastAPI:
     story_video_repo = build_story_video_repository(
         settings, motor_client, sync_client
     )
+    telegram_access_repo = build_telegram_access_repository(settings, sync_client)
     dream_asset_service = DreamAssetService(dream_asset_repo)
 
     obs_repo = None
     obs_service = None
+    dev_usage_ledger_repo = None
     if settings.dev_debug_ui_enabled:
         obs_repo, obs_service = build_observability(settings, motor_client, sync_client)
+        dev_usage_ledger_repo = build_dev_usage_ledger_repository(
+            settings, sync_client
+        )
 
     openai_chat = OpenAIChatService(
         settings.openai_api_key,
@@ -141,6 +184,7 @@ def create_app() -> FastAPI:
         video_jobs=video_job_service,
         openai=openai_chat,
         observability=obs_service,
+        generated_image_repo=generated_image_repo,
     )
     chat_orchestrator = ChatOrchestrator(
         settings,
@@ -150,6 +194,8 @@ def create_app() -> FastAPI:
         dream_asset_repo=dream_asset_repo,
         user_profile_repo=user_profile_repo,
         generated_image_repo=generated_image_repo,
+        dream_pipeline_service=dream_pipeline,
+        dream_lite_run_repo=dream_lite_run_repo,
     )
     message_service = MessageService(
         repository,
@@ -162,15 +208,47 @@ def create_app() -> FastAPI:
         repository,
         chat_store,
         generated_image_repo,
+        generated_frame_repo,
+        story_video_repo,
+        dream_asset_repo,
+        user_profile_repo,
+        dream_run_repo,
+        dream_scene_repo,
+        scene_video_repo,
+        video_job_repo,
         observability_repo=obs_repo,
     )
     user_menu_router.message.middleware(UserDataServiceMiddleware(user_data_service))
 
+    dream_lite_telegram_router.message.middleware(
+        DreamLiteResourcesMiddleware(
+            dream_lite_run_repo=dream_lite_run_repo,
+            dream_pipeline=dream_pipeline,
+            dream_lite_summary_repo=dream_lite_summary_repo,
+            dream_lite_asset_repo=dream_lite_asset_repo,
+        ),
+    )
+    dream_lite_telegram_router.callback_query.middleware(
+        DreamLiteResourcesMiddleware(
+            dream_lite_run_repo=dream_lite_run_repo,
+            dream_pipeline=dream_pipeline,
+            dream_lite_summary_repo=dream_lite_summary_repo,
+            dream_lite_asset_repo=dream_lite_asset_repo,
+        ),
+    )
+
     bot = create_telegram_bot(settings)
     dp = Dispatcher()
+    dp.update.middleware(
+        TelegramAccessMiddleware(
+            settings,
+            access_repo=telegram_access_repo,
+        )
+    )
     dp.update.middleware(MessageServiceMiddleware(message_service))
     dp.include_router(user_menu_router)
     dp.include_router(media_log_router)
+    dp.include_router(dream_lite_telegram_router)
     dp.include_router(telegram_router)
     dp.include_router(create_dream_asset_router(dream_asset_service))
 
@@ -196,11 +274,36 @@ def create_app() -> FastAPI:
         await ensure_video_job_indexes(
             motor_client[db][settings.mongodb_collection_video_jobs],
         )
+        try:
+            resumed = video_job_service.resume_stale_pollers()
+            if resumed:
+                logger.info(
+                    "Возобновлён фоновый опрос Wan для %s незавершённых video job(s) "
+                    "(после рестарта uvicorn опрос в памяти обнуляется — см. VIDEO_JOB_MAX_POLL_SEC)",
+                    resumed,
+                )
+        except Exception:
+            logger.exception("Не удалось возобновить опрос video jobs при старте")
         await ensure_generated_frame_indexes(
             motor_client[db][settings.mongodb_collection_generated_frames],
         )
         await ensure_dream_run_indexes(
             motor_client[db][settings.mongodb_collection_dream_runs],
+        )
+        await ensure_dream_lite_run_indexes(
+            motor_client[db][settings.mongodb_collection_dream_lite_runs],
+        )
+        await ensure_dream_lite_profile_indexes(
+            motor_client[db][settings.mongodb_collection_dream_lite_profiles],
+        )
+        await ensure_dream_lite_artifact_indexes(
+            motor_client[db][settings.mongodb_collection_dream_lite_artifacts],
+        )
+        await ensure_dream_lite_summary_indexes(
+            motor_client[db][settings.mongodb_collection_dream_lite_summaries],
+        )
+        await ensure_dream_lite_asset_indexes(
+            motor_client[db][settings.mongodb_collection_dream_lite_assets],
         )
         await ensure_dream_scene_indexes(
             motor_client[db][settings.mongodb_collection_dream_scenes],
@@ -216,6 +319,14 @@ def create_app() -> FastAPI:
                 settings.mongodb_collection_observability
             ]
             await ensure_observability_indexes(ocoll)
+            ensure_dev_usage_ledger_indexes(
+                sync_client[settings.mongodb_db][
+                    settings.mongodb_collection_dev_usage
+                ]
+            )
+            ensure_dream_lite_step3_snapshot_indexes(
+                sync_client[settings.mongodb_db]["dream_lite_step3_snapshots"]
+            )
 
         async def _after_server_listening() -> None:
             # Планируется до yield, но выполнится после первого await внутри неё — когда event loop
@@ -312,13 +423,16 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="Dream Viz API", lifespan=lifespan)
     register_telegram_webhook(app, bot, dp, settings, observability=obs_service)
+    app.include_router(build_dream_lite_montage_json_router(dream_pipeline))
 
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
     gradio_app = build_gradio_app(repository, settings)
-    gr.mount_gradio_app(app, gradio_app, path=settings.gradio_mount_path)
+    # root_path в mount_gradio_app задаёт blocks.root_path и ломает маршруты, если nginx
+    # проксирует уже «обрезанный» путь (/ui). Публичный префикс — GRADIO_PROXY_PREFIX / заголовки nginx.
+    gr.mount_gradio_app(app, gradio_app, path=settings.gradio_mount_path, root_path=None)
 
     app.include_router(create_prompts_editor_router(settings))
 
@@ -343,6 +457,12 @@ def create_app() -> FastAPI:
                 generated_image_repo=generated_image_repo,
                 scene_video_repo=scene_video_repo,
                 story_video_repo=story_video_repo,
+                dream_pipeline_service=dream_pipeline,
+                dev_usage_ledger_repo=dev_usage_ledger_repo,
+                dream_lite_run_repo=dream_lite_run_repo,
+                dream_lite_artifact_repo=dream_lite_artifact_repo,
+                telegram_access_repo=telegram_access_repo,
+                dream_lite_step3_snapshot_repo=dream_lite_step3_snapshot_repo,
             ),
         )
         app.include_router(create_legacy_debug_redirect_router(settings))

@@ -34,6 +34,10 @@ class OpenAIChatService:
     def configured(self) -> bool:
         return self._client is not None
 
+    @property
+    def default_model(self) -> str:
+        return self._model
+
     @staticmethod
     def _messages_with_global_policy(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Дополняет первый system-сообщением из `global_model_policy.md` (если файл непустой)."""
@@ -82,18 +86,41 @@ class OpenAIChatService:
         *,
         system: str,
         user: str,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        seed: int | None = None,
     ) -> str:
-        """Один раунд Chat Completions с response_format=json_object (без tools)."""
+        """Один раунд Chat Completions с response_format=json_object (без tools).
+
+        Если передан `model`, используется он; иначе — базовая модель экземпляра (`openai_model`).
+        Чат и tool-calls всегда идут через `chat_completion` без переопределения модели.
+        """
         if not self._client:
             raise RuntimeError("OPENAI_API_KEY не задан (проверьте env / Settings)")
         merged_system = merge_with_global_model_policy(system)
-        resp = await self._client.chat.completions.create(
-            model=self._model,
-            messages=[
+        m = (model or self._model).strip() or self._model
+        kwargs: dict[str, Any] = {
+            "model": m,
+            "messages": [
                 {"role": "system", "content": merged_system},
                 {"role": "user", "content": user},
             ],
-            response_format={"type": "json_object"},
+            "response_format": {"type": "json_object"},
+        }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
+        if seed is not None:
+            kwargs["seed"] = seed
+        logger.info(
+            "OpenAI json_completion: model=%s temperature=%s max_tokens=%s seed=%s",
+            m,
+            kwargs.get("temperature"),
+            kwargs.get("max_tokens"),
+            kwargs.get("seed"),
         )
+        resp = await self._client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
         return (msg.content or "").strip()

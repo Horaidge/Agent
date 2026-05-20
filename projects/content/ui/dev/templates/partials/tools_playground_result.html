@@ -1,0 +1,32 @@
+<article class="tool-playground-result-card">
+  <p class="muted small">Playground · <code>{{ status }}</code> · {{ latency_ms }} ms{% if error %} · <span class="err-inline">{{ error }}</span>{% endif %}</p>
+  {% if status == 'completed' and raw_response is mapping and raw_response.get('image_urls') %}
+  <div class="tool-playground-previews">
+    {% for u in raw_response.get('image_urls') or [] %}
+    {% if u %}
+    <figure class="tool-playground-fig">
+      <a href="{{ u }}" target="_blank" rel="noopener"><img src="{{ u }}" alt="" class="tool-playground-preview-img" loading="lazy"/></a>
+      <figcaption class="muted small">
+        {% if u.startswith('data:') %}Data URL · ~{{ (u|length / 1024)|round(1) }} KB{% else %}{{ u[:80] }}{% if u|length > 80 %}…{% endif %}{% endif %}
+      </figcaption>
+    </figure>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if status == 'completed' and raw_response is mapping and raw_response.get('video_url') %}
+  <div class="tool-playground-video-wrap">
+    <video class="assembler-video" controls preload="metadata" src="{{ raw_response.get('video_url') }}"></video>
+  </div>
+  {% endif %}
+  {% if status == 'completed' and raw_response is mapping and raw_response.get('job_id') and not raw_response.get('video_url') %}
+  <p class="muted small">Video job: <code>{{ raw_response.get('job_id') }}</code> · {{ raw_response.get('status') }}</p>
+  {% endif %}
+  <details class="tool-playground-tech">
+    <summary>Показать технические данные (JSON)</summary>
+    <p class="muted small">request</p>
+    <pre class="mono tool-copy-block">{{ raw_request | tojson }}</pre>
+    <p class="muted small">response</p>
+    <pre class="mono tool-copy-block">{{ raw_response | tojson }}</pre>
+  </details>
+</article>

@@ -1,0 +1,507 @@
+<div class="dream-runtime-layout dream-lite-layout">
+  <p class="dream-lite-lead dream-lite-lead--main">
+    <strong>Dream Lite</strong> — рабочий режим для шагов 1–5: раскадровка, генерация кадров, план переходов и запуск отдельных i2v-сцен.
+    Доступен полный автопрогон: от текста сна до финального mp4.
+  </p>
+
+  <div class="dream-lite-main-row">
+    <div class="dream-lite-col dream-lite-col--input">
+      <div class="dream-lite-workbench">
+        <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+          <h4 class="pipe-stage-card-title">Текст сна</h4>
+          <label class="dream-lite-label" for="dream-lite-dream-text">Введите сон для шагов 1–5</label>
+          <textarea
+            id="dream-lite-dream-text"
+            name="dream_text"
+            class="dream-text-block dream-lite-textarea"
+            rows="10"
+            placeholder="Опишите сон — дальше запускайте шаги 1–5 вручную"
+            spellcheck="true"></textarea>
+          <form
+            class="dream-lite-form dream-lite-form--pipeline-all"
+            hx-post="/dev/api/dream/lite/pipeline_all_steps"
+            hx-target="#dream-lite-pipeline-all-out"
+            hx-swap="innerHTML"
+            hx-include="#dream-lite-dream-text"
+            hx-indicator="#dream-lite-spinner-pipeline-all"
+            hx-timeout="1200000">
+            <button
+              type="submit"
+              class="btn-primary"
+              data-confirm-arm="pipeline-all"
+              data-confirm-arm-text="Нажмите ещё раз для запуска"
+              data-confirm-arm-window-ms="5000">Запустить полный пайплайн</button>
+            <span class="dream-lite-secondary" style="margin-left:8px;">Защита от случайного клика: нужен двойной клик в течение 5 сек.</span>
+            <span id="dream-lite-spinner-pipeline-all" class="htmx-indicator dream-lite-indicator">Полный запуск (может занять несколько минут)…</span>
+          </form>
+        </article>
+        <div id="dream-lite-pipeline-all-out" class="dream-lite-out dream-lite-out--pipeline-all" aria-live="polite"></div>
+        <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+          <h4 class="pipe-stage-card-title">Workers</h4>
+          <p class="dream-lite-secondary">
+            Список запусков и детальная диагностика перенесены во вкладку
+            <strong>Dream Lite Workers</strong>.
+          </p>
+          <label for="tab-dream-lite-workers" class="btn-ghost btn-sm" style="display:inline-block;cursor:pointer;">
+            Открыть вкладку Workers
+          </label>
+        </article>
+
+        <details class="dream-lite-debug-pack pipe-stage-card dream-lite-input-card">
+          <summary class="dream-lite-prompt-sum">Пошаговый режим (1–5)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">
+            Ручной вызов каждого шага пайплайна.
+          </p>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">1 · Окружения и персонажи</h4>
+            <div class="dream-lite-actions dream-lite-actions--step1">
+              <form
+                class="dream-lite-form"
+                hx-post="/dev/api/dream/lite/environments"
+                hx-target="#dream-lite-env-out"
+                hx-swap="innerHTML"
+                hx-include="#dream-lite-dream-text"
+                hx-indicator="#dream-lite-spinner">
+                <button type="submit" class="btn-primary">1 · Окружения и персонажи</button>
+              </form>
+              <span id="dream-lite-spinner" class="htmx-indicator dream-lite-indicator">Запрос к модели…</span>
+            </div>
+          </article>
+
+          <div id="dream-lite-env-out" class="dream-lite-out dream-lite-out--env" aria-live="polite"></div>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step2 dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">2 · Раскадровка</h4>
+            <p class="dream-lite-secondary">Нужен полный текст шага 1 (подставляется из скрытого поля после шага 1).</p>
+            <form
+              id="dream-lite-frames-form"
+              class="dream-lite-form dream-lite-form--frames"
+              hx-post="/dev/api/dream/lite/frames"
+              hx-target="#dream-lite-frames-out"
+              hx-swap="innerHTML"
+              hx-include="#dream-lite-dream-text, #dream-lite-env-store"
+              hx-indicator="#dream-lite-spinner-frames">
+              <textarea id="dream-lite-env-store" name="environments_text" class="visually-hidden" aria-hidden="true"></textarea>
+              <button type="submit" class="btn-primary">2 · Построить раскадровку</button>
+              <span id="dream-lite-spinner-frames" class="htmx-indicator dream-lite-indicator">Запрос к модели…</span>
+            </form>
+          </article>
+
+          <div id="dream-lite-frames-out" class="dream-lite-out dream-lite-out--frames" aria-live="polite"></div>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step3 dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">3 · Картинки</h4>
+            <p class="dream-lite-secondary">
+              Один алгоритм генерации кадра, меняется только выбранная модель/провайдер для A/B.
+              Ниже показаны только контракт модели и итоговый JSON запроса к provider.
+            </p>
+            <label class="dream-lite-label dream-lite-label--seedance" for="dream-lite-simple-mode">
+              <input
+                id="dream-lite-simple-mode"
+                type="checkbox"
+                name="simple_mode"
+                value="1"
+                {% if simple_mode is defined and simple_mode %}checked{% endif %}/>
+              Простой режим (Dreamer + environment, без previous): независимые кадры с минимумом референсов
+            </label>
+            <p class="dream-lite-secondary dream-lite-hint">Включено: каждый кадр генерируется независимо, в image API уходят только Dreamer + окружение; previous-кадр в шаге 3 не используется.</p>
+            {% if simple_mode_recommended_model is defined and simple_mode_recommended_model %}
+            <p class="dream-lite-secondary dream-lite-hint">Для simple mode по умолчанию фиксируется модель <code>{{ simple_mode_recommended_model | e }}</code>.</p>
+            {% endif %}
+            <label class="dream-lite-label" for="dream-lite-image-model-bases">Модель OpenRouter (изображения)</label>
+            <select id="dream-lite-image-model-bases" name="image_model" class="dream-lite-model-select" form="dream-lite-form-visual-bases">
+              {% if image_models_catalog is defined %}
+              {% for m in image_models_catalog %}
+              <option value="{{ m.id | e }}" {% if selected_image_model is defined and m.id == selected_image_model %}selected{% endif %}>{{ m.label | e }} — {{ m.cost_hint | default('Цена: см. каталог OpenRouter', true) | e }}{% if m.tested %} · tested: {{ m.tested_status | e }} ({{ m.runs_count }}){% endif %}</option>
+              {% endfor %}
+              {% endif %}
+            </select>
+            <p class="dream-lite-secondary">Режим аудита модели: <strong>full / degraded / blocked</strong> показывается ниже вместе с adapter result.</p>
+            <form
+              id="dream-lite-model-insight-form"
+              class="dream-lite-form dream-lite-form--frame-contract"
+              hx-post="/dev/api/dream/lite/model_insight_card"
+              hx-target="#dream-lite-model-insight-out"
+              hx-swap="innerHTML"
+              hx-vals='js:{model_id: document.getElementById("dream-lite-image-model-bases") ? document.getElementById("dream-lite-image-model-bases").value : ""}'
+              hx-trigger="load, change from:#dream-lite-image-model-bases">
+            </form>
+            <div id="dream-lite-model-insight-out" class="dream-lite-out dream-lite-out--frame-contract" aria-live="polite">
+              {% if selected_model_insight is defined %}
+              <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+                <h5 class="dream-lite-secondary">Model insight</h5>
+                <p class="dream-lite-secondary">status:
+                  <span class="dream-lite-pill dream-lite-pill--{% if selected_model_insight.quality_status == 'tested' %}ok{% else %}muted{% endif %}">
+                    {{ selected_model_insight.quality_status | e }}
+                  </span>
+                  · tested_status: <code>{{ selected_model_insight.tested_status | e }}</code>
+                  · runs: <code>{{ selected_model_insight.runs_count }}</code>
+                </p>
+                <p class="dream-lite-secondary"><strong>Timing:</strong>
+                  avg_duration_ms(last5)=<code>{% if selected_model_insight.avg_duration_ms_last_n is not none %}{{ selected_model_insight.avg_duration_ms_last_n }}{% else %}—{% endif %}</code>,
+                  avg_provider_latency_ms(last5)=<code>{% if selected_model_insight.avg_provider_latency_ms_last_n is not none %}{{ selected_model_insight.avg_provider_latency_ms_last_n }}{% else %}—{% endif %}</code>,
+                  samples=<code>{{ selected_model_insight.samples_count }}</code>
+                </p>
+                <p class="dream-lite-secondary"><strong>Tokens:</strong>
+                  {% if selected_model_insight.usage_unavailable %}
+                  <code>usage_unavailable</code>
+                  {% else %}
+                  <code>in={{ selected_model_insight.avg_tokens_in_last_n }}, out={{ selected_model_insight.avg_tokens_out_last_n }}, total={{ selected_model_insight.avg_total_tokens_last_n }}</code>
+                  {% endif %}
+                </p>
+                <p class="dream-lite-secondary"><strong>Refs quality:</strong>
+                  <span class="dream-lite-pill dream-lite-pill--{% if selected_model_insight.refs_quality_level == 'good' %}ok{% elif selected_model_insight.refs_quality_level == 'limited' %}warn{% elif selected_model_insight.refs_quality_level == 'degraded' %}err{% else %}muted{% endif %}">
+                    {{ selected_model_insight.refs_quality_level | e }}
+                  </span>
+                  {{ selected_model_insight.refs_quality_note | e }}
+                </p>
+              </article>
+              {% endif %}
+            </div>
+
+            <div class="dream-lite-frame-contract-details">
+              <form
+                id="dream-lite-frame-contract-form"
+                class="dream-lite-form dream-lite-form--frame-contract"
+                hx-post="/dev/api/dream/lite/frame_image_contract_preview"
+                hx-target="#dream-lite-frame-contract-out"
+                hx-swap="innerHTML"
+                hx-vals='js:{model_id: document.getElementById("dream-lite-image-model-bases") ? document.getElementById("dream-lite-image-model-bases").value : ""}'
+                hx-trigger="load, change from:#dream-lite-image-model-bases">
+                <input type="hidden" id="dream-lite-frame-contract-run-id" name="lite_run_id" value="{{ latest_lite_run_id | e }}"/>
+                <input type="hidden" id="dream-lite-frame-contract-fi" name="frame_index" value="0"/>
+                <input type="hidden" name="user_id" value="{{ dream_lite_playground_user_id }}"/>
+                <div class="dream-lite-actions">
+                  <button type="button" class="btn-ghost"
+                    hx-post="/dev/api/dream/lite/config/apply_image_model"
+                    hx-vals='js:{model_id: document.getElementById("dream-lite-image-model-bases") ? document.getElementById("dream-lite-image-model-bases").value : ""}'
+                    hx-target="#dream-lite-frame-contract-out"
+                    hx-swap="beforebegin">Apply model to Active Tool</button>
+                </div>
+              </form>
+              <div id="dream-lite-frame-contract-out" class="dream-lite-out dream-lite-out--frame-contract" aria-live="polite"></div>
+            </div>
+            <p class="dream-lite-secondary">Workflow: выбери модель → проверь Contract/Provider JSON → запусти 3a → смотри requested/effective model и timing → при фидбеке правим policy/adapter и повторяем.</p>
+
+            <form
+              id="dream-lite-form-visual-bases"
+              class="dream-lite-form dream-lite-form--visual"
+              hx-post="/dev/api/dream/lite/generate_visuals_bases"
+              hx-target="#dream-lite-visual-out"
+              hx-swap="innerHTML"
+              hx-include="#dream-lite-dream-text, #dream-lite-env-store, #dream-lite-frames-store, #dream-lite-frames-prev-link-store, #dream-lite-image-model-bases, #dream-lite-simple-mode"
+              hx-indicator="#dream-lite-spinner-visual"
+              hx-timeout="600000">
+              <textarea id="dream-lite-frames-store" name="frames_text" class="visually-hidden" aria-hidden="true"></textarea>
+              <textarea id="dream-lite-frames-prev-link-store" name="frames_prev_link_raw" class="visually-hidden" aria-hidden="true"></textarea>
+              <button type="submit" class="btn-primary">3a · Персонажи, окружения и кадры</button>
+              <span id="dream-lite-spinner-visual" class="htmx-indicator dream-lite-indicator">Генерация пластин и план…</span>
+            </form>
+            <details class="dream-lite-quick-visual-full">
+              <summary class="dream-lite-secondary">Без плана: всё одним запросом</summary>
+              <p class="dream-lite-secondary">Сразу персонажи, окружения и кадры. План по кадрам в UI не показывается.</p>
+              <form
+                class="dream-lite-form dream-lite-form--visual-all"
+                hx-post="/dev/api/dream/lite/generate_visuals"
+                hx-target="#dream-lite-visual-out"
+                hx-swap="innerHTML"
+                hx-include="#dream-lite-dream-text, #dream-lite-env-store, #dream-lite-frames-store, #dream-lite-frames-prev-link-store, #dream-lite-image-model-bases, #dream-lite-simple-mode"
+                hx-indicator="#dream-lite-spinner-visual-all"
+                hx-timeout="600000">
+                <button type="submit" class="btn-ghost">3 · Цепочка целиком</button>
+                <span id="dream-lite-spinner-visual-all" class="htmx-indicator dream-lite-indicator">Цепочка генерации…</span>
+              </form>
+            </details>
+          </article>
+
+          <div id="dream-lite-visual-out" class="dream-lite-out dream-lite-out--visual" aria-live="polite"></div>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step4 dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">4 · План монтажа</h4>
+            <p class="dream-lite-secondary">
+              Чат плана переходов; в запрос уходят компактные метаданные кадров (после шага 3). После ответа показывается <strong>только план и JSON</strong>. <strong>Фактическая генерация видео — отдельный шаг 5</strong>.
+            </p>
+            <form
+              class="dream-lite-form dream-lite-form--montage"
+              hx-post="/dev/api/dream/lite/montage_plan"
+              hx-target="#dream-lite-step4-out"
+              hx-swap="innerHTML"
+              hx-include="#dream-lite-dream-text, #dream-lite-env-store, #dream-lite-frame-results-json"
+              hx-indicator="#dream-lite-spinner-montage">
+              {% set step4_wan_preset = (selected_montage_preset is defined and selected_montage_preset == 'wan_2_6_single_anchor') %}
+              {% set step4_kling_ref_preset = (selected_montage_preset is defined and selected_montage_preset == 'kling_v3_reference_motion') %}
+              {% set step4_seedance_locked = ((selected_montage_preset is defined and selected_montage_preset == 'seedance') and (selected_audio_required if selected_audio_required is defined else false)) or step4_wan_preset or step4_kling_ref_preset %}
+              <label class="dream-lite-label" for="dream-lite-step4-montage-preset">Montage preset</label>
+              <select id="dream-lite-step4-montage-preset" name="montage_preset" class="dream-lite-model-select">
+                <option value="default" {% if selected_montage_preset is not defined or selected_montage_preset == 'default' %}selected{% endif %}>default · стандартный pairwise/compact режим</option>
+                <option value="seedance" {% if selected_montage_preset is defined and selected_montage_preset == 'seedance' %}selected{% endif %}>seedance · 7 c, 480×480, stride + optional confirm</option>
+                <option value="wan_2_6_single_anchor" {% if selected_montage_preset is defined and selected_montage_preset == 'wan_2_6_single_anchor' %}selected{% endif %}>wan_2_6_single_anchor · one segment per keyframe (first=start, next=anchor)</option>
+                <option value="kling_v3_reference_motion" {% if selected_montage_preset is defined and selected_montage_preset == 'kling_v3_reference_motion' %}selected{% endif %}>kling_v3_reference_motion · Kling V3 Std, reference image via input_references</option>
+              </select>
+              <p id="dream-lite-step4-wan-banner" class="dream-lite-secondary dream-lite-step4-wan-banner" {% if not step4_wan_preset %}style="display:none"{% endif %}>
+                Активен Wan 2.6 preset-lock: модель фиксируется на <code>alibaba/wan-2.6</code>, режим — <code>first_frame_only</code>, звук — silent.
+              </p>
+              <p id="dream-lite-step4-kling-banner" class="dream-lite-secondary dream-lite-step4-wan-banner" {% if not step4_kling_ref_preset %}style="display:none"{% endif %}>
+                Активен Kling reference preset-lock: модель фиксируется на <code>kwaivgi/kling-v3.0-std</code>, режим — <code>first_frame_only</code>, референс передаётся через <code>input_references</code>.
+              </p>
+              <div id="dream-lite-step4-advanced-video-controls" {% if step4_wan_preset or step4_kling_ref_preset %}style="display:none"{% endif %}>
+                <label class="dream-lite-label" for="dream-lite-step4-prompt-mode">Режим видео-промпта (выбор для шага 5)</label>
+                <select id="dream-lite-step4-prompt-mode" name="prompt_mode" class="dream-lite-model-select" {% if step4_seedance_locked %}disabled{% endif %}>
+                  <option value="first_last_frame" {% if selected_prompt_mode is defined and selected_prompt_mode == 'first_last_frame' %}selected{% endif %}>first_last_frame · первый+последний кадр</option>
+                  <option value="first_frame_only" {% if selected_prompt_mode is defined and selected_prompt_mode == 'first_frame_only' %}selected{% endif %}>first_frame_only · только первый кадр</option>
+                  <option value="text_only" {% if selected_prompt_mode is defined and selected_prompt_mode == 'text_only' %}selected{% endif %}>text_only · только текст (без кадров)</option>
+                </select>
+                <label class="dream-lite-label" for="dream-lite-step4-video-model">Видео-модель (выбор для шага 5)</label>
+                <select id="dream-lite-step4-video-model" name="video_model_id" class="dream-lite-model-select" {% if step4_seedance_locked %}disabled{% endif %}>
+                  {% if video_models_catalog is defined %}
+                  {% for m in video_models_catalog %}
+                  {% set supported_modes = m.supported_prompt_modes if m.supported_prompt_modes is defined else [] %}
+                  {% set mode_ok = (selected_prompt_mode if selected_prompt_mode is defined else 'first_last_frame') in supported_modes %}
+                  <option
+                    value="{{ m.model_id | e }}"
+                    data-supported-modes="{{ supported_modes | join(',') | e }}"
+                    data-audio-mode="{{ (m.audio_mode if m.audio_mode is defined else 'unknown') | e }}"
+                    {% if selected_video_model is defined and m.model_id == selected_video_model %}selected{% endif %}
+                    {% if not mode_ok %}disabled{% endif %}>
+                    {{ m.model_id | e }} · {{ m.provider | e }} · sound: {% if m.audio_mode is defined and m.audio_mode == 'native_audio' %}yes{% elif m.audio_mode is defined and m.audio_mode == 'silent_only' %}no{% else %}unknown{% endif %}{% if not mode_ok %} · unavailable for selected mode{% endif %}
+                  </option>
+                  {% endfor %}
+                  {% endif %}
+                </select>
+                <label class="dream-lite-label" for="dream-lite-step4-audio-required">
+                  <input id="dream-lite-step4-audio-required" type="checkbox" name="audio_required" value="1" {% if selected_audio_required %}checked{% endif %}/>
+                  Требовать нативный звук (audio_required)
+                </label>
+                <p id="dream-lite-step4-model-compat-note" class="dream-lite-secondary">Совместимость зависит от выбранного режима prompt_mode.</p>
+              </div>
+              <p id="dream-lite-step4-preset-lock-note" class="dream-lite-secondary" {% if not step4_seedance_locked %}style="display:none"{% endif %}>Preset-lock активен, effective prompt_mode = <code>first_frame_only</code> (без обязательного кадра конца).</p>
+              <textarea id="dream-lite-frame-results-json" name="frame_results_json" class="visually-hidden" aria-hidden="true" autocomplete="off"></textarea>
+              <textarea id="dream-lite-transition-plan-json" name="transition_plan_json" class="visually-hidden" aria-hidden="true"></textarea>
+              <textarea id="dream-lite-animation-markup-json" name="animation_markup_json" class="visually-hidden" aria-hidden="true"></textarea>
+              <textarea id="dream-lite-step4-video-policy-json" name="step4_video_policy_json" class="visually-hidden" aria-hidden="true"></textarea>
+              <button type="submit" class="btn-primary">4 · Построить план монтажа</button>
+              <span id="dream-lite-spinner-montage" class="htmx-indicator dream-lite-indicator">Чат плана переходов…</span>
+            </form>
+            <script>
+              (function(){
+                const modeEl = document.getElementById('dream-lite-step4-prompt-mode');
+                const modelEl = document.getElementById('dream-lite-step4-video-model');
+                const audioReqEl = document.getElementById('dream-lite-step4-audio-required');
+                const noteEl = document.getElementById('dream-lite-step4-model-compat-note');
+                const lockNoteEl = document.getElementById('dream-lite-step4-preset-lock-note');
+                const presetEl = document.getElementById('dream-lite-step4-montage-preset');
+                const advancedEl = document.getElementById('dream-lite-step4-advanced-video-controls');
+                const wanBannerEl = document.getElementById('dream-lite-step4-wan-banner');
+                const klingBannerEl = document.getElementById('dream-lite-step4-kling-banner');
+                if (!modeEl || !modelEl) return;
+                const refresh = () => {
+                  const mode = modeEl.value || 'first_last_frame';
+                  const audioRequired = !!(audioReqEl && audioReqEl.checked);
+                  const preset = presetEl ? (presetEl.value || 'default') : 'default';
+                  const wanPreset = preset === 'wan_2_6_single_anchor';
+                  const klingPreset = preset === 'kling_v3_reference_motion';
+                  if (advancedEl) advancedEl.style.display = (wanPreset || klingPreset) ? 'none' : '';
+                  if (wanBannerEl) wanBannerEl.style.display = wanPreset ? '' : 'none';
+                  if (klingBannerEl) klingBannerEl.style.display = klingPreset ? '' : 'none';
+                  const locked = (preset === 'seedance' && audioRequired) || wanPreset || klingPreset;
+                  modeEl.disabled = locked;
+                  modelEl.disabled = locked;
+                  modeEl.style.opacity = locked ? '0.55' : '';
+                  modelEl.style.opacity = locked ? '0.55' : '';
+                  if (lockNoteEl) lockNoteEl.style.display = locked ? '' : 'none';
+                  if (locked) {
+                    if (modeEl.value !== 'first_frame_only') modeEl.value = 'first_frame_only';
+                    if (klingPreset) {
+                      const klingModel = 'kwaivgi/kling-v3.0-std';
+                      if (Array.from(modelEl.options).some((o) => o.value === klingModel)) {
+                        modelEl.value = klingModel;
+                      }
+                    }
+                    if (lockNoteEl) {
+                      lockNoteEl.innerHTML = wanPreset
+                        ? 'Preset-lock активен (Wan 2.6), effective prompt_mode = <code>first_frame_only</code>, модель фиксирована.'
+                        : (klingPreset
+                          ? 'Preset-lock активен (Kling reference), effective prompt_mode = <code>first_frame_only</code>, модель фиксирована на <code>kwaivgi/kling-v3.0-std</code>.'
+                          : 'Preset-lock активен, effective prompt_mode = <code>first_frame_only</code> (без обязательного кадра конца).');
+                    }
+                    if (noteEl) noteEl.textContent = 'Preset-lock: effective prompt_mode=first_frame_only.';
+                    return;
+                  }
+                  if (lockNoteEl) lockNoteEl.innerHTML = 'Preset-lock активен, effective prompt_mode = <code>first_frame_only</code> (без обязательного кадра конца).';
+                  let selectedStillValid = false;
+                  let firstValid = '';
+                  Array.from(modelEl.options).forEach((opt) => {
+                    const supported = String(opt.getAttribute('data-supported-modes') || '').split(',').map(s => s.trim()).filter(Boolean);
+                    const audioMode = String(opt.getAttribute('data-audio-mode') || 'unknown').trim();
+                    const ok = supported.includes(mode) && !(audioRequired && audioMode === 'silent_only');
+                    opt.disabled = !ok;
+                    if (ok && !firstValid) firstValid = opt.value;
+                    if (ok && opt.selected) selectedStillValid = true;
+                  });
+                  if (!selectedStillValid && firstValid) modelEl.value = firstValid;
+                  if (noteEl) noteEl.textContent = `Режим ${mode}${audioRequired ? ' + audio_required' : ''}: доступны только совместимые модели (остальные отключены).`;
+                };
+                modeEl.addEventListener('change', refresh);
+                if (audioReqEl) audioReqEl.addEventListener('change', refresh);
+                if (presetEl) presetEl.addEventListener('change', refresh);
+                refresh();
+              })();
+            </script>
+            <p class="dream-lite-secondary dream-lite-hint">Сначала шаг 3; лента кадров и лог API — в области «Шаг 3 · Визуальная цепочка» над этой кнопкой.</p>
+          </article>
+
+          <div id="dream-lite-step4-out" class="dream-lite-out dream-lite-out--step4" aria-live="polite"></div>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step5 dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">5 · Видео (i2v)</h4>
+            <p class="dream-lite-secondary">Отдельный шаг фактической генерации видео: выбор модели, контракт, запуск сегментов по transition plan.</p>
+            <form
+              id="dream-lite-step5-load"
+              class="dream-lite-form dream-lite-form--montage"
+              hx-post="/dev/api/dream/lite/step5_panel"
+              hx-target="#dream-lite-step5-out"
+              hx-swap="innerHTML"
+              hx-include="#dream-lite-frame-results-json, #dream-lite-transition-plan-json, #dream-lite-animation-markup-json, #dream-lite-step4-video-policy-json"
+              hx-indicator="#dream-lite-spinner-step5">
+              <button type="submit" class="btn-primary">5 · Открыть видео-генерацию</button>
+              <span id="dream-lite-spinner-step5" class="htmx-indicator dream-lite-indicator">Подготовка шага 5…</span>
+            </form>
+          </article>
+          <div id="dream-lite-step5-out" class="dream-lite-out dream-lite-out--step5" aria-live="polite"></div>
+        </details>
+      </div>
+    </div>
+
+    <aside class="dream-lite-col dream-lite-col--prompts" aria-label="Системные промпты Lite">
+      <div class="pipe-stage-card dream-lite-prompts-panel">
+        <h4 class="pipe-stage-card-title">Промпты</h4>
+        <p class="dream-lite-secondary">Редактирование и сохранение в <code class="mono dream-lite-code">prompts/</code>.</p>
+
+        <details class="dream-lite-prompt-pack" open>
+          <summary class="dream-lite-prompt-sum">System · окружения</summary>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-environments-md"
+            hx-target="#dream-lite-prompt-hint-env"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ dream_pipeline_lite_env_prompt | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-env" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack">
+          <summary class="dream-lite-prompt-sum">System · окружения (simple mode)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">Используется в simple mode: окружения как чистые зоны без любых живых существ.</p>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-environments-simple-md"
+            hx-target="#dream-lite-prompt-hint-env-simple"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ dream_pipeline_lite_env_simple_prompt | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-env-simple" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack">
+          <summary class="dream-lite-prompt-sum">System · кадры</summary>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-frames-md"
+            hx-target="#dream-lite-prompt-hint-frames"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ dream_pipeline_lite_frames_prompt | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-frames" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack">
+          <summary class="dream-lite-prompt-sum">System · связь кадра с предыдущим (шаг 2b)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">Отдельный вызов после раскадровки: JSON <code class="mono">use_previous_frame_by_index</code> — нужен ли референс предыдущего кадра в image API.</p>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-frames-prev-link-md"
+            hx-target="#dream-lite-prompt-hint-frames-prev"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ dream_pipeline_lite_frames_prev_link_prompt | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-frames-prev" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack">
+          <summary class="dream-lite-prompt-sum">System · монтаж / переходы</summary>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-transitions-md"
+            hx-target="#dream-lite-prompt-hint-transitions"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ dream_pipeline_lite_transitions_prompt | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-transitions" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack dream-lite-prompt-pack--seedance">
+          <summary class="dream-lite-prompt-sum">System · сцены / монтаж (Seedance)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">Пресет Seedance: отдельный системный промпт для плана сцен; сохраняется в <code class="mono">dream_pipeline_lite_transitions_seedance.md</code>.</p>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-transitions-seedance-md"
+            hx-target="#dream-lite-prompt-hint-transitions-seedance"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ (dream_pipeline_lite_transitions_seedance_prompt if dream_pipeline_lite_transitions_seedance_prompt is defined else '') | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-transitions-seedance" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack dream-lite-prompt-pack--wan26">
+          <summary class="dream-lite-prompt-sum">System · сцены / монтаж (Wan 2.6)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">Пресет Wan 2.6 single anchor: отдельный системный промпт для шага 4; сохраняется в <code class="mono">dream_pipeline_lite_transitions_wan26.md</code>.</p>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-transitions-wan26-md"
+            hx-target="#dream-lite-prompt-hint-transitions-wan26"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ (dream_pipeline_lite_transitions_wan26_prompt if dream_pipeline_lite_transitions_wan26_prompt is defined else '') | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-transitions-wan26" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+        <details class="dream-lite-prompt-pack dream-lite-prompt-pack--wan26">
+          <summary class="dream-lite-prompt-sum">System · сцены / монтаж (Kling V3 Reference)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">Пресет Kling reference motion: отдельный системный промпт для шага 4; сохраняется в <code class="mono">dream_pipeline_lite_transitions_kling_v3_reference.md</code>.</p>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-transitions-kling-ref-md"
+            hx-target="#dream-lite-prompt-hint-transitions-kling-ref"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">{{ (dream_pipeline_lite_transitions_kling_ref_prompt if dream_pipeline_lite_transitions_kling_ref_prompt is defined else '') | e }}</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-transitions-kling-ref" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>

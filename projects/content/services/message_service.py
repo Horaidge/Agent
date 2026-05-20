@@ -163,26 +163,9 @@ class MessageService:
                 detail={"note": "chat orchestrator"},
             )
 
-        if self._dream:
-            try:
-                if await self._dream.detect_intent_and_maybe_start(message):
-                    return
-            except Exception:
-                logger.exception("DreamPipeline intent detection/launch failed")
-                if self._obs and trace_id:
-                    await self._obs.record_error(
-                        trace_id=trace_id,
-                        where="MessageService.dream_pipeline",
-                        message="Ошибка dream pipeline",
-                    )
-                try:
-                    await message.answer(
-                        "Не удалось обработать запрос визуализации сна. Попробуйте позже.",
-                        reply_markup=main_reply_keyboard(),
-                    )
-                except Exception:
-                    logger.exception("Не удалось отправить сообщение об ошибке dream")
-                return
+        # В прод-потоке входящих сообщений используем только ChatOrchestrator + tool
+        # generate_dream_pipeline (Dream Pipeline Lite). Legacy intent-gate старого
+        # DreamPipelineService здесь намеренно отключён, чтобы не перехватывать dream-тексты.
 
         if self._chat:
             try:

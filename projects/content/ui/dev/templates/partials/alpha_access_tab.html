@@ -1,0 +1,43 @@
+<article class="pipe-stage-card dream-lite-input-card">
+  <p class="muted" style="margin-top:0;">
+    Управление доступом к Telegram-боту для alpha-тестеров. Когда allowlist включён, бота могут использовать только user_id из списка.
+  </p>
+
+  {% if saved %}
+    <p class="dream-lite-secondary" style="color:#16a34a;">Сохранено. Политика применена.</p>
+  {% endif %}
+  {% if errors %}
+    <div class="dream-lite-secondary" style="color:#b91c1c;">
+      {% for e in errors %}
+        <p style="margin:0.2rem 0;">• {{ e }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form
+    hx-post="/dev/api/alpha_access/save"
+    hx-target="#alpha-access-mount"
+    hx-swap="innerHTML"
+    style="display:grid;gap:0.7rem;max-width:720px;">
+    <label style="display:flex;align-items:center;gap:0.5rem;">
+      <input type="checkbox" name="enabled" value="1" {% if policy.enabled %}checked{% endif %}/>
+      <span>Включить allowlist</span>
+    </label>
+
+    <label for="alpha-user-ids"><strong>Telegram user_id (по одному в строке или через запятую)</strong></label>
+    <textarea
+      id="alpha-user-ids"
+      name="user_ids"
+      rows="8"
+      class="dream-lite-textarea dream-lite-textarea--mono"
+      placeholder="355777834&#10;123456789">{{ policy.user_ids_text }}</textarea>
+
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+      <button type="submit" class="btn-ghost">Сохранить доступ</button>
+      <span class="muted">Активных ID: {{ policy.user_ids|length }}</span>
+      {% if policy.updated_at %}
+        <span class="muted">· обновлено: {{ policy.updated_at }} ({{ policy.updated_by or 'dev_console' }})</span>
+      {% endif %}
+    </div>
+  </form>
+</article>

@@ -1,0 +1,38 @@
+:root {
+  color-scheme: dark;
+  --color-midnight-void: #101010;
+  --color-deep-space: #080808;
+  --color-polar-white: #f3f3f3;
+  --color-absolute-zero: #ffffff;
+  --color-ash-gray: #949494;
+  --color-dark-carbon: #333333;
+  --color-amber-glow: #e7c59a;
+  --color-neon-green: #00ac5c;
+  --color-error-muted: #6f4b4b;
+
+  --text-caption: 0.8125rem;
+  --text-body: 1rem;
+  --text-subheading: 1.125rem;
+  --text-heading: 1.4375rem;
+  --text-display: clamp(2.3rem, 5vw, 3.9rem);
+
+  --spacing-4: 0.25rem;
+  --spacing-8: 0.5rem;
+  --spacing-12: 0.75rem;
+  --spacing-16: 1rem;
+  --spacing-20: 1.25rem;
+  --spacing-24: 1.5rem;
+  --spacing-40: 2.5rem;
+  --spacing-64: 4rem;
+
+  --radius-default: 0.5rem;
+  --radius-pill: 999px;
+}
+
+body {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+}
+
+.mono {
+  font-family: var(--font-mono), "IBM Plex Mono", monospace;
+}

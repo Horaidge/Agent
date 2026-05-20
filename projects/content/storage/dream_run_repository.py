@@ -65,6 +65,31 @@ class DreamRunRepository:
         d["_id"] = str(d.pop("_id"))
         return d
 
+    async def find_pending_input(self, user_id: int) -> dict[str, Any] | None:
+        lst = (
+            await self._async.find(
+                {
+                    "user_id": user_id,
+                    "status": {
+                        "$in": [
+                            "awaiting_style",
+                            "awaiting_character",
+                            "awaiting_actors",
+                        ]
+                    },
+                }
+            )
+            .sort("updated_at", -1)
+            .limit(1)
+            .to_list(1)
+        )
+        doc = lst[0] if lst else None
+        if not doc:
+            return None
+        d = dict(doc)
+        d["_id"] = str(d.pop("_id"))
+        return d
+
     async def find_by_trace(self, trace_id: str) -> dict[str, Any] | None:
         doc = await self._async.find_one({"trace_id": trace_id})
         if not doc:
@@ -83,6 +108,22 @@ class DreamRunRepository:
             out.append(d)
         return out
 
+    async def count_for_user(self, user_id: int) -> int:
+        return await self._async.count_documents({"user_id": user_id})
+
+    async def delete_for_user(self, user_id: int) -> int:
+        r = await self._async.delete_many({"user_id": user_id})
+        return int(getattr(r, "deleted_count", 0) or 0)
+
+    async def list_ids_for_user(self, user_id: int, *, limit: int = 1000) -> list[str]:
+        cur = self._async.find({"user_id": user_id}, {"_id": 1}).limit(max(1, min(limit, 5000)))
+        out: list[str] = []
+        async for doc in cur:
+            oid = doc.get("_id")
+            if oid is not None:
+                out.append(str(oid))
+        return out
+
     def find_by_id_sync(self, run_id: str) -> dict[str, Any] | None:
         from bson import ObjectId
 
@@ -96,6 +137,16 @@ class DreamRunRepository:
         d = dict(doc)
         d["_id"] = str(d.pop("_id"))
         return d
+
+    def list_recent_sync(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        lim = max(1, min(limit, 200))
+        cur = self._sync.find().sort("created_at", -1).limit(lim)
+        out: list[dict[str, Any]] = []
+        for doc in cur:
+            d = dict(doc)
+            d["_id"] = str(d.pop("_id"))
+            out.append(d)
+        return out
 
 
 async def ensure_dream_run_indexes(collection: AsyncIOMotorCollection) -> None:

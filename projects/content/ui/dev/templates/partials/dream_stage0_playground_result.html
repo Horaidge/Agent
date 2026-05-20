@@ -1,0 +1,304 @@
+{% import "partials/dream_stage1_visual_examples.html" as labex %}
+<section class="dream-play-res">
+  {% if prefix != 'stage1' %}
+  <p class="muted small">Sandbox test mode: <strong>{{ stage_label }}</strong>. Тест не пишет в production Mongo, не создаёт run и не влияет на Telegram workflow.</p>
+  {% endif %}
+  {% if parse_error %}
+  <p class="error">Ошибка парсинга: {{ parse_error }}</p>
+  {% endif %}
+  {% if mapping_warning %}
+  <p class="error">⚠️ {{ mapping_warning }}</p>
+  {% endif %}
+
+  {% if prefix == 'stage0a' %}
+  {% set hc = (final_obj.header_context or {}) %}
+  {{ labex.header_context_block(hc, 'Header Context · Output Bit Planner', 'Full JSON', 'beats_total', (final_obj.beats or [])|length) }}
+  <aside class="dream-lab-callout dream-lab-callout--planner muted small" role="note">
+    Beat Planner output: только outline. Здесь не отображаются motion/camera/shot-поля.
+  </aside>
+  <div class="dream-beat-cards" aria-label="Beat outline sandbox output">
+    {% for s in (final_obj.beats or []) %}
+    <article class="dream-beat-card">
+      <header class="dream-beat-card-head">
+        <span class="dream-beat-index">Beat {{ s.beat_index or loop.index }}</span>
+        <span class="dream-beat-function">{{ s.story_function or 'transition' }}</span>
+      </header>
+      <h4 class="dream-beat-title">{{ s.title or '—' }}</h4>
+      <p class="pipe-s0-field pipe-s0-field--short">🎯 {{ s.core_event or '—' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--desc">{{ s.beat_description or '—' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--env"><span class="pipe-s0-ico" aria-hidden="true">🌍</span> {{ s.environment_focus or '—' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--actors"><span class="pipe-s0-ico" aria-hidden="true">{% if (s.actors or [])|length > 1 %}👥{% else %}👤{% endif %}</span> {{ (s.actors or []) | join(', ') if s.actors else '—' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--mood">🧱 refs: {{ (s.environment_refs or []) | join(', ') if s.environment_refs else '—' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--meta">event_steps: {{ (s.event_steps or []) | join(' · ') if s.event_steps else '—' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--meta">main_character_state: {{ s.main_character_state or '—' }} · transition_out: {{ s.transition_out or '—' }}</p>
+      <p class="pipe-s0-field pipe-s0-field--meta">key_objects_or_entities: {{ (s.key_objects_or_entities or []) | join(', ') if s.key_objects_or_entities else '—' }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% if not (final_obj.beats or []) %}
+  <p class="muted small">Нет beat-объектов в финальном output.</p>
+  {% endif %}
+  {% elif prefix == 'stage0b' %}
+  {% set hc = (final_obj.header_context or {}) %}
+  {{ labex.header_context_block(hc, 'Header Context · Output Сценариста', 'Full JSON', 'scenes_total', (final_obj.scenes or [])|length) }}
+  {{ labex.scene_cards(final_obj.scenes or []) }}
+  {% else %}
+  {% set fo = final_obj or {} %}
+  {% set dir_phase = fo.director_phase or '' %}
+  <div class="director-output-clean">
+  {% if prefix == 'stage1' and fo.director_pipeline == 'full_plan' %}
+  <p class="director-phase-banner director-phase-banner--success muted small" role="status">
+    <strong>Единый план готов.</strong> Внутри выполнены <strong>два</strong> вызова режиссёра подряд: сначала глобальные референсы по сценаристу, затем ключевые кадры с опорой на этот план (кадры ссылаются на <code>ref_id</code> из Global references). JSON ниже и в диагностике автоматически подставляется во вход <strong>Сборщика</strong> (если не включена фиксация input).
+  </p>
+  {% elif prefix == 'stage1' and dir_phase == 'references' %}
+  <p class="director-phase-banner muted small" role="status">
+    <strong>Этап 1A.</strong> В этом output только <strong>Global references</strong> — план визуальных опор. Ключевые кадры и видео-план появятся после отдельного запуска <strong>1B</strong> (второй запрос с тем же сценарием и сохранённым планом референсов).
+  </p>
+  {% endif %}
+  {{ labex.director_global_references_center(fo.global_references) }}
+
+  {% if fo.global_references is mapping and fo.global_references.get('items') and fo.director_phase == 'references' %}
+  <section class="director-playground-confirm director-playground-confirm--inline" aria-label="Генерация референсов">
+    <form
+      class="dream-sandbox-form director-batch-form"
+      hx-post="/dev/api/dream/playground/generate_stills_batch"
+      hx-target="#dream-ref-batch-result"
+      hx-swap="innerHTML">
+      <input type="hidden" name="batch_label" value="references"/>
+      <textarea name="items_json" class="visually-hidden" aria-hidden="true">{{ (fo.global_references.get('items', [])) | tojson }}</textarea>
+      <button type="submit" class="btn-ghost btn-sm">Сгенерировать референсы по плану</button>
+    </form>
+    <div id="dream-ref-batch-result" class="dream-batch-gen-mount"></div>
+    {% if references_bundle_for_next %}
+    <div class="director-next-step-actions">
+      <button type="button" class="btn-ghost btn-sm" id="stage1-apply-refs-bundle-btn">Подставить план в этап 1B</button>
+    </div>
+    <pre id="stage1-references-bundle-pre" class="visually-hidden">{{ references_bundle_for_next }}</pre>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if dir_phase != 'references' %}
+  {{ labex.director_keyframes_section(fo.key_frames, fo.video_plan, fo.global_references) }}
+
+  {% if prefix == 'stage1' and fo.key_frames is mapping and fo.key_frames.get('items') and (fo.director_pipeline == 'full_plan' or fo.director_phase == 'keyframes') %}
+  <section class="director-storyboard-launch" aria-label="Раскадровка одной кнопкой">
+    <header class="director-storyboard-launch-head">
+      <h4 class="director-storyboard-launch-title">Запустить раскадровку</h4>
+      <p class="muted small director-storyboard-launch-lead">
+        Один запрос: сначала картинки по <strong>global_references</strong> (окружения → персонажи → объекты), затем <strong>ключевые кадры</strong> по порядку с опорой на референсы и предыдущий кадр (если кадр не помечен как <code class="mono">new_scene</code>).
+        Превью ниже — нормального размера, без ручного запуска каждого кадра.
+      </p>
+    </header>
+    <form
+      class="dream-sandbox-form director-storyboard-form"
+      hx-post="/dev/api/dream/playground/storyboard_pipeline"
+      hx-target="#dream-storyboard-pipeline-result"
+      hx-swap="innerHTML"
+      hx-indicator="#dream-storyboard-spinner"
+      hx-timeout="600000">
+      <textarea name="director_json" class="visually-hidden" aria-hidden="true">{{ final_json }}</textarea>
+      <div class="director-storyboard-launch-actions">
+        <button type="submit" class="btn-primary">Запустить раскадровку</button>
+        <span id="dream-storyboard-spinner" class="htmx-indicator muted small">Идёт генерация (несколько вызовов подряд)…</span>
+      </div>
+    </form>
+    <div id="dream-storyboard-pipeline-result" class="dream-storyboard-pipeline-mount"></div>
+  </section>
+  {% endif %}
+
+  {% if fo.director_pipeline == 'full_plan' and fo.global_references is mapping and fo.global_references.get('items') and fo.key_frames is mapping and fo.key_frames.get('items') %}
+  <details class="director-batch-debug-details">
+    <summary class="muted small director-batch-debug-sum">Пошагово без цепочки (отладка)</summary>
+    <div class="director-batch-debug-body">
+      <section class="director-playground-confirm director-playground-confirm--inline" aria-label="Только референсы">
+        <p class="muted small">Без опоры на предыдущий кадр и без порядка окружение→персонаж.</p>
+        <form
+          class="dream-sandbox-form director-batch-form"
+          hx-post="/dev/api/dream/playground/generate_stills_batch"
+          hx-target="#dream-ref-batch-result"
+          hx-swap="innerHTML">
+          <input type="hidden" name="batch_label" value="references"/>
+          <textarea name="items_json" class="visually-hidden" aria-hidden="true">{{ (fo.global_references.get('items', [])) | tojson }}</textarea>
+          <button type="submit" class="btn-ghost btn-sm">Только референсы (пакет)</button>
+        </form>
+        <div id="dream-ref-batch-result" class="dream-batch-gen-mount"></div>
+      </section>
+      <section class="director-playground-confirm director-playground-confirm--inline" aria-label="Только ключевые кадры">
+        <p class="muted small">Каждый кадр отдельно, без reference images.</p>
+        <form
+          class="dream-sandbox-form director-batch-form"
+          hx-post="/dev/api/dream/playground/generate_stills_batch"
+          hx-target="#dream-kf-batch-result"
+          hx-swap="innerHTML">
+          <input type="hidden" name="batch_label" value="keyframes"/>
+          <textarea name="items_json" class="visually-hidden" aria-hidden="true">{{ (fo.key_frames.get('items', [])) | tojson }}</textarea>
+          <button type="submit" class="btn-ghost btn-sm">Только ключевые кадры (пакет)</button>
+        </form>
+        <div id="dream-kf-batch-result" class="dream-batch-gen-mount"></div>
+      </section>
+    </div>
+  </details>
+  {% elif fo.key_frames is mapping and fo.key_frames.get('items') and fo.director_phase == 'keyframes' %}
+  <section class="director-playground-confirm director-playground-confirm--inline" aria-label="Генерация ключевых кадров">
+    <form
+      class="dream-sandbox-form director-batch-form"
+      hx-post="/dev/api/dream/playground/generate_stills_batch"
+      hx-target="#dream-kf-batch-result"
+      hx-swap="innerHTML">
+      <input type="hidden" name="batch_label" value="keyframes"/>
+      <textarea name="items_json" class="visually-hidden" aria-hidden="true">{{ (fo.key_frames.get('items', [])) | tojson }}</textarea>
+      <button type="submit" class="btn-ghost btn-sm">Сгенерировать ключевые кадры</button>
+    </form>
+    <div id="dream-kf-batch-result" class="dream-batch-gen-mount"></div>
+  </section>
+  {% endif %}
+
+  {% if prefix == 'stage1' %}
+  <section class="director-scenarist-for-run" aria-labelledby="director-scenarist-for-run-title">
+    <header class="director-scenarist-for-run-head">
+      <h3 id="director-scenarist-for-run-title" class="director-scenarist-for-run-title">Сценарий этого запуска</h3>
+      <p class="muted small director-scenarist-for-run-lead">
+        Тот же input сценариста, что ушёл в запрос режиссёра (слева в форме). Показан <em>после</em> ответа режиссёра, чтобы сверху оставался центр — Global references{% if dir_phase != 'references' %} и ключевые кадры{% endif %}.
+      </p>
+    </header>
+    {% set hc_run = fo.header_context or {} %}
+    {{ labex.header_context_block(hc_run, 'Header Context · к этому запуску', 'Full JSON', 'scenes_total', (scenarist_scenes or [])|length) }}
+    {% if scenarist_scenes %}
+    {{ labex.scene_cards(scenarist_scenes) }}
+    {% else %}
+    <p class="muted small director-scenarist-for-run-empty">Сцен во входе нет — подставьте JSON сценариста слева или сохраните output с вкладки «0B · Сценарист».</p>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% endif %}
+  </div>
+
+  <details class="director-output-diagnostics tool-call-details">
+    <summary class="director-output-diagnostics-sum">Диагностика · JSON, preflight, legacy</summary>
+    <div class="tool-call-details-body">
+      <p class="muted small">Sandbox: {{ stage_label }}. Не пишет в production Mongo.</p>
+      {% if fo.playground_policy %}
+      <p class="muted small"><strong>Политика:</strong> {{ fo.playground_policy }}</p>
+      {% endif %}
+      {% if fo.assembler_shim_note %}
+      <p class="muted small">{{ fo.assembler_shim_note }}</p>
+      {% endif %}
+      {% if fo.asset_context is defined and fo.asset_context %}
+      <p class="muted small"><strong>Asset context</strong></p>
+      <pre class="mono small">{{ fo.asset_context | tojson(indent=2) }}</pre>
+      {% endif %}
+      {{ labex.director_reference_hub(fo) }}
+      <section class="director-plan-board director-plan-board--timeline" aria-label="final_scenes shim">
+        <header class="director-plan-board-head">
+          <h4>final_scenes (Сборщик / shim)</h4>
+        </header>
+        <div class="director-scene-rows">
+          {% for row in fo.final_scenes or [] %}
+          <div class="director-scene-row {% if row.overlap %}director-scene-row--overlap{% else %}director-scene-row--new{% endif %}">
+            <div class="director-scene-row__main">
+              <p class="director-scene-row__kicker">Шаг {{ row.scene_index or loop.index }}{% if row.overlap %} · продолжение{% else %} · новый старт{% endif %}</p>
+              {% if row.title %}<p class="director-scene-row__title">{{ row.title }}</p>{% endif %}
+              <p class="director-scene-row__moment">{{ labex.format_director_semantic(row.scene_moment or row.visual_prompt or row.image_prompt or '—') }}</p>
+            </div>
+          </div>
+          {% endfor %}
+          {% if not (fo.final_scenes or []) %}
+          <p class="muted small">Пусто (для 1A ожидаемо).</p>
+          {% endif %}
+        </div>
+      </section>
+      <details class="tool-call-details">
+        <summary>Header Context</summary>
+        <div class="tool-call-details-body">
+          {{ labex.header_context_block((final_obj.header_context or {}), 'Header Context', '—', 'final_scenes', (final_obj.final_scenes or [])|length) }}
+        </div>
+      </details>
+      <details class="tool-call-details">
+        <summary>Manual Cost Gate · Text → Image → Video</summary>
+        <div class="tool-call-details-body">
+          <div id="director-preflight-scene-list" class="dream-lab-actions"></div>
+          <div class="dream-lab-actions">
+            <span class="dream-world-chip">text_scenes: <strong id="director-preflight-text-count">0</strong></span>
+            <span class="dream-world-chip">image_requests: <strong id="director-preflight-image-count">0</strong></span>
+            <span class="dream-world-chip">video_requests: <strong id="director-preflight-video-count">0</strong></span>
+          </div>
+          <div class="tool-call-copy-actions">
+            <button type="button" class="btn-ghost btn-sm" data-copy-target="director-preflight-text-json">Text JSON</button>
+            <button type="button" class="btn-ghost btn-sm" data-copy-target="director-preflight-image-json">Image JSON</button>
+            <button type="button" class="btn-ghost btn-sm" data-copy-target="director-preflight-video-json">Video JSON</button>
+            <button type="button" class="btn-ghost btn-sm" data-copy-target="director-preflight-all-json">Всё</button>
+          </div>
+          <pre id="director-preflight-text-json" class="mono tool-copy-block"></pre>
+          <pre id="director-preflight-image-json" class="mono tool-copy-block"></pre>
+          <pre id="director-preflight-video-json" class="mono tool-copy-block"></pre>
+          <pre id="director-preflight-all-json" class="mono tool-copy-block visually-hidden"></pre>
+        </div>
+      </details>
+      <div class="dream-lab-actions director-diag-actions">
+        <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-input-copy">Скопировать input</button>
+        <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-raw-copy">Скопировать output</button>
+        <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-final-copy">Скопировать итоговый JSON</button>
+        <button type="button" class="btn-ghost btn-sm" data-clear-target="dream-stage1-test-result">Очистить тест</button>
+      </div>
+      <pre id="{{ prefix }}-input-copy" class="visually-hidden">{{ model_input }}</pre>
+      <pre id="{{ prefix }}-raw-copy" class="visually-hidden">{{ raw_response }}</pre>
+      <pre id="{{ prefix }}-final-copy" class="visually-hidden">{{ final_json }}</pre>
+      <details class="dream-lab-raw-details">
+        <summary class="dream-lab-raw-summary muted small">Сырой JSON ответа</summary>
+        <div class="dream-play-res-grid">
+          <article class="dream-play-res-card">
+            <div class="dream-play-res-head">
+              <span>System prompt</span>
+              <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-prompt-copy">Скопировать</button>
+            </div>
+            <pre id="{{ prefix }}-prompt-copy" class="dream-lab-pre dream-lab-pre--tech">{{ system_prompt }}</pre>
+          </article>
+          <article class="dream-play-res-card">
+            <div class="dream-play-res-head"><span>Parsed</span></div>
+            <pre class="dream-lab-pre dream-lab-pre--tech">{{ parsed_json }}</pre>
+          </article>
+          <article class="dream-play-res-card dream-play-res-card--final">
+            <div class="dream-play-res-head"><span>Итоговый JSON</span></div>
+            <pre class="dream-lab-pre dream-lab-pre--tech">{{ final_json }}</pre>
+          </article>
+        </div>
+      </details>
+    </div>
+  </details>
+  {% endif %}
+
+  {% if prefix != 'stage1' %}
+  <div class="dream-lab-actions">
+    <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-input-copy">Скопировать input</button>
+    <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-raw-copy">Скопировать output</button>
+    <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-final-copy">Скопировать итоговый JSON</button>
+    <button type="button" class="btn-ghost btn-sm" data-clear-target="{% if prefix == 'stage0a' %}dream-stage0a-test-result{% else %}dream-stage0b-test-result{% endif %}">Очистить тест</button>
+  </div>
+
+  <pre id="{{ prefix }}-input-copy" class="visually-hidden">{{ model_input }}</pre>
+  <pre id="{{ prefix }}-raw-copy" class="visually-hidden">{{ raw_response }}</pre>
+  <pre id="{{ prefix }}-final-copy" class="visually-hidden">{{ final_json }}</pre>
+
+  <details class="dream-lab-raw-details">
+    <summary class="dream-lab-raw-summary muted small">Показать JSON и technical details</summary>
+    <div class="dream-play-res-grid">
+      <article class="dream-play-res-card">
+        <div class="dream-play-res-head">
+          <span>Prompt</span>
+          <button type="button" class="btn-ghost btn-sm" data-copy-target="{{ prefix }}-prompt-copy">Скопировать</button>
+        </div>
+        <pre id="{{ prefix }}-prompt-copy" class="dream-lab-pre dream-lab-pre--tech">{{ system_prompt }}</pre>
+      </article>
+      <article class="dream-play-res-card">
+        <div class="dream-play-res-head"><span>Parsed response</span></div>
+        <pre class="dream-lab-pre dream-lab-pre--tech">{{ parsed_json }}</pre>
+      </article>
+      <article class="dream-play-res-card dream-play-res-card--final">
+        <div class="dream-play-res-head"><span>Итоговый JSON</span></div>
+        <pre class="dream-lab-pre dream-lab-pre--tech">{{ final_json }}</pre>
+      </article>
+    </div>
+  </details>
+  {% endif %}
+</section>

@@ -12,9 +12,16 @@ from storage.user_profile_repository import UserProfileRepository
 
 logger = logging.getLogger(__name__)
 
-# Пользователь явно не хочет своё лицо — сразу нейтральный персонаж
+# Пользователь явно не хочет своё лицо — сразу нейтральный персонаж.
+# Важно: не матчить голое «без» — оно есть почти в любом русском тексте («без сна», «без двери»).
 _OPT_OUT_FACE = re.compile(
-    r"(не\s+хочу|не\s+нужно|без|не\s+мо[её]|не\s+сво|аноним|чужой\s+герой|без\s+лица)",
+    r"(?:^|[\s,.])(?:анон|anon)(?:$|[\s,.])"
+    r"|аноним"
+    r"|без\s+лица"
+    r"|не\s+мо[её]\s+лицо"
+    r"|не\s+хочу\s+сво[ейё]?\s+лиц"
+    r"|не\s+нужно\s+лиц"
+    r"|чужой\s+герой",
     re.IGNORECASE | re.UNICODE,
 )
 
@@ -51,6 +58,7 @@ async def create_base_character_and_profile(
         "is_base_character": True,
         "source_image_url": bc.image_url,
         "character_uuid": bc.character_id,
+        "prompt_used": bc.prompt_used,
     }
     asset_id = await dream_repo.insert_one(doc)
     await user_profile_repo.set_base_character_asset(user_id, asset_id=asset_id)

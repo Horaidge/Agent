@@ -1,0 +1,19 @@
+{% if user_ids %}
+<p class="muted small playground-ref-hint">Пользователь → превью ассетов в Mongo; выберите кадр как референс (опционально).</p>
+<ul class="user-pick playground-user-pick">
+  {% for uid in user_ids %}
+  <li>
+    <button
+      type="button"
+      class="user-pick-btn"
+      hx-get="/dev/partials/playground/user_assets?uid={{ uid }}&form_id={{ form_id }}"
+      hx-target="#{{ asset_host_id }}"
+      hx-swap="innerHTML">
+      {{ uid }}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Нет пользователей с dream_assets — загрузите материалы через бота.</p>
+{% endif %}

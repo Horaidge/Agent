@@ -2,6 +2,7 @@
   <h4 class="video-block-title">Статус задачи</h4>
   <dl class="video-dl">
     <div><dt>job_id</dt><dd class="mono">{{ job._id }}</dd></div>
+    <div><dt>backend</dt><dd class="mono">{{ job.video_backend or "dashscope" }}</dd></div>
     <div><dt>provider_task_id</dt><dd class="mono">{{ job.provider_task_id or "—" }}</dd></div>
     <div><dt>Статус</dt><dd><span class="video-st video-st-{{ job.status }}">{{ job.status }}</span></dd></div>
     <div><dt>Создано</dt><dd class="mono">{{ job.created_at or "—" }}</dd></div>

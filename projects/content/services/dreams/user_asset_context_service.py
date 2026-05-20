@@ -48,6 +48,12 @@ class UserAssetContextService:
             if (a.get("asset_type") or "").lower() in ("dream_object", "character", "other")
             and (a.get("status") or "") == STATUS_CLASSIFIED
         ]
+        secondary_actors = [
+            a
+            for a in assets
+            if (a.get("asset_type") or "").lower() == "character"
+            and bool(a.get("is_secondary_actor"))
+        ]
 
         has_face = len(face_assets) > 0
         base_id = (prof or {}).get("base_character_asset_id")
@@ -89,6 +95,7 @@ class UserAssetContextService:
             "all_classified_assets": [
                 a for a in assets if (a.get("status") or "") == STATUS_CLASSIFIED
             ],
+            "secondary_actors": secondary_actors,
             "generated_frames_count": n_frames,
             "generated_images_count": n_genimg,
             "recent_video_jobs": video_snippets,

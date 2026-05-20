@@ -12,6 +12,7 @@ services:
     depends_on:
       - agent
       - content
+      - telegram_bot_monitor
     restart: unless-stopped
 
   agent:
@@ -28,12 +29,26 @@ services:
       - "127.0.0.1:3001:3000"
     restart: unless-stopped
 
+  # Backend: тот же entrypoint, что и локально (python main.py). В .env на хосте часто
+  # MONGODB_URI=mongodb://localhost:27017 — внутри сети compose подставляем сервис mongo.
+  # Референсы для моделей: OpenAI (чат/JSON) и DashScope/Qwen (картинки) берут ключи из .env;
+  # форматы тел (текст vs image URL/data URI) задаются кодом сервиса, не образом.
   content:
     build:
       context: ./projects/content
       dockerfile: Dockerfile
     env_file:
       - ./projects/content/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      UVICORN_RELOAD: "false"
+      # Нужен для автосборки webhook URL (PUBLIC_BASE_URL + WEBHOOK_PATH).
+      PUBLIC_BASE_URL: https://smartagentplatform.ru
+      # Совпадает с location /content/ на nginx (не GRADIO_ROOT_PATH — его читает сам Gradio и ломает /ui)
+      GRADIO_PROXY_PREFIX: /content
+    # Если на хосте уже занят 8000 (run_dev.sh), снаружи используем 8002 → 8000 в контейнере.
+    ports:
+      - "127.0.0.1:8002:8002"
     depends_on:
       - mongo
     restart: unless-stopped
@@ -43,6 +58,24 @@ services:
     restart: unless-stopped
     volumes:
       - content_mongo_data:/data/db
+
+  # Монитор переписок mini Telegram-бота: https://smartagentplatform.ru/mini-bot-monitor/
+  # Журнал: projects/telegram-mini-bot/data/audit/turns.jsonl (бот должен писать туда на этом хосте).
+  telegram_bot_monitor:
+    build:
+      context: ./projects/telegram-mini-bot
+      dockerfile: Dockerfile.monitor
+    env_file:
+      - ./projects/telegram-mini-bot/.env
+    environment:
+      MONITOR_DATA_DIR: /app/data
+      MONITOR_HOST: 0.0.0.0
+    ports:
+      # Внешний nginx (или браузер по SSH-туннелю) → http://127.0.0.1:8765/
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./projects/telegram-mini-bot/data:/app/data:ro
+    restart: unless-stopped
 
 volumes:
   content_mongo_data:

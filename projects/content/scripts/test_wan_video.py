@@ -30,7 +30,12 @@ def main() -> int:
     parser.add_argument(
         "--image-url",
         required=True,
-        help="Публичный URL первого кадра (img_url)",
+        help="Публичный URL или data URI первого кадра (first_frame)",
+    )
+    parser.add_argument(
+        "--last-frame-url",
+        default=None,
+        help="Опционально: URL/data URI конечного кадра (wan2.7 last_frame)",
     )
     parser.add_argument("--prompt", required=True, help="Текстовый промпт")
     parser.add_argument("--duration", type=int, default=4)
@@ -56,6 +61,7 @@ def main() -> int:
         resolution=args.resolution,
         model=args.model,
         owner_user_id="test_wan_script",
+        last_frame_url=args.last_frame_url,
     )
     job_id = created.get("job_id")
     if not job_id:

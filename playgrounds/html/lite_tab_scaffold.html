@@ -1,0 +1,664 @@
+<div class="dream-runtime-layout dream-lite-layout">
+  <p class="dream-lite-lead dream-lite-lead--main">
+    <strong>Dream Lite</strong> — рабочий режим для шагов 1–4: раскадровка, генерация кадров, план переходов и запуск отдельных i2v-сцен.
+    Доступен полный автопрогон: от текста сна до финального mp4.
+  </p>
+
+  <div class="dream-lite-main-row">
+    <div class="dream-lite-col dream-lite-col--input">
+      <div class="dream-lite-workbench">
+        <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+          <h4 class="pipe-stage-card-title">Текст сна</h4>
+          <label class="dream-lite-label" for="dream-lite-dream-text">Введите сон для шагов 1–4</label>
+          <textarea
+            id="dream-lite-dream-text"
+            name="dream_text"
+            class="dream-text-block dream-lite-textarea"
+            rows="10"
+            placeholder="Опишите сон — дальше запускайте шаги 1–4 вручную"
+            spellcheck="true"></textarea>
+          <form
+            class="dream-lite-form dream-lite-form--pipeline-all"
+            hx-post="/dev/api/dream/lite/pipeline_all_steps"
+            hx-target="#dream-lite-pipeline-all-out"
+            hx-swap="innerHTML"
+            hx-include="#dream-lite-dream-text"
+            hx-indicator="#dream-lite-spinner-pipeline-all"
+            hx-timeout="1200000">
+            <button type="submit" class="btn-primary">Запустить полный пайплайн</button>
+            <span id="dream-lite-spinner-pipeline-all" class="htmx-indicator dream-lite-indicator">Полный запуск (может занять несколько минут)…</span>
+          </form>
+        </article>
+        <div id="dream-lite-pipeline-all-out" class="dream-lite-out dream-lite-out--pipeline-all" aria-live="polite"></div>
+        <div
+          id="dream-lite-live-runs"
+          hx-get="/dev/partials/dream/lite/runs_live"
+          hx-trigger="load, every 4s"
+          hx-swap="innerHTML"></div>
+
+        <details class="dream-lite-debug-pack pipe-stage-card dream-lite-input-card">
+          <summary class="dream-lite-prompt-sum">Пошаговый режим (1–4)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">
+            Ручной вызов каждого шага пайплайна.
+          </p>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">1 · Окружения и персонажи</h4>
+            <div class="dream-lite-actions dream-lite-actions--step1">
+              <form
+                class="dream-lite-form"
+                hx-post="/dev/api/dream/lite/environments"
+                hx-target="#dream-lite-env-out"
+                hx-swap="innerHTML"
+                hx-include="#dream-lite-dream-text"
+                hx-indicator="#dream-lite-spinner">
+                <button type="submit" class="btn-primary">1 · Окружения и персонажи</button>
+              </form>
+              <span id="dream-lite-spinner" class="htmx-indicator dream-lite-indicator">Запрос к модели…</span>
+            </div>
+          </article>
+
+          <div id="dream-lite-env-out" class="dream-lite-out dream-lite-out--env" aria-live="polite"></div>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step2 dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">2 · Раскадровка</h4>
+            <p class="dream-lite-secondary">Нужен полный текст шага 1 (подставляется из скрытого поля после шага 1).</p>
+            <form
+              id="dream-lite-frames-form"
+              class="dream-lite-form dream-lite-form--frames"
+              hx-post="/dev/api/dream/lite/frames"
+              hx-target="#dream-lite-frames-out"
+              hx-swap="innerHTML"
+              hx-include="#dream-lite-dream-text, #dream-lite-env-store"
+              hx-indicator="#dream-lite-spinner-frames">
+              <textarea id="dream-lite-env-store" name="environments_text" class="visually-hidden" aria-hidden="true"></textarea>
+              <button type="submit" class="btn-primary">2 · Построить раскадровку</button>
+              <span id="dream-lite-spinner-frames" class="htmx-indicator dream-lite-indicator">Запрос к модели…</span>
+            </form>
+          </article>
+
+          <div id="dream-lite-frames-out" class="dream-lite-out dream-lite-out--frames" aria-live="polite"></div>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step3 dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">3 · Картинки</h4>
+            <p class="dream-lite-secondary">
+              Сначала листы персонажей, затем пластины окружений (банк референсов). Размер картинок в API: <strong>9:16</strong> и <strong>1K</strong> (компактно под телефон; не 4K). Далее по умолчанию — <strong>только план кадров</strong> (без image API для кадров; предыдущий кадр в слоте 0 — «ожидается»).
+              Отметьте «Сразу сгенерировать все кадры», если нужен полный прогон в одном шаге.
+            </p>
+            <label class="dream-lite-label" for="dream-lite-image-model-bases">Модель OpenRouter (изображения)</label>
+            <select id="dream-lite-image-model-bases" name="image_model" class="dream-lite-model-select" form="dream-lite-form-visual-bases">
+              
+              
+              <option value="google/gemini-2.5-flash-image" selected>Gemini 2.5 Flash Image — Низкий–средний (по токенам; см. карточку модели)</option>
+              
+              <option value="google/gemini-3.1-flash-image-preview" >Gemini 3.1 Flash Image (preview) — Низкий–средний</option>
+              
+              <option value="google/gemini-3-pro-image-preview" >Gemini 3 Pro Image (preview) — См. карточку модели</option>
+              
+              <option value="openai/gpt-5-image-mini" >GPT-5 Image Mini — См. OpenRouter</option>
+              
+              <option value="openai/gpt-5-image" >GPT-5 Image — См. OpenRouter</option>
+              
+              <option value="openai/gpt-5.4-image-2" >GPT-5.4 Image 2 — См. OpenRouter</option>
+              
+              <option value="bytedance-seed/seedream-4.5" >Seedream 4.5 (ByteDance) — ~$0.04 за изображение (карточка OpenRouter)</option>
+              
+              <option value="black-forest-labs/flux.2-pro" >Flux 2 Pro — Средний–высокий (провайдер BFL)</option>
+              
+              <option value="black-forest-labs/flux.2-flex" >Flux 2 Flex — Средний</option>
+              
+              <option value="qwen/qwen-image" >Qwen Image — Обычно ниже премиум-моделей</option>
+              
+              
+            </select>
+            <form
+              id="dream-lite-form-visual-bases"
+              class="dream-lite-form dream-lite-form--visual"
+              hx-post="/dev/api/dream/lite/generate_visuals_bases"
+              hx-target="#dream-lite-visual-out"
+              hx-swap="innerHTML"
+              hx-include="#dream-lite-dream-text, #dream-lite-env-store, #dream-lite-frames-store, #dream-lite-frames-prev-link-store, #dream-lite-image-model-bases"
+              hx-indicator="#dream-lite-spinner-visual"
+              hx-timeout="600000">
+              <textarea id="dream-lite-frames-store" name="frames_text" class="visually-hidden" aria-hidden="true"></textarea>
+              <textarea id="dream-lite-frames-prev-link-store" name="frames_prev_link_raw" class="visually-hidden" aria-hidden="true"></textarea>
+              <label class="dream-lite-secondary dream-lite-check-row" for="dream-lite-eager-frames">
+                <input id="dream-lite-eager-frames" type="checkbox" name="eager_frames" value="1"/>
+                Сразу сгенерировать все кадры после пластин (иначе только план и отдельная кнопка; prev — «ожидается»)
+              </label>
+              <button type="submit" class="btn-primary">3a · Персонажи, окружения и кадры</button>
+              <span id="dream-lite-spinner-visual" class="htmx-indicator dream-lite-indicator">Генерация пластин и план…</span>
+            </form>
+            <details class="dream-lite-quick-visual-full">
+              <summary class="dream-lite-secondary">Без плана: всё одним запросом</summary>
+              <p class="dream-lite-secondary">Сразу персонажи, окружения и кадры. План по кадрам в UI не показывается.</p>
+              <form
+                class="dream-lite-form dream-lite-form--visual-all"
+                hx-post="/dev/api/dream/lite/generate_visuals"
+                hx-target="#dream-lite-visual-out"
+                hx-swap="innerHTML"
+                hx-include="#dream-lite-dream-text, #dream-lite-env-store, #dream-lite-frames-store, #dream-lite-frames-prev-link-store, #dream-lite-image-model-bases"
+                hx-indicator="#dream-lite-spinner-visual-all"
+                hx-timeout="600000">
+                <button type="submit" class="btn-ghost">3 · Цепочка целиком</button>
+                <span id="dream-lite-spinner-visual-all" class="htmx-indicator dream-lite-indicator">Цепочка генерации…</span>
+              </form>
+            </details>
+          </article>
+
+          <div id="dream-lite-visual-out" class="dream-lite-out dream-lite-out--visual" aria-live="polite"></div>
+
+          <article class="pipe-stage-card dream-lite-input-card dream-lite-input-card--step4 dream-lite-debug-inner">
+            <h4 class="pipe-stage-card-title">4 · План монтажа</h4>
+            <p class="dream-lite-secondary">
+              Чат плана переходов; в запрос уходят компактные метаданные кадров (после шага 3). После ответа показывается <strong>разметка анимации</strong>: пары кадров только внутри одной prev-линии и черновик текста в video API (без автозапуска i2v). Выше в шаге 3 — лента кадров и «Ответ image API».
+            </p>
+            <form
+              class="dream-lite-form dream-lite-form--montage"
+              hx-post="/dev/api/dream/lite/montage_plan"
+              hx-target="#dream-lite-step4-out"
+              hx-swap="innerHTML"
+              hx-include="#dream-lite-dream-text, #dream-lite-env-store, #dream-lite-frame-results-json"
+              hx-indicator="#dream-lite-spinner-montage">
+              <textarea id="dream-lite-frame-results-json" name="frame_results_json" class="visually-hidden" aria-hidden="true" autocomplete="off"></textarea>
+              <button type="submit" class="btn-primary">4 · Построить план монтажа</button>
+              <span id="dream-lite-spinner-montage" class="htmx-indicator dream-lite-indicator">Чат плана переходов…</span>
+            </form>
+            <p class="dream-lite-secondary dream-lite-hint">Сначала шаг 3; лента кадров и лог API — в области «Шаг 3 · Визуальная цепочка» над этой кнопкой.</p>
+          </article>
+
+          <div id="dream-lite-step4-out" class="dream-lite-out dream-lite-out--step4" aria-live="polite"></div>
+        </details>
+      </div>
+    </div>
+
+    <aside class="dream-lite-col dream-lite-col--prompts" aria-label="Системные промпты Lite">
+      <div class="pipe-stage-card dream-lite-prompts-panel" style="margin-bottom:0.8rem;">
+        <h4 class="pipe-stage-card-title">Workers · Настройка (scaffold)</h4>
+        <p class="dream-lite-secondary">Заготовка для будущей тонкой настройки логики worker/pipeline в одном месте.</p>
+        <form class="dream-lite-form" onsubmit="return false;">
+          <label class="dream-lite-label">Pipeline variant</label>
+          <select class="dream-lite-model-select" disabled>
+            <option selected>pair_i2v_between_keyframes</option>
+            <option>text_to_video_direct</option>
+            <option>hybrid_i2v_then_t2v_fallback</option>
+          </select>
+
+          <label class="dream-lite-label">Image model policy</label>
+          <input class="dream-lite-model-select" type="text" value="openrouter:image (runtime)" disabled />
+
+          <label class="dream-lite-label">Video backend priority</label>
+          <input class="dream-lite-model-select" type="text" value="dashscope -> openrouter fallback" disabled />
+
+          <label class="dream-lite-label">Worker retry/fallback rules (JSON)</label>
+          <textarea class="mono dream-lite-prompt-textarea" rows="7" spellcheck="false" disabled>{
+  "i2v_create_retry": 1,
+  "i2v_poll_timeout_sec": 2400,
+  "fallback_to_text_to_video_on_data_inspection": false
+}</textarea>
+          <div class="dream-lite-prompt-actions">
+            <button type="button" class="btn-ghost btn-sm" disabled>Сохранить (скоро)</button>
+            <span class="dream-lite-secondary">Только scaffold. Подключим к runtime в следующем шаге.</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="pipe-stage-card dream-lite-prompts-panel">
+        <h4 class="pipe-stage-card-title">Промпты</h4>
+        <p class="dream-lite-secondary">Редактирование и сохранение в <code class="mono dream-lite-code">prompts/</code>.</p>
+
+        <details class="dream-lite-prompt-pack" open>
+          <summary class="dream-lite-prompt-sum">System · окружения</summary>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-environments-md"
+            hx-target="#dream-lite-prompt-hint-env"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">Ты готовишь **мир сна** для визуальной генерации: только факты и структура, без рассказа от первого лица.
+
+Тебе даётся текст сна.
+
+Выдай **две обязательные части** в таком порядке:
+
+---
+
+## Окружения
+
+1–3 ключевых **пространства**, где происходит сон. Каждое — физическая локация, не событие.
+
+Сюда же относятся **массовки, толпы, группы животных, транспорт как фон, статичные объекты сцены** — опиши их как часть пространства (атмосфера, плотность, свет), а не как отдельных «персонажей».
+
+Под секцией для **каждого** окружения:
+
+- отдельная строка-заголовок: `### id_окружения` (латиница snake_case или одно слово)
+- ниже: описание **третьим лицом** или нейтрально: атмосфера, свет, масштаб, важные объекты пространства
+- не пересказывай сон целиком — только эту локацию
+
+### Масштаб и композиция (обязательно)
+
+Цель — не получить **абстрактный фон**, который потом не стыкуется с кадрами с персонажами.
+
+**По умолчанию** каждое окружение — **сцена для действия** в **человеческом масштабе**:
+
+- камера / точка наблюдения — **на уровне человека** (не безликая «карта» и не съёмка «с орбиты», если сон этого не требует);
+- есть **передний план** или ощутимая **глубина вблизи** — кадр не сводится к плоскому далёкому пятну;
+- видна **зона действия** — куда органично встают люди, где смысловой фокус сцены;
+- локация **пригодна для следующих шагов** (кадры с людьми), а не только «обои».
+
+**Исключение:** если во **входном тексте сна явно** задан другой масштаб — сохрани его. Например: огромное пространство, **чувство дистанции**, **панорама**, **вид сверху**, масштаб **толпы как моря**, бескрайняя перспектива и т.п. Тогда:
+
+- допустим **широкий** или **дальний** план;
+- но композиция остаётся **читаемой**: где происходит событие, какие опорные объекты / линии ведут взгляд, не «равномерная каша без центра».
+
+**Выбор осознанный:** не уходи автоматически в общий дальний план. Либо **сцена для действия** (дефолт), либо **показ масштаба / дистанции** — когда это **часть смысла** сна.
+
+В теле каждой карточки окружения **коротко обозначь** масштаб и тип постановки (например: «уровень глаз, средний план, передний план — …» или «из текста — крайне широкий план, акцент действия — …»).
+
+---
+
+## Персонажи
+
+**Жёстко: в «Персонажи» попадают только люди (одушевлённые человеческие фигуры, с которыми имеет смысл вести визуальный кастинг по лицу и силуэту).**
+
+**Атомарность карточки (как reference sheet, не кадр из сна):**
+
+- описание **только одного** человека в изоляции: внешность, одежда, нейтральная поза;
+- **запрещено** указывать или подразумевать **взаимодействие** с кем бы то ни было: другим персонажем, сновидцем, животным, толпой, предметом сюжета («тянет», «смотрит на…», «рядом с…», «бежит от…», «держит за руку» и т.д.);
+- **запрещено** сюжетная динамика, отношения, совместное действие, диалог — это задаётся **в кадрах** позже, не в листе персонажа;
+- **роль:** одно слово или короткая метка (мать, продавец) — **без** привязки к сцене («мать, которая целует ребёнка» → только «мать», детали взаимодействия не писать);
+- **визуальный якорь:** только статичный типаж и нейтральная поза (стоит, спокойные руки), пригодная для модельного листа.
+
+**Не относить к персонажам (это окружение, объекты сцены или детали кадра, не отдельная карточка здесь):**
+
+- животных, птиц, насекомых, лошадей и любых не-людей (в т.ч. **пингвин** — только в **Окружения** или в тексте кадра, не карточка «персонаж»);
+- предметы, машины, здания как сущности;
+- группы объектов, толпы, размытые массы «людей без лица» (опиши в окружении);
+- одиночные силуэты без привязки к конкретному человеку как типажу (если это не важная фигура — в окружение);
+- абстрактные сущности (страх, голос, тень без человеческой формы).
+
+Под секцией для **каждого** персонажа (человека):
+
+- отдельная строка-заголовок: `### id_персонажа` (латиница snake_case; можно `mother`, `seller`, `child_1`, `dreamer`)
+- ниже строками (не абзацем-сочинением):
+  - **роль:** кратко (мать, продавец, ребёнок…) — одна короткая строка, **без** сюжета и контактов
+  - **визуальный якорь:** только то, что держит **один и тот же** человека в разных кадрах: примерный **возрастной тип** (не «неопределённый возраст»), волосы, лицо, силуэт тела, одежда (конкретные цвета/крой), **одна** нейтральная поза — без других фигур и без действий по отношению к кому-то
+  - **запрет:** не используй местоимение «я», не пиши «я вижу», не повествуй от первого лица; не описывай взаимодействия и парные сцены
+
+**Запрещённые пустые формулировки в визуальном якоре** (их нельзя использовать — они не якорят образ):
+
+- «неопределённого возраста», «возраст не указан»
+- «простая одежда», «обычная одежда», «естественная внешность», «обычный человек», «ничем не примечателен»
+
+Если во сне внешность **не** задана — **придумай нейтральную, но конкретную** внешность (как кастинг): чтобы по тексту можно было нарисовать одного и того же актёра.
+
+**Принцип (не копируй дословно):** не «мужчина неопределённого возраста», а «мужчина средних лет, тёмные короткие волосы, усталое лицо, тёплая куртка цвета охры, спокойная закрытая поза».
+
+Если в сне «я» — заведи сущность-человека, например `### dreamer` или `### protagonist`, и опиши **только визуальный якорь** со стороны (без внутреннего мира и без от первого лица).
+
+---
+
+Формат: только markdown, **без JSON**.
+
+Не упрощай сон до банальностей: странные и противоречивые детали окружений сохраняй.
+
+Пример скелета (не копируй текст):
+
+## Окружения
+
+### fair_kiosk
+…
+
+## Персонажи
+
+### mother
+роль: …
+визуальный якорь: …
+ЖЁСТКОЕ ТРЕБОВАНИЕ:
+
+Всегда должен быть добавлен главный персонаж сна — человек, от лица которого происходит переживание (сновидец).
+
+Даже если он не описан явно или не упоминается напрямую в тексте сна, ты обязан создать отдельную сущность:
+
+### dreamer
+
+Это центральный персонаж, через которого воспринимается сцена.
+
+---
+
+Правила для dreamer:
+
+- всегда добавляется
+- описывается как обычный персонаж (по тем же правилам)
+- только внешний визуальный якорь
+- без внутреннего состояния
+- без «я» и без повествования
+
+Если внешность не задана — придумай нейтральный, но конкретный визуальный образ.
+
+---
+
+Важно:
+
+dreamer — это не абстракция и не камера.
+
+Это физически присутствующий в кадре человек.
+
+Окружение не должно содержать конкретного действия или сцены.
+Это статичная база пространства.
+
+В окружении должна быть зона, в которую можно поместить персонажа без перекрытия.
+Не создавай полностью заполненное пространство.
+
+В окружении не должно быть конкретных читаемых лиц людей.
+Допустимы только массы без индивидуальности.
+
+Персонаж должен быть описан так, чтобы его можно было воспроизводить одинаково в разных кадрах.</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-env" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack">
+          <summary class="dream-lite-prompt-sum">System · кадры</summary>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-frames-md"
+            hx-target="#dream-lite-prompt-hint-frames"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">Ты строишь **раскадровку для генерации изображений**, не литературный текст.
+
+Вход:
+
+- текст сна
+- шаг 1: блок **## Окружения** и **## Персонажи** (id, описания)
+
+---
+
+## Главное: много кадров, один момент на кадр
+
+- **Не сжимай** сон в мало кадров. Лучше **больше узких кадров**, чем один «пересказ».
+- **Один кадр = одно визуальное действие или одно чёткое изменение состояния** (один удар, один хват, один поворот головы, один шаг). Если во сне подряд идут разные действия — это **разные кадры**.
+- **Запрещено** в одном кадре связывать **несколько действий** через **«и»**, **«потом»**, **«одновременно»**, **«параллельно»**, два глагола на разные события. Такой текст нужно **разбить на 2–3+ кадра**.
+- **Пингвин схватил / она схватила / разжимает** — минимум **три отдельных кадра** (контакт 1 → контакт 2 → изменение хвата), а не один.
+
+Ориентир: для сцены с конфликтом или погоней ожидай **не меньше 4–8 кадров**, если во сне есть несколько тактов; не останавливайся на 2–3, если материала хватает.
+
+**В коде нет лимита на число кадров** — ограничение только в том, сколько `### Кадр N` ты выдашь. Парсер режет ответ **только** по строкам-заголовкам `### Кадр N` / `### Frame N` (ровно на отдельной строке). Если кадр «пропал», чаще всего модель **не поставила** отдельный заголовок — исправь разметку.
+
+---
+
+## Жёсткие правила текста
+
+- **Запрещено:** «я», повествование, художественные обороты, «я вижу», «я иду», внутренний монолог, лишние слова.
+- **Нужно:** сухая структура — **кто из людей** в кадре (только `### id` из **Персонажей** шага 1 — там только люди), **одно** изменение относительно опоры, где (только если меняется локация относительно опоры).
+- **Лошади, животные, толпа, предметы, силуэты без лица** — не перечисляй как персонажей; укажи в **delta** / **frame_text** как содержимое сцены или отсылку к окружению (`id` окружения), без выдуманных «персонажей»-не-людей.
+
+Кадр = **структура**, не рассказ.
+
+---
+
+## Логика опоры (delta)
+
+- В **Опора** укажи **только** источник композиции: id окружения из шага 1; для продолжений той же сцены можно кратко отсылать к предыдущему кадру словами (решение «prev или нет» задаёт **отдельный шаг 2b**, не ты).
+- **Не** переписывай описание окружения целиком — оно уже есть в шаге 1.
+- **Не** пересказывай предыдущий кадр — только то, что **добавляется** или **меняется** относительно него.
+- В **delta** / **Изменение** — **ровно одно** визуальное изменение для этого кадра (или тесно связанный один жест). Не список из двух сюжетных шагов.
+- В **frame_text** / **Кадр** — **одно** сюжетное действие, но формулировка **насыщенная**: **2–4 короткие фразы** — кто в кадре (id из шага 1), **одно** действие, ракурс (широкий/средний/крупный), свет или палитра, **1–2 конкретные детали из текста сна** (материал, пространство, погода, толпа как фон). Запрещено второе независимое событие; допустима сухая режиссёрская пометка без «я» и без литературного пересказа всего сна.
+
+---
+
+## Предыдущий кадр как референс (prev)
+
+**Не указывай** в разметке кадра поле `use_previous_frame` — его выставляет **второй вызов модели** (шаг 2b, системный промпт `dream_pipeline_lite_frames_prev_link.md`) по этой же раскадровке. Ты только даёшь честную опору, `base_reference` и тексты; классификатор решает continuity.
+
+Имеет смысл помнить: в коде не больше **3** кадров **подряд** с фактическим prev в image API; дальше — принудительный сброс цепочки (`forced_prev_chain_break`). Это не твоя разметка, но влияет на итог после 2b.
+
+## Сновидец (dreamer) в кадре
+
+- В шаге 1 всегда есть **`### dreamer`** (или твой id сновидца). Пока в кадре есть **другие люди** из шага 1 или в тексте есть маркеры сновидца / POV — **включай `dreamer` в `character_references`** вместе с ними, не выпускай кадры «только второстепенный персонаж», если сновидец по смыслу участвует в сцене.
+- В **Кадр / frame_text** при участии сновидца укажи id **`dreamer`** (или как в шаге 1), а не только «человек» без id.
+
+---
+
+## Последовательность
+
+- Кадр 1: **base_reference** и явная опора на окружение.
+- Дальше: каждый кадр — одно визуальное изменение; для непрерывности сцены сохраняй тот же `base_reference`, пока локация не меняется.
+
+---
+
+## Формат ответа (markdown, без JSON)
+
+Каждый кадр:
+
+`### Кадр N` (N с 1), заголовок **только на отдельной строке** (допустим вариант `### Frame N`).
+
+Под заголовком — **явные поля для пайплайна** (имена на английском). **В каждом кадре обязательны** `base_reference` и `character_references` (даже если людей не видно — укажи релевантных из шага 1 или пустой список `[]` только если в кадре действительно нет ни одного id персонажа из шага 1). Без них в UI не отобразится, «куда делась» локация и кто в кадре.
+
+**base_reference:** `id` окружения из шага 1 (как в `### id`, например `temple`).
+
+**character_references:** список id **людей** из шага 1: `[priest, dreamer]` или `priest, dreamer`. Если забудешь строку, но в **delta/Кадр** есть слова вроде «сновидец», пайплайн может подставить id (например `dreamer`) по совпадению с карточками шага 1.
+
+**delta:** одно изменение (то же, что **Изменение:**).
+
+**frame_text:** итог кадра для генерации (то же, что **Кадр:** / **Результат:**).
+
+Допустимо дублировать по-русски:
+
+**Опора:** …  
+**Изменение:** … (= delta)  
+**Кадр:** … (= frame_text)  
+
+или **Результат:** вместо **Кадр:**
+
+В **Опора / Изменение / Кадр** перечисляй **людей** по их `### id` из шага 1, не как «я». Не-люди и объекты — только как часть сцены, не как id из блока персонажей.
+
+
+Для каждого кадра есть один главный визуальный источник:
+- либо base_reference (окружение)
+- либо предыдущий кадр
+
+Нельзя одновременно опираться на оба как на равные.
+
+В кадре не более 2–3 персонажей с визуальной значимостью.
+Остальные — фон.
+
+Кадр не должен содержать текст, надписи, таблички, субтитры или графические элементы интерфейса.
+
+Если кадр является продолжением, не пересоздавай окружение.
+Изменяй только то, что указано в delta.
+
+Сохраняй согласованную перспективу и расположение объектов между кадрами, если это continuation.
+
+Визуальная генерация строится по иерархии:
+
+1. Главный источник (environment или previous_frame)
+2. Персонажи (внешность)
+3. Изменение (delta)
+
+Все остальные элементы подчиняются главному источнику.</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-frames" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack">
+          <summary class="dream-lite-prompt-sum">System · связь кадра с предыдущим (шаг 2b)</summary>
+          <p class="dream-lite-secondary dream-lite-hint">Отдельный вызов после раскадровки: JSON <code class="mono">use_previous_frame_by_index</code> — нужен ли референс предыдущего кадра в image API.</p>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-frames-prev-link-md"
+            hx-target="#dream-lite-prompt-hint-frames-prev"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">Ты **классификатор связности кадров** для Dream Pipeline Lite. Тебе дают текст сна, markdown шага 1 (окружения и персонажи) и **готовую раскадровку** шага 2a (markdown с `### Кадр N` и полями вроде `base_reference`, `character_references`, опора, delta, кадр).
+
+Твоя задача — для **каждого** кадра решить: в image API нужен ли референс **предыдущего сгенерированного кадра** (continuity / «превью»), или достаточно **новой опоры** на пластину окружения + листы персонажей (как будто ключ заново).
+
+## Когда ставить true (нужен prev)
+
+- Визуально это **тот же непрерывный план**: та же сцена, та же «камера» или естественное продолжение, мелкий такт (реакция, поворот, шаг), текст опоры отсылает к предыдущему кадру без смены места.
+- **Тот же** `base_reference`, что у предыдущего кадра (или явная преемственность в тексте), и нет жёсткого монтажного разрыва «новая локация / новая постановка».
+
+## Когда ставить false (без prev)
+
+- Смена **локации** или **базы** (`base_reference` другой, или в тексте явно новое место / другой план / «с другого ракурса как новый кадр»).
+- **Жёсткий разрез**: флешбэк, скачок во времени, новая группировка актёров «с нуля», титул, символическая вставка — всё, что проще и чище собрать от пластины окружения.
+- Кадр 1: **всегда false** (предыдущего кадра ещё нет).
+
+Учитывай сон и шаг 1; не выдумывай кадры — число решений = числу заголовков `### Кадр` в переданной раскадровке.
+
+## Формат ответа
+
+Один **JSON-объект**, без markdown-обёртки (или можно в ```json … ``` — парсер устойчивый). Обязательный вариант:
+
+```json
+{&#34;use_previous_frame_by_index&#34;: [false, true, false]}
+```
+
+- Массив длины **ровно N**, где N — число кадров по порядку `### Кадр 1` … `### Кадр N`.
+- **Первый элемент всегда `false`.**
+- Для индексов ≥ 1: `true` = в генерацию уходит цепочка с предыдущим кадром; `false` = только окружение + персонажи (и т.д. по правилам пайплайна).
+
+Альтернатива (если удобнее списком объектов): `{&#34;frames&#34;: [{&#34;index&#34;: 0, &#34;use_previous_frame&#34;: false}, …]}` с **всеми** индексами от 0 до N−1.
+
+Не добавляй комментарии в JSON. Не дублируй раскадровку — только массив решений.
+
+Если изменение затрагивает композицию (ракурс, масштаб, расположение персонажей) — ставь false.
+
+</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-frames-prev" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+
+        <details class="dream-lite-prompt-pack">
+          <summary class="dream-lite-prompt-sum">System · монтаж / переходы</summary>
+          <form
+            class="dream-lite-prompt-form"
+            hx-post="/dev/api/prompts/dream-pipeline-lite-transitions-md"
+            hx-target="#dream-lite-prompt-hint-transitions"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-lite-prompt-textarea" spellcheck="false">Ты планируешь **монтаж и анимацию** для уже готовой раскадровки Dream Pipeline Lite. Новых кадров не придумываешь и не описываешь новые события.
+
+Вход (в user придёт JSON): `dream_text`, `environments`, `characters`, `frames` (индекс, **текст** кадра: kad, izmenenie, base_reference, персонажи; флаги `image_generated_ok` — **без** встраивания картинок и URL, чтобы не раздувать контекст).
+
+У каждого элемента `frames[]` дополнительно:
+
+- **`use_previous_frame_resolved`** — если `true`, при **шаге 3** этот кадр генерировали с референсом **предыдущего успешного кадра** (шаг 2 явно поставил превью / `use_previous_frame: true`, и лимит «3 подряд» не сработал раньше).
+- **`forced_prev_chain_break`** — если `true`, код **принудительно оборвал** цепочку перехлёста (лимит длины цепочки в пайплайне); после такого кадра ожидается **новая опора**, смысловой разрыв сильнее, чем у обычного перехлёста.
+
+---
+
+## Перехлёст и монтаж (важно)
+
+Несколько кадров подряд с **`use_previous_frame_resolved: true`** — это **одна непрерывная визуальная цепочка**: эволюция одного состояния сцены, а не независимые «статики». Внутри такой цепочки между соседними индексами почти всегда уместен **`animate_transition`**, если `image_generated_ok` позволяет.
+
+На границе цепочки:
+
+- после кадра с **`forced_prev_chain_break: true`** почти всегда **`hard_cut`** на переходе **к** этому кадру (с предыдущего индекса), либо осмысленный разрез, если смысл визуально «перезапускается»;
+- если **`use_previous_frame_resolved: false`** у следующего кадра при том что предыдущий был в цепочке — часто **`hard_cut`** между ними, если по тексту кадров это смена опоры / новый такт.
+
+Итоговое видео строится **только** из пар с **`animate_transition`** (i2v между двумя ключами). **`hard_cut`** в плане задаёт границы смысловых блоков и сцен; между соседями с разрезом **отдельный** клип i2v не создаётся — склейка идёт из клипов по `animate_transition` подряд.
+
+---
+
+## Задача
+
+1. Между **каждой парой соседних кадров** `(i → i+1)` выбери тип перехода:
+   - **`animate_transition`** — одно непрерывное движение в той же сцене (тот же персонаж/пространство, одно действие продолжается: поза, взгляд, дистанция, жест).
+   - **`hard_cut`** — монтажный разрез: смена ракурса/масштаба, иной композиционный центр, новое действие без прямой визуальной связи, сдвиг смысла.
+
+2. Сгруппируй кадры в **сцены**: непрерывный блок, внутри которого между соседними кадрами только `animate_transition`. Между сценами всегда `hard_cut` на границе.
+
+---
+
+## Критерии (кратко)
+
+**animate_transition**, если: те же люди в том же пространстве, одно действие развивается, меняется поза/взгляд/расстояние без «режиссёрского скачка».
+
+**hard_cut**, если: другой ракурс или масштаб, другой фокус кадра, логически новый такт, нет смысла тянуть i2v между ключами.
+
+---
+
+## Текст
+
+- Без «я», без художественного пересказа всего сна целиком.
+- **`dream_text`** используй осмысленно: вытяни **настроение, темп, важный смысловой узел** (одно-два предложения уровня подсказки), чтобы `motion_prompt` не был сухой подписью к кадру. Не копируй длинные цитаты из сна — только то, что помогает описать **движение между ключами**.
+
+---
+
+## motion_prompt (только для animate_transition)
+
+Цель — текст для **image-to-video** между **уже зафиксированными** ключевыми картинками (первый кадр = стартовый кадр клипа, второй = целевой). Пиши **плотно и конкретно**: обычно **3–6 предложений** (ориентир до ~150 слов), без россказни на страницу.
+
+Обязательно затрони (если это следует из `kad` / `izmenenie` кадров и при необходимости из `dream_text`):
+
+1. **Кто и что двигается** — тела, руки, взгляд, жесты; кто в фокусе кадра, меняется ли дистанция до камеры.
+2. **Камера** — по умолчанию мягкое, почти незаметное движение в той же оси, что и при съёмке ключей; если в тексте кадров явно другой приём — обозначь (например «лёгкий наезд», «сдвиг вбок»), без смены локации и без «новой сцены».
+3. **Темп и непрерывность** — одно цельное действие между ключами; фон и освещение **согласованы** с обоими кадрами, без внезапной смены времени суток или декора.
+4. **Смысловой мост** — одна фраза, **расширяющая** черновик из полей кадров с опорой на `dream_text` (интонация, настроение, подтекст), **без** пересказа сна и без введения новых событий, которых нет в кадрах.
+
+Если `kad` / `izmenenie` очень короткие — **всё равно** распиши переход богаче, опираясь на `dream_text` и здравый смысл непрерывной сцены; не оставляй одну телеграфную строку.
+
+**Связь с prev-линиями:** `animate_transition` имеет смысл, когда оба кадра в одной **цепочке prev** (следующий кадр продолжал предыдущий при генерации). Если между соседями по индексу логически **новая линия** (`use_previous_frame_resolved: false` у правого кадра) — между ними обычно **`hard_cut`**, а не анимация «от пикселей левого к пикселям правого».
+
+## cut_reason (только для hard_cut)
+
+Одна короткая фраза: почему разрез (ракурс / новое действие / смена центра и т.д.).
+
+---
+
+## Выход
+
+Верни **только один JSON-объект** (без markdown-ограждений, без комментариев):
+
+```json
+{
+  &#34;scenes&#34;: [
+    { &#34;scene_index&#34;: 0, &#34;from_frame_index&#34;: 0, &#34;to_frame_index&#34;: 1 }
+  ],
+  &#34;transitions&#34;: [
+    {
+      &#34;from_frame_index&#34;: 0,
+      &#34;to_frame_index&#34;: 1,
+      &#34;transition_type&#34;: &#34;animate_transition&#34;,
+      &#34;motion_prompt&#34;: &#34;…&#34;
+    },
+    {
+      &#34;from_frame_index&#34;: 1,
+      &#34;to_frame_index&#34;: 2,
+      &#34;transition_type&#34;: &#34;hard_cut&#34;,
+      &#34;cut_reason&#34;: &#34;…&#34;
+    }
+  ]
+}
+```
+
+Требования:
+
+- `frames` в входе имеют индексы `0 .. N-1`. Ровно **`N-1`** элементов в `transitions`; для каждого `k` от `0` до `N-2`: `from_frame_index=k`, `to_frame_index=k+1`.
+- `transition_type` строго строка `animate_transition` или `hard_cut`.
+- Для `animate_transition` поле **`motion_prompt`** обязательно; **`cut_reason`** не включай.
+- Для `hard_cut` поле **`cut_reason`** обязательно; **`motion_prompt`** не включай.
+- **`scenes`**: покрывают все кадры от `0` до `N-1` без дыр и перекрытий; `scene_index` подряд с 0; границы согласованы с `hard_cut` между соседями.
+
+Для **одного кадра** (`N=1`): `&#34;transitions&#34;: []`, одна сцена `from_frame_index` и `to_frame_index` равны `0`.
+
+
+Не создавай анимацию между кадрами, если визуальная структура сцены различается слишком сильно.</textarea>
+            <div class="dream-lite-prompt-actions">
+              <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+              <span id="dream-lite-prompt-hint-transitions" class="dream-lite-secondary"></span>
+            </div>
+          </form>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>

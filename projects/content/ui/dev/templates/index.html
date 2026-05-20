@@ -16,22 +16,22 @@
 
   <div class="tabs">
     <input type="radio" name="tab" id="tab-msg" checked/>
-    <input type="radio" name="tab" id="tab-gen"/>
-    <input type="radio" name="tab" id="tab-assets"/>
-    <input type="radio" name="tab" id="tab-video"/>
+    <input type="radio" name="tab" id="tab-alpha-access"/>
+    <input type="radio" name="tab" id="tab-playground"/>
     <input type="radio" name="tab" id="tab-dream"/>
+    <input type="radio" name="tab" id="tab-dream-lite"/>
+    <input type="radio" name="tab" id="tab-dream-lite-workers"/>
     <input type="radio" name="tab" id="tab-workspaces"/>
     <input type="radio" name="tab" id="tab-tools"/>
-    <input type="radio" name="tab" id="tab-prompts"/>
     <div class="tab-labels">
       <label for="tab-msg">Messages</label>
-      <label for="tab-gen">Generation</label>
-      <label for="tab-assets">Dream assets</label>
-      <label for="tab-video">Video</label>
+      <label for="tab-alpha-access">Alpha-Test Access</label>
+      <label for="tab-playground">Playground</label>
       <label for="tab-dream">Dream Pipeline</label>
+      <label for="tab-dream-lite">Dream Pipeline Lite</label>
+      <label for="tab-dream-lite-workers">Dream Lite Workers</label>
       <label for="tab-workspaces">Workspaces</label>
-      <label for="tab-tools">Tools</label>
-      <label for="tab-prompts">Prompts</label>
+      <label for="tab-tools">Agent Control</label>
     </div>
 
     <section class="tab-panel" id="panel-msg">
@@ -87,85 +87,76 @@
       </div>
     </section>
 
-    <section class="tab-panel" id="panel-gen">
-      <h2>Генерация изображений (Qwen)</h2>
-      <p class="muted gen-tab-hint">Последние генерации сохраняются в этом браузере (localStorage).</p>
-      <form class="gen-form"
-        hx-post="/dev/api/generate"
-        hx-target="#gen-result"
-        hx-swap="innerHTML"
-        hx-indicator="#gen-spinner">
-        <label class="block">Prompt</label>
-        <textarea name="prompt" rows="5" placeholder="Описание сцены…" required></textarea>
-        <div class="row">
-          <label>Size
-            <select name="size">
-              <option value="1024*1024">1024×1024</option>
-              <option value="1024*1536" selected>1024×1536</option>
-              <option value="1536*1024">1536×1024</option>
-            </select>
-          </label>
-          <label>Model
-            <select name="model">
-              <option value="qwen-image-2.0" selected>qwen-image-2.0</option>
-              <option value="qwen-image-2.0-pro">qwen-image-2.0-pro</option>
-            </select>
-          </label>
-          <label>n
-            <input type="number" name="n" value="1" min="1" max="6"/>
-          </label>
-        </div>
-        <button type="submit" class="btn-primary">Generate</button>
-        <span id="gen-spinner" class="htmx-indicator muted"> Генерация…</span>
-      </form>
-      <div id="gen-result" class="gen-result"></div>
-      <section class="gen-history-section" aria-label="История генераций">
-        <h3 class="gen-history-title">Последние генерации</h3>
-        <div id="gen-history" class="gen-history"></div>
-      </section>
-    </section>
-
-    <section class="tab-panel" id="panel-assets">
-      <h2>Dream assets (MongoDB)</h2>
-      <div class="split dream-assets-split">
-        <div class="col-list">
-          <h3>Пользователи</h3>
-          <div
-            class="table-wrap"
-            hx-get="/dev/partials/dream_assets/users"
-            hx-trigger="load, every 5s"
-            hx-target="#dream-user-list"
-            hx-swap="innerHTML">
-            <div id="dream-user-list"><p class="muted">Загрузка…</p></div>
-          </div>
-        </div>
-        <div class="col-detail" id="dream-assets-detail">
-          <p class="muted">Выберите user_id слева.</p>
-        </div>
+    <section class="tab-panel" id="panel-alpha-access">
+      <h2>Alpha-Test Access</h2>
+      <div
+        id="alpha-access-mount"
+        hx-get="/dev/partials/alpha_access/tab"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка доступа alpha-test…</p>
       </div>
     </section>
 
-    <section class="tab-panel" id="panel-video">
-      <h2>Image-to-video (Wan)</h2>
-      {% include "partials/video_panel.html" %}
+    <section class="tab-panel" id="panel-playground">
+      <h2>Playground</h2>
+      {% include "partials/playground_tab.html" %}
     </section>
 
     <section class="tab-panel" id="panel-dream">
       <h2>Dream Pipeline</h2>
-      <p class="muted">Intent-driven визуализация сна в Telegram (без обязательной команды). Слева — запуски, справа — пошаговый pipeline по сценам. Обновление каждые {{ poll_interval_sec }} с (как Messages).</p>
-      <div class="split dream-pipeline-split">
-        <div class="col-list dream-pipeline-sidebar">
-          <div
-            hx-get="/dev/partials/dream/sidebar"
-            hx-trigger="load, every {{ poll_interval_sec }}s"
-            hx-target="#dream-sidebar-inner"
-            hx-swap="innerHTML">
-            <div id="dream-sidebar-inner"><p class="muted">Загрузка…</p></div>
+      <p class="muted dream-pipeline-tab-lead">
+        Сверху — глобальный prompt для <strong>stage 1</strong> (первичная разметка сна). Ниже: слева список запусков (авто-обновление каждые {{ poll_interval_sec }} с), справа детальный pipeline выбранного run. Правую колонку обновляйте кнопкой «Обновить данные run» — без периодического HTMX на превью, чтобы видео не перезагружалось и не мигало.
+      </p>
+
+      <div
+        id="dream-stage1-lab-mount"
+        class="dream-stage1-lab-mount"
+        hx-get="/dev/partials/dream/stage1_prompt_lab"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Stage 1 prompt lab…</p>
+      </div>
+
+      <div class="dream-runtime-layout">
+        <div class="split dream-pipeline-split">
+          <div class="col-list dream-pipeline-sidebar">
+            <div
+              hx-get="/dev/partials/dream/sidebar"
+              hx-trigger="load, every {{ poll_interval_sec }}s"
+              hx-target="#dream-sidebar-inner"
+              hx-swap="innerHTML">
+              <div id="dream-sidebar-inner"><p class="muted">Загрузка…</p></div>
+            </div>
+          </div>
+          <div class="col-detail dream-pipeline-main" id="dream-pipeline-detail">
+            <p class="muted">Выберите запуск слева — здесь появится пошаговый pipeline по этому run.</p>
           </div>
         </div>
-        <div class="col-detail dream-pipeline-main" id="dream-pipeline-detail">
-          <p class="muted">Выберите запуск слева — здесь появится визуальный pipeline (сцены → промпты → кадры → Wan).</p>
-        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-dream-lite">
+      <h2>Dream Pipeline Lite</h2>
+      <div
+        id="dream-pipeline-lite-mount"
+        class="dream-pipeline-lite-mount"
+        hx-get="/dev/partials/dream/pipeline_lite_tab"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Dream Pipeline Lite…</p>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-dream-lite-workers">
+      <h2>Dream Lite Workers</h2>
+      <div
+        id="dream-pipeline-lite-workers-mount"
+        class="dream-pipeline-lite-mount"
+        hx-get="/dev/partials/dream/pipeline_lite_workers_tab"
+        hx-trigger="load"
+        hx-swap="innerHTML">
+        <p class="muted">Загрузка Dream Lite Workers…</p>
       </div>
     </section>
 
@@ -177,17 +168,6 @@
         hx-trigger="load"
         hx-swap="innerHTML">
         <p class="muted">Загрузка Tools…</p>
-      </div>
-    </section>
-
-    <section class="tab-panel" id="panel-prompts">
-      <div
-        id="prompts-editor-root"
-        class="prompts-editor-root"
-        hx-get="/dev/partials/prompts/editor"
-        hx-trigger="load"
-        hx-swap="innerHTML">
-        <p class="muted">Загрузка редактора промптов…</p>
       </div>
     </section>
 

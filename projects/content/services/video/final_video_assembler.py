@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 import tempfile
@@ -18,8 +19,13 @@ class FinalVideoAssemblerError(Exception):
 
 
 def _download(url: str, dest: Path, timeout_sec: float = 300.0) -> None:
+    headers: dict[str, str] = {}
+    if "openrouter.ai" in (url or "").lower():
+        token = str(os.environ.get("OPENROUTER_API_KEY") or "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
     with httpx.Client(timeout=timeout_sec, follow_redirects=True) as client:
-        r = client.get(url)
+        r = client.get(url, headers=headers or None)
         r.raise_for_status()
         dest.write_bytes(r.content)
 
@@ -56,7 +62,12 @@ def assemble_remote_mp4s(
         for i, url in enumerate(video_urls):
             part = tdp / f"part_{i:03d}.mp4"
             log(f"скачивание {i + 1}/{len(video_urls)}")
-            _download(url, part)
+            try:
+                _download(url, part)
+            except Exception as exc:  # noqa: BLE001
+                raise FinalVideoAssemblerError(
+                    f"не удалось скачать клип {i} ({url[:200]}): {exc}"
+                ) from exc
             part_paths.append(part)
 
         list_file = tdp / "list.txt"

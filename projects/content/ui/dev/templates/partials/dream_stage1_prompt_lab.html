@@ -1,0 +1,499 @@
+{% import "partials/dream_stage1_visual_examples.html" as labex %}
+<details class="dream-stage1-lab">
+  <summary class="dream-stage1-lab-summary">
+    <span class="dream-stage1-lab-summary-title">Planning Layer</span>
+    <span class="muted dream-stage1-lab-summary-sub">Planning: Beat Planner → Сценарист → Режиссёр → Сборщик</span>
+  </summary>
+
+  <div class="dream-stage1-lab-body">
+    <p class="muted small dream-stage1-lab-lead">
+      Режиссёр задаёт план (JSON: референсы + ключевые кадры одной кнопкой). Сборщик — исполнитель: получает тот же JSON автоматически и вызывает инструменты (картинки, видео).
+    </p>
+
+    <div class="dream-stage0-tabs">
+      <input class="dream-stage0-tab-input" type="radio" name="dream-stage0-tab" id="dream-stage0-tab-a" checked>
+      <input class="dream-stage0-tab-input" type="radio" name="dream-stage0-tab" id="dream-stage0-tab-b">
+      <input class="dream-stage0-tab-input" type="radio" name="dream-stage0-tab" id="dream-stage0-tab-c">
+      <input class="dream-stage0-tab-input" type="radio" name="dream-stage0-tab" id="dream-stage0-tab-d">
+
+      <div class="dream-stage0-tab-labels" role="tablist" aria-label="Planning stages">
+        <label for="dream-stage0-tab-a" class="dream-stage0-tab-label dream-stage0-tab-label--a">0A · Beat Planner</label>
+        <label for="dream-stage0-tab-b" class="dream-stage0-tab-label dream-stage0-tab-label--b">0B · Сценарист</label>
+        <label for="dream-stage0-tab-c" class="dream-stage0-tab-label dream-stage0-tab-label--c">1 · Режиссёр</label>
+        <label for="dream-stage0-tab-d" class="dream-stage0-tab-label dream-stage0-tab-label--d">2 · Сборщик</label>
+      </div>
+
+      <section class="dream-stage0-tab-panel dream-stage0-tab-panel--a">
+        <aside class="dream-lab-stage-info dream-lab-stage-info--a" role="note">
+          <strong>0A · Beat Planner</strong>
+          <p class="muted small">Грубая смысловая нарезка сна на крупные узлы без постановки и генерации.</p>
+        </aside>
+
+        {{ labex.planning_json_contracts("Контракты JSON · 0A · Beat Planner", stage0a_input_contract_json, stage0a_output_contract_json) }}
+
+        <section class="dream-lab-section dream-lab-editor">
+          <h3 class="dream-lab-h">Prompt editor · 0A · Beat Planner</h3>
+          <p class="muted small">Сохраняется в <code>prompts/dream_beat_planner.md</code> (отдельно от Сценариста).</p>
+          <form
+            class="dream-decomp-form"
+            hx-post="/dev/api/prompts/dream-beat-planner-md"
+            hx-target="#dream-stage0-a-save-hint"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-decomp-textarea dream-lab-textarea" rows="10">{{ dream_beat_planner_content }}</textarea>
+            <div class="dream-lab-actions">
+              <button type="submit" class="btn-ghost">Сохранить</button>
+              <span id="dream-stage0-a-save-hint" class="muted small"></span>
+            </div>
+          </form>
+        </section>
+
+        <div class="director-workbench dream-lab-two-col dream-lab-two-col--director" data-focus="input">
+          <section class="dream-lab-section dream-lab-panel dream-lab-panel--input director-focus-panel director-focus-panel--input director-input-panel">
+            <h3 class="dream-lab-h">Input</h3>
+            <form id="stage0a-test-form" class="dream-sandbox-form" hx-post="/dev/api/dream/stage0a/test" hx-target="#dream-stage0a-test-result" hx-swap="innerHTML">
+            <div class="dream-lab-input-group">
+              <div class="dream-lab-asset-card">
+                <div class="dream-lab-asset-card-head">Asset context · summary</div>
+                <ul class="dream-lab-asset-kv">
+                  <li><span>has_face</span><strong>{{ stage1_ctx_short.has_face }}</strong></li>
+                  <li><span>has_base_character</span><strong>{{ stage1_ctx_short.has_base_character }}</strong></li>
+                  <li><span>secondary_actors</span><strong>{{ (stage1_ctx_short.secondary_actors or [])|length }}</strong></li>
+                  <li><span>missing</span><strong>{{ (stage1_ctx_short.missing or [])|length }}</strong></li>
+                  <li><span>environment_hints</span><strong>{{ (stage1_ctx_short.environment_hints or [])|length }}</strong></li>
+                </ul>
+              </div>
+              <div>
+                <span class="dream-lab-msg-label dream-lab-msg-label--block">Текст сна</span>
+                <textarea id="stage0a-dream-text" name="dream_text" class="dream-lab-textarea dream-sandbox-editor dream-sandbox-editor--text" rows="6" data-autosize="true">{{ stage1_example_dream_text }}</textarea>
+                <span class="dream-lab-msg-label dream-lab-msg-label--block">Asset context (JSON)</span>
+                <textarea id="stage0a-asset-context" name="asset_context_json" class="mono dream-lab-textarea dream-sandbox-editor dream-sandbox-editor--json" rows="6" data-autosize="true">{{ stage1_ctx_short | tojson(indent=2) }}</textarea>
+                <div class="dream-lab-actions">
+                  <button type="submit" class="btn-ghost dream-sandbox-run">Запустить Beat Planner</button>
+                  <span class="dream-sandbox-status muted small" data-idle-text="Ожидание запуска" data-running-text="Beat Planner работает...">Ожидание запуска</span>
+                </div>
+              </div>
+            </div>
+            </form>
+          </section>
+
+          <section class="dream-lab-section dream-lab-panel dream-lab-panel--output director-focus-panel director-focus-panel--output director-output-panel">
+            <h3 class="dream-lab-h">Output</h3>
+            <div class="dream-lab-actions" style="margin-bottom:0.5rem;">
+              <button
+                type="button"
+                class="btn-ghost btn-sm"
+                hx-get="/dev/api/dream/stage0a/runs/diff"
+                hx-target="#dream-stage0a-runs-diff"
+                hx-swap="innerHTML">Сравнить 2 последних запуска</button>
+            </div>
+            <div id="dream-stage0a-runs-diff" class="dream-playground-result">
+              <p class="muted small">После двух запусков Beat Planner здесь появится diff (system/user/assembled/raw).</p>
+            </div>
+            <div id="dream-stage0a-test-result" class="dream-playground-result">
+              <p class="muted small">Запустите Beat Planner слева. Output автоматически подставится в `0B · Сценарист`.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="dream-stage0-tab-panel dream-stage0-tab-panel--b">
+        <aside class="dream-lab-stage-info dream-lab-stage-info--b" role="note">
+          <strong>0B · Сценарист</strong>
+          <p class="muted small">Живой черновик сцен на основе beat-структуры.</p>
+        </aside>
+
+        {{ labex.planning_json_contracts("Контракты JSON · 0B · Сценарист", stage0b_input_contract_json, stage0b_output_contract_json) }}
+
+        <section class="dream-lab-section dream-lab-editor">
+          <h3 class="dream-lab-h">Prompt editor · 0B · Сценарист</h3>
+          <p class="muted small">Сохраняется в <code>prompts/dream_decomposition.md</code>.</p>
+          <form
+            class="dream-decomp-form"
+            hx-post="/dev/api/prompts/dream-decomposition-md"
+            hx-target="#dream-stage0-b-save-hint"
+            hx-swap="innerHTML">
+            <textarea name="content" class="mono dream-decomp-textarea dream-lab-textarea" rows="10">{{ dream_decomposition_content }}</textarea>
+            <div class="dream-lab-actions">
+              <button type="submit" class="btn-ghost">Сохранить</button>
+              <span id="dream-stage0-b-save-hint" class="muted small"></span>
+            </div>
+          </form>
+        </section>
+
+        <div class="director-workbench dream-lab-two-col dream-lab-two-col--director" data-focus="input">
+          <section class="dream-lab-section dream-lab-panel dream-lab-panel--input director-focus-panel director-focus-panel--input director-input-panel">
+            <div class="dream-lab-h-row">
+              <h3 class="dream-lab-h">Input</h3>
+              <button type="button" class="btn-ghost btn-sm" data-director-focus="input">↔ Фокус на Input</button>
+            </div>
+            <p class="muted small">Вход содержит единый Header Context + весь массив beats. Header Context всегда показан как основной блок мира, не сворачивается и не редактируется.</p>
+            <form id="stage0b-test-form" class="dream-sandbox-form" hx-post="/dev/api/dream/stage0b/test" hx-target="#dream-stage0b-test-result" hx-swap="innerHTML">
+              <div class="dream-lab-input-group">
+                <div class="dream-lab-actions">
+                  <label class="muted small" for="stage0b-mode">Режим Сценариста:</label>
+                  <select id="stage0b-mode" name="mode" class="dream-sandbox-select">
+                    <option value="full" selected>Full JSON</option>
+                    <option value="per_beat">Per-beat</option>
+                  </select>
+                </div>
+                <div id="stage0b-beats-preview" class="dream-beat-preview">
+                  <p class="muted small">После запуска 0A сюда автоматически подставится `header_context + beats`.</p>
+                </div>
+                <input id="stage0b-beats-json" type="hidden" name="beats_json" value="{{ stage0_beats_output_json_example | e }}">
+                <div class="dream-lab-actions">
+                  <button type="submit" class="btn-ghost dream-sandbox-run">Запустить Сценариста</button>
+                  <span class="dream-sandbox-status muted small" data-idle-text="Ожидание запуска" data-running-text="Сценарист работает...">Ожидание запуска</span>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <section class="dream-lab-section dream-lab-panel dream-lab-panel--output director-focus-panel director-focus-panel--output director-output-panel">
+            <h3 class="dream-lab-h">Output</h3>
+            <div class="dream-lab-actions" style="margin-bottom:0.5rem;">
+              <label class="muted small" style="display:flex;align-items:center;gap:0.4rem;">
+                <input id="stage0b-pin-output" type="checkbox" data-scenarist-output-pin>
+                🔒 Зафиксировать сохранённый output для Режиссёра
+              </label>
+              <button id="stage0b-save-to-director" type="button" class="btn-ghost btn-sm" data-save-scenarist-to-director>💾 Сохранить этот output</button>
+              <span id="stage0b-save-to-director-hint" class="muted small" data-stage0b-save-hint></span>
+            </div>
+            <div id="dream-stage0b-test-result" class="dream-playground-result">
+              <p class="muted small">Запустите Сценариста слева. Output автоматически подставится в `1 · Режиссёр`.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="dream-stage0-tab-panel dream-stage0-tab-panel--c">
+        <div class="director-workbench director-ui-shell dream-lab-two-col dream-lab-two-col--director" data-focus="input">
+          <div class="director-ui-col director-ui-col--main dream-lab-panel dream-lab-panel--input director-focus-panel director-focus-panel--input director-input-panel">
+            <h3 class="dream-lab-h director-ui-main-title">Режиссёр</h3>
+            <p class="muted small director-ui-lead">Цепочка: Beat Planner → Сценарист → <strong>Режиссёр</strong> (одна кнопка «Сформировать план» = два внутренних промпта: референсы по сценаристу, затем кадры с опорой на них) → <strong>Сборщик</strong> (автоматически получает полный JSON). Ниже, <strong>в первую очередь</strong> — редактируемые user-контракты (<code class="mono">contracts/</code>); системные промпты — в карточках 1A/1B. Справочные схемы JSON — в «Технический уровень» внизу вкладки.</p>
+
+            <section class="director-user-contracts-apex" aria-labelledby="director-contracts-apex-title">
+              <div class="director-user-contracts-apex-head">
+                <h4 id="director-contracts-apex-title" class="dream-lab-h dream-lab-h--sub director-user-contracts-apex-title">User-контракты режиссёра</h4>
+                <p class="muted small director-user-contracts-apex-lead">Эти тексты всегда дописываются в <strong>user</strong> после данных (схема ответа + правила). Редактируйте здесь — не нужно раскрывать карточки ниже.</p>
+              </div>
+              <div class="director-prompt-card-split director-user-contracts-split">
+                <div class="director-prompt-card-col director-prompt-card-col--contract">
+                  <h4 class="director-prompt-card-col-title">1A · Глобальные референсы</h4>
+                  <p class="muted small director-prompt-card-col-lead"><code class="mono">contracts/dream_director_references_user.md</code>{% if dream_director_references_contract_meta and not dream_director_references_contract_meta.is_empty %} · {{ dream_director_references_contract_meta.lines }} строк{% endif %}</p>
+                  <form
+                    class="dream-decomp-form director-prompt-card-form"
+                    hx-post="/dev/api/contracts/dream-director-references-user-md"
+                    hx-target="#dream-stage1-dir-ref-contract-save-hint"
+                    hx-swap="innerHTML">
+                    <textarea name="content" class="mono dream-decomp-textarea dream-prompt-prose-textarea director-prompt-card-textarea director-prompt-card-textarea--contract" rows="12" spellcheck="false">{{ dream_director_references_contract_content }}</textarea>
+                    <div class="dream-lab-actions">
+                      <button type="submit" class="btn-ghost btn-sm">Сохранить контракт 1A</button>
+                      <span id="dream-stage1-dir-ref-contract-save-hint" class="muted small"></span>
+                    </div>
+                  </form>
+                </div>
+                <div class="director-prompt-card-col director-prompt-card-col--contract">
+                  <h4 class="director-prompt-card-col-title">1B · Ключевые кадры</h4>
+                  <p class="muted small director-prompt-card-col-lead"><code class="mono">contracts/dream_director_keyframes_user.md</code>{% if dream_director_keyframes_contract_meta and not dream_director_keyframes_contract_meta.is_empty %} · {{ dream_director_keyframes_contract_meta.lines }} строк{% endif %}</p>
+                  <form
+                    class="dream-decomp-form director-prompt-card-form"
+                    hx-post="/dev/api/contracts/dream-director-keyframes-user-md"
+                    hx-target="#dream-stage1-dir-kf-contract-save-hint"
+                    hx-swap="innerHTML">
+                    <textarea name="content" class="mono dream-decomp-textarea dream-prompt-prose-textarea director-prompt-card-textarea director-prompt-card-textarea--contract" rows="12" spellcheck="false">{{ dream_director_keyframes_contract_content }}</textarea>
+                    <div class="dream-lab-actions">
+                      <button type="submit" class="btn-ghost btn-sm">Сохранить контракт 1B</button>
+                      <span id="dream-stage1-dir-kf-contract-save-hint" class="muted small"></span>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </section>
+
+            <div class="director-prompt-acc" data-director-prompt-acc>
+              <article class="director-prompt-card" data-director-prompt-card data-expanded="0">
+                <button type="button" class="director-prompt-card-hit" aria-expanded="false">
+                  <span class="director-prompt-card-kicker">Промпт 1A</span>
+                  <span class="director-prompt-card-title">Глобальные референсы</span>
+                  <span class="director-prompt-card-desc">Персонажи, 1–3 зоны окружения, важные объекты — план и текстовые промпты для будущей генерации.</span>
+                  <span class="director-prompt-card-file mono">prompts/dream_director_references.md</span>
+                </button>
+                <div class="director-prompt-card-body">
+                  <p class="muted small director-prompt-card-in-card-note">User-контракт 1A редактируется <strong>в блоке выше</strong>. Здесь только системный промпт.</p>
+                  <form
+                    class="dream-decomp-form director-prompt-card-form"
+                    hx-post="/dev/api/prompts/dream-director-references-md"
+                    hx-target="#dream-stage1-dir-ref-save-hint"
+                    hx-swap="innerHTML">
+                    <h4 class="director-prompt-card-col-title">Системный промпт · 1A</h4>
+                    <p class="muted small director-prompt-card-col-lead">Файл: <code class="mono">prompts/dream_director_references.md</code></p>
+                    <textarea name="content" class="mono dream-decomp-textarea dream-prompt-prose-textarea director-prompt-card-textarea" rows="14" spellcheck="false">{{ dream_director_references_content }}</textarea>
+                    <div class="dream-lab-actions">
+                      <button type="submit" class="btn-ghost btn-sm">Сохранить в Markdown</button>
+                      <span id="dream-stage1-dir-ref-save-hint" class="muted small"></span>
+                    </div>
+                  </form>
+                </div>
+              </article>
+              <article class="director-prompt-card" data-director-prompt-card data-expanded="0">
+                <button type="button" class="director-prompt-card-hit" aria-expanded="false">
+                  <span class="director-prompt-card-kicker">Промпт 1B</span>
+                  <span class="director-prompt-card-title">Ключевые кадры</span>
+                  <span class="director-prompt-card-desc">Ключевые кадры (столько, сколько нужно сну), связи с референсами и видео-план — без генерации медиа.</span>
+                  <span class="director-prompt-card-file mono">prompts/dream_director_keyframes.md</span>
+                </button>
+                <div class="director-prompt-card-body">
+                  <p class="muted small director-prompt-card-in-card-note">User-контракт 1B редактируется <strong>в блоке выше</strong>. Здесь только системный промпт.</p>
+                  <form
+                    class="dream-decomp-form director-prompt-card-form"
+                    hx-post="/dev/api/prompts/dream-director-keyframes-md"
+                    hx-target="#dream-stage1-dir-kf-save-hint"
+                    hx-swap="innerHTML">
+                    <h4 class="director-prompt-card-col-title">Системный промпт · 1B</h4>
+                    <p class="muted small director-prompt-card-col-lead">Файл: <code class="mono">prompts/dream_director_keyframes.md</code></p>
+                    <textarea name="content" class="mono dream-decomp-textarea dream-prompt-prose-textarea director-prompt-card-textarea" rows="14" spellcheck="false">{{ dream_director_keyframes_content }}</textarea>
+                    <div class="dream-lab-actions">
+                      <button type="submit" class="btn-ghost btn-sm">Сохранить в Markdown</button>
+                      <span id="dream-stage1-dir-kf-save-hint" class="muted small"></span>
+                    </div>
+                  </form>
+                </div>
+              </article>
+            </div>
+
+            <form id="stage1-test-form" class="dream-sandbox-form director-run-form" hx-post="/dev/api/dream/stage1/test" hx-target="#dream-stage1-test-result" hx-swap="innerHTML">
+            <section class="dream-pipeline-scenarist-in" aria-labelledby="director-dream-text-title">
+              <header class="dream-pipeline-scenarist-in-head">
+                <h4 id="director-dream-text-title" class="dream-pipeline-step-title">Исходный текст сна (dream_text)</h4>
+                <p class="muted small dream-pipeline-scenarist-lead">
+                  Сырой текст как от пользователя — <strong>ground truth</strong>. Уходит в режиссёра (1A и 1B) вместе с JSON сценариста. Можно заполнить вручную и запустить «Сформировать план» <em>без</em> 0A/0B или подставить из поля Beat Planner (синхронизация при запусках ниже).
+                </p>
+              </header>
+              <label class="dream-lab-msg-label dream-lab-msg-label--block" for="stage1-dream-text">Текст сна</label>
+              <textarea
+                id="stage1-dream-text"
+                name="dream_text"
+                class="dream-lab-textarea dream-sandbox-editor dream-sandbox-editor--text"
+                rows="5"
+                spellcheck="true"
+                data-autosize="true"
+                placeholder="Вставьте полный текст сна…">{{ stage1_example_dream_text | e }}</textarea>
+            </section>
+
+            <section class="dream-pipeline-scenarist-in dream-pipeline-scenarist-in--nested" aria-labelledby="director-scenarist-in-title">
+              <header class="dream-pipeline-scenarist-in-head">
+                <h4 id="director-scenarist-in-title" class="dream-pipeline-step-title">Input от сценариста</h4>
+                <p class="muted small dream-pipeline-scenarist-lead">То, что уходит в режиссёра: последний output 0B или <strong>сохранённый снимок</strong>. Кнопка <strong>«Сформировать план»</strong> сама делает два внутренних шага (референсы по сценаристу → кадры с опорой на референсы). Зафиксируйте input, чтобы новые запуски Сценариста не перезаписали поле.</p>
+              </header>
+              <div class="dream-pipeline-scenarist-actions">
+                <label class="dream-pipeline-pin-label">
+                  <input type="checkbox" data-scenarist-output-pin aria-describedby="director-scenarist-in-title">
+                  Зафиксировать для режиссёра
+                </label>
+                <button type="button" class="btn-ghost btn-sm" data-save-scenarist-to-director>Сохранить output с вкладки «Сценарист»</button>
+                <span class="muted small dream-pipeline-save-hint" data-stage0b-save-hint></span>
+              </div>
+              <div id="stage1-scenarist-preview" class="dream-beat-preview dream-scenarist-story-preview">
+                <p class="muted small">После запуска Сценариста здесь появится превью header + сцен. Сохранённое состояние подставляется при загрузке.</p>
+              </div>
+              <details class="dream-pipeline-json-details">
+                <summary class="dream-pipeline-json-details-sum">Полный JSON · развернуть</summary>
+                <p class="muted small dream-pipeline-json-details-note">Технический вид того же payload, что уходит в форме запуска.</p>
+                <pre id="stage1-scenarist-json-raw" class="mono dream-json-colored dream-pipeline-json-pre" data-json-hl="true"></pre>
+              </details>
+            </section>
+
+              <input id="stage1-scenarist-json" type="hidden" name="scenarist_json" value="{{ stage1_output_json_example | e }}">
+              <details class="director-directable-bundle">
+                <summary class="director-directable-bundle-sum">Directable bundle · расширенные настройки</summary>
+                <div class="director-directable-bundle-body">
+                  <p class="muted small">Планирование v2 / legacy, отдельные шаги 1A/1B (отладка), симуляция ассетов, ручной JSON плана для 1B.</p>
+                  <ul class="muted small director-run-legend">
+                    <li><strong>Сформировать план:</strong> два промпта режиссёра подряд (как 1A → 1B), один ответ в output.</li>
+                    <li><strong>Отдельно 1A / 1B:</strong> ниже в блоке «Отладка по шагам» — если нужно изолировать этап.</li>
+                  </ul>
+                  <div class="director-bundle-row">
+                    <label class="muted small" for="stage1-planning">Планирование</label>
+                    <select id="stage1-planning" name="director_planning" class="dream-sandbox-select">
+                      <option value="v2" selected>v2 · два этапа (рекомендуется)</option>
+                      <option value="legacy">legacy · один вызов</option>
+                    </select>
+                  </div>
+                  <input type="hidden" id="stage1-phase" name="director_phase" value="full_plan">
+                  <div class="director-bundle-row">
+                    <label class="muted small" for="stage1-mode">Режим (legacy)</label>
+                    <select id="stage1-mode" name="mode" class="dream-sandbox-select">
+                      <option value="full" selected>Full JSON</option>
+                      <option value="per_scene">Per-scene</option>
+                    </select>
+                  </div>
+                  <label class="dream-lab-msg-label dream-lab-msg-label--block">План референсов для ручного 1B (JSON)</label>
+                  <textarea id="stage1-references-plan-field" name="references_plan_json" class="mono dream-lab-textarea" rows="3" spellcheck="false">{}</textarea>
+                  <label class="dream-lab-msg-label dream-lab-msg-label--block">Симуляция коллекции пользователя (JSON)</label>
+                  <textarea id="stage1-asset-context-json" name="asset_context_json" class="mono dream-lab-textarea" rows="4" spellcheck="false">{{ stage1_ctx_short | tojson(indent=2) }}</textarea>
+                  <details class="director-step-debug-details">
+                    <summary class="muted small director-step-debug-sum">Отладка · только 1A или только 1B</summary>
+                    <p class="muted small">Отправляют ту же форму с другим <code>director_phase</code> (для 1B нужен план референсов в поле JSON выше или предыдущий запуск 1A).</p>
+                    <div class="director-run-row director-run-row--debug">
+                      <button type="submit" class="btn-ghost btn-sm dream-sandbox-run" data-director-run-phase="references">Только 1A</button>
+                      <button type="submit" class="btn-ghost btn-sm dream-sandbox-run dream-sandbox-run--phase-b" data-director-run-phase="keyframes">Только 1B</button>
+                    </div>
+                  </details>
+                </div>
+              </details>
+              <div class="director-run-row director-run-row--primary">
+                <button type="submit" class="btn-primary dream-sandbox-run dream-sandbox-run--full-plan" data-director-run-phase="full_plan" title="Два вызова режиссёра подряд: глобальные референсы, затем ключевые кадры">Сформировать план</button>
+                <span class="dream-sandbox-status muted small director-run-status" data-idle-text="Ожидание" data-running-text="Два запроса к модели…">Ожидание</span>
+              </div>
+            </form>
+          </div>
+
+          <div class="director-ui-col director-ui-col--out dream-lab-panel dream-lab-panel--output director-focus-panel director-focus-panel--output director-output-panel">
+            <h3 class="dream-lab-h">Output</h3>
+            <div id="dream-stage1-test-result" class="dream-playground-result director-output-mount">
+              <p class="muted small">Нажмите <strong>Сформировать план</strong> — появятся Global references и ключевые кадры; JSON уйдёт в Сборщик автоматически (если не включена фиксация).</p>
+            </div>
+          </div>
+        </div>
+
+        <details class="dream-director-tech-block">
+          <summary class="dream-director-tech-sum">Технический уровень · контракты JSON, legacy-промпт, agent bundle</summary>
+          <div class="dream-director-tech-body">
+            {{ labex.planning_json_contracts("Контракты · Режиссёр v2", director_input_json_contract, director_output_json_contract) }}
+            <details class="dream-planning-io">
+              <summary class="dream-planning-io__summary">Legacy output · final_scenes</summary>
+              <pre class="dream-json-colored mono" data-json-hl="true">{{ director_output_json_contract_legacy }}</pre>
+            </details>
+            <section class="dream-lab-section dream-lab-editor">
+              <h4 class="dream-lab-h">Legacy · dream_image_prompts.md</h4>
+              <p class="muted small">Только для <code>director_planning=legacy</code>.</p>
+              <form class="dream-decomp-form" hx-post="/dev/api/prompts/dream-image-prompts-md" hx-target="#dream-stage1-dir-save-hint" hx-swap="innerHTML">
+                <textarea name="content" class="mono dream-decomp-textarea dream-lab-textarea" rows="8">{{ dream_image_content }}</textarea>
+                <div class="dream-lab-actions">
+                  <button type="submit" class="btn-ghost btn-sm">Сохранить</button>
+                  <span id="dream-stage1-dir-save-hint" class="muted small"></span>
+                </div>
+              </form>
+            </section>
+            <details class="tool-call-details">
+              <summary>Agent bundle (JSON)</summary>
+              <div class="tool-call-details-body">
+                <div class="tool-call-copy-actions">
+                  <button type="button" class="btn-ghost btn-sm" data-copy-target="director-agent-bundle-json">Копировать bundle</button>
+                  <button type="button" class="btn-ghost btn-sm" data-copy-target="director-input-json-contract">Input контракт</button>
+                  <button type="button" class="btn-ghost btn-sm" data-copy-target="director-output-json-contract">Output v2</button>
+                </div>
+                <pre id="director-agent-bundle-json" class="mono tool-copy-block dream-json-colored" data-json-hl="true">{{ director_agent_bundle_json }}</pre>
+                <pre id="director-input-json-contract" class="mono tool-copy-block dream-json-colored visually-hidden" data-json-hl="true">{{ director_input_json_contract }}</pre>
+                <pre id="director-output-json-contract" class="mono tool-copy-block dream-json-colored visually-hidden" data-json-hl="true">{{ director_output_json_contract }}</pre>
+              </div>
+            </details>
+          </div>
+        </details>
+      </section>
+
+      <section class="dream-stage0-tab-panel dream-stage0-tab-panel--d">
+        <aside class="dream-lab-stage-info dream-lab-stage-info--assembler" role="note">
+          <strong>2 · Сборщик</strong>
+          <p class="muted small">Исполнитель: JSON Режиссёра, системный промпт + отдельное пользовательское сообщение с задачей, выбранные tools и визуальный выход справа.</p>
+        </aside>
+
+        <section class="dream-lab-section dream-lab-editor assembler-agent-bundle-section">
+          <h3 class="dream-lab-h">Agent bundle · Сборщик</h3>
+          <p class="muted small">JSON для внешнего агента. По умолчанию скрыт — только копирование, без простыни на экране.</p>
+          <div class="tool-call-copy-actions assembler-bundle-actions">
+            <button type="button" class="btn-ghost btn-sm" data-copy-target="assembler-agent-bundle-json">📋 Копировать bundle</button>
+            <button type="button" class="btn-ghost btn-sm" data-copy-target="assembler-tools-json-block">Копировать только tools JSON</button>
+          </div>
+          <details class="assembler-bundle-json-details">
+            <summary class="assembler-bundle-json-summary muted small">Показать JSON bundle на странице (редко нужно)</summary>
+            <pre id="assembler-agent-bundle-json" class="mono tool-copy-block dream-json-colored assembler-bundle-pre" data-json-hl="true">{{ assembler_agent_bundle_json }}</pre>
+          </details>
+          <pre id="assembler-tools-json-block" class="mono tool-copy-block dream-json-colored visually-hidden" data-json-hl="true">{{ assembler_tools_json }}</pre>
+        </section>
+
+        <div class="assembler-sandbox-workbench director-workbench dream-lab-two-col dream-lab-two-col--director" data-focus="input">
+          <section class="dream-lab-section dream-lab-panel dream-lab-panel--input director-focus-panel director-focus-panel--input director-input-panel assembler-sandbox-col-input">
+            <div class="dream-lab-h-row">
+              <h3 class="dream-lab-h">Сборщик · вход и настройки</h3>
+              <button type="button" class="btn-ghost btn-sm" data-director-focus="input">↔ Фокус на Input</button>
+            </div>
+            <p class="muted small">После ответа Режиссёра полный JSON (референсы, ключевые кадры, <code>final_scenes</code> и др.) <strong>подставляется сюда автоматически</strong>, если не включена фиксация. Кнопка ниже — ручная подтяжка из последнего output.</p>
+            <div class="dream-lab-h-row dream-lab-h-row--wrap">
+              <button type="button" class="btn-ghost btn-sm" id="assembler-pull-director-btn">↘ Подставить из Режиссёра сейчас</button>
+              <label class="muted small assembler-pin-label">
+                <input id="assembler-pin-director-input" type="checkbox">
+                🔒 Зафиксировать input (не обновлять после нового Режиссёра)
+              </label>
+            </div>
+
+            <form
+              id="assembler-sandbox-form"
+              class="assembler-sandbox-form"
+              hx-post="/dev/api/dream/assembler/test"
+              hx-target="#assembler-sandbox-result"
+              hx-swap="innerHTML"
+              hx-indicator="#assembler-sandbox-spinner">
+              <div class="dream-lab-input-group assembler-director-input-block">
+                <div class="dream-lab-asset-card assembler-input-card">
+                  <div class="dream-lab-asset-card-head">Вход Сборщика</div>
+                  <ul class="dream-lab-asset-kv assembler-input-kv">
+                    <li><span>источник</span><strong>output «1 · Режиссёр»</strong></li>
+                    <li><span>формат</span><strong>полный JSON плана</strong></li>
+                  </ul>
+                </div>
+                <details class="tool-call-details dream-director-bundle-details assembler-contract-details">
+                  <summary>📐 Контракт входа (справка)</summary>
+                  <div class="tool-call-details-body">
+                    <pre class="mono tool-copy-block dream-json-colored" data-json-hl="true">{{ director_output_json_contract }}</pre>
+                  </div>
+                </details>
+                <label class="dream-lab-msg-label dream-lab-msg-label--block" for="assembler-director-json">JSON Режиссёра</label>
+                <textarea name="director_json" id="assembler-director-json" class="mono dream-lab-textarea dream-sandbox-editor dream-sandbox-editor--json" rows="12" spellcheck="false" data-autosize="true" placeholder="{ &quot;header_context&quot;: …, &quot;final_scenes&quot;: … }"></textarea>
+              </div>
+
+              <h4 class="dream-lab-h dream-lab-h--sub">Системный промпт (роль модели)</h4>
+              <p class="muted small">Уходит в <code>system</code> при вызове OpenAI — стиль, ограничения, формат ответа.</p>
+              <textarea name="assembler_system" id="assembler-system-prompt" class="mono dream-lab-textarea dream-sandbox-editor dream-sandbox-editor--text" rows="8" spellcheck="false" data-autosize="true">{{ assembler_sandbox_system_default }}</textarea>
+
+              <h4 class="dream-lab-h dream-lab-h--sub">Инструменты</h4>
+              <p class="muted small">Включённые имена уходят в запрос; состояние сохраняется в браузере.</p>
+              <div class="assembler-tool-card-grid">
+                {% for t in assembler_tools_for_ui %}
+                <label class="assembler-tool-card">
+                  <input type="checkbox" class="assembler-tool-cb" data-assembler-tool="{{ t.name }}" checked>
+                  <span class="assembler-tool-card-inner">
+                    <span class="assembler-tool-card-title">{{ t.label }}</span>
+                    <span class="muted small assembler-tool-card-desc">{{ t.blurb[:220] }}{% if t.blurb|length > 220 %}…{% endif %}</span>
+                  </span>
+                </label>
+                {% endfor %}
+              </div>
+              <input type="hidden" name="enabled_tools_json" id="assembler-enabled-tools-json" value="[]">
+
+              <h4 class="dream-lab-h dream-lab-h--sub">Сообщение пользователя (задача)</h4>
+              <p class="muted small">Отдельно от системного промпта: конкретная задача, шаги, что сделать с входным JSON. Уходит в <code>user</code>.</p>
+              <textarea name="human_logic" id="assembler-human-logic" class="dream-lab-textarea dream-sandbox-editor dream-sandbox-editor--text" rows="7" data-autosize="true">{{ assembler_default_logic }}</textarea>
+
+              <div class="dream-lab-actions assembler-sandbox-actions">
+                <button type="submit" class="btn-primary" id="assembler-sandbox-submit">▶ Запустить Сборщика (OpenAI + tools)</button>
+                <span id="assembler-sandbox-spinner" class="htmx-indicator muted"> Запрос…</span>
+              </div>
+            </form>
+          </section>
+
+          <section class="dream-lab-section dream-lab-panel dream-lab-panel--output director-focus-panel director-focus-panel--output director-output-panel assembler-sandbox-col-output">
+            <div class="dream-lab-h-row">
+              <h3 class="dream-lab-h">Выход</h3>
+              <button type="button" class="btn-ghost btn-sm" data-director-focus="output">⤢ Фокус на Output</button>
+            </div>
+            <p class="muted small">Изображения и видео из tools; текст модели — ниже артефактов.</p>
+            <div id="assembler-sandbox-result" class="dream-playground-result assembler-sandbox-result-mount">
+              <p class="muted small">Запустите Сборщика слева.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+</details>

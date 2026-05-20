@@ -26,7 +26,8 @@ def link_root_for_ui(settings: Settings) -> str:
     """
     pub = (settings.public_base_url or "").strip().rstrip("/")
     if pub:
-        return f"{pub}/content"
+        prefix = (settings.gradio_root_path or "/content").strip().rstrip("/")
+        return f"{pub}{prefix}" if prefix else pub
     return local_base_url(settings).rstrip("/")
 
 

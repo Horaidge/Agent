@@ -55,6 +55,13 @@ class StoryVideoRepository:
             out.append(d)
         return out
 
+    async def count_for_user(self, user_id: int) -> int:
+        return await self._async.count_documents({"user_id": user_id})
+
+    async def delete_for_user(self, user_id: int) -> int:
+        r = await self._async.delete_many({"user_id": user_id})
+        return int(getattr(r, "deleted_count", 0) or 0)
+
 
 async def ensure_story_video_indexes(collection: AsyncIOMotorCollection) -> None:
     await collection.create_index("trace_id", unique=True)

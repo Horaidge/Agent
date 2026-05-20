@@ -58,6 +58,16 @@ class UserProfileRepository:
             upsert=True,
         )
 
+    async def clear_base_character_asset(self, user_id: int) -> None:
+        await self._async.update_one(
+            {"user_id": user_id},
+            {"$unset": {"base_character_asset_id": ""}},
+        )
+
+    async def delete_for_user(self, user_id: int) -> int:
+        r = await self._async.delete_many({"user_id": user_id})
+        return int(getattr(r, "deleted_count", 0) or 0)
+
 
 async def ensure_user_profile_indexes(collection: AsyncIOMotorCollection) -> None:
     await collection.create_index("user_id", unique=True)

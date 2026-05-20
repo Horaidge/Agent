@@ -1,0 +1,60 @@
+<section class="assembler-sandbox-res">
+  {% if not ok %}
+  <p class="error assembler-sandbox-err">{{ error or "Ошибка песочницы" }}</p>
+  {% else %}
+  <div class="assembler-sandbox-summary">
+    <p class="muted small">
+      {% if had_tool_calls %}Вызовы инструментов: <strong>{{ tool_steps|length }}</strong>.{% else %}Только текст (инструменты не вызывались).{% endif %}
+    </p>
+  </div>
+
+  {% if artifacts %}
+  <div class="assembler-artifacts" aria-label="Визуальные результаты">
+    {% for a in artifacts %}
+    {% if a.kind == 'image' %}
+    <div class="assembler-artifact assembler-artifact--image">
+      <p class="assembler-artifact-label muted small">{{ a.tool }}</p>
+      <div class="assembler-artifact-images">
+        {% for u in a.urls or [] %}
+        <figure class="assembler-fig">
+          <a href="{{ u }}" target="_blank" rel="noopener" class="assembler-fig-link">
+            <img src="{{ u }}" alt="" loading="lazy" class="assembler-fig-img"/>
+          </a>
+        </figure>
+        {% endfor %}
+      </div>
+    </div>
+    {% elif a.kind == 'video' and a.video_url %}
+    <div class="assembler-artifact assembler-artifact--video">
+      <p class="assembler-artifact-label muted small">{{ a.tool }} · готово</p>
+      <video class="assembler-video" controls preload="metadata" src="{{ a.video_url }}"></video>
+      <p class="muted small"><a href="{{ a.video_url }}" target="_blank" rel="noopener">Открыть файл</a></p>
+    </div>
+    {% elif a.kind == 'video_pending' %}
+    <div class="assembler-artifact assembler-artifact--pending muted small">
+      <p><strong>{{ a.tool }}</strong> · job <code>{{ a.job_id }}</code> · статус <code>{{ a.status }}</code></p>
+      <p>Видео в очереди. <a href="/dev/partials/video/job_tracker?job_id={{ a.job_id }}" target="_blank" rel="noopener">Открыть трекер job</a> (обновите страницу позже).</p>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="assembler-output-text-block">
+    <h4 class="assembler-output-h">Ответ модели</h4>
+    <div class="assembler-output-text dream-lab-textarea-readonly">{{ assistant_final or "—" }}</div>
+  </div>
+
+  <details class="assembler-tech-details">
+    <summary class="assembler-tech-summary">Технические данные · вызовы tools</summary>
+    <div class="assembler-tech-body">
+      {% for step in tool_steps %}
+      <p class="muted small"><code>{{ step.name }}</code> · ok={{ step.ok }}</p>
+      <pre class="mono tool-copy-block assembler-tech-pre">{{ step.result_summary }}</pre>
+      {% else %}
+      <p class="muted small">Нет шагов tool.</p>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</section>

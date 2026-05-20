@@ -1,0 +1,686 @@
+
+<style>
+  .dl-wrap { background:#0b1220; color:#e5e7eb; border:1px solid #334155; border-radius:12px; padding:14px; font-size:14px; }
+  .dl-title { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+  .dl-chip { background:#1e293b; border:1px solid #334155; border-radius:999px; padding:2px 10px; font-size:12px; }
+  .dl-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .dl-sec { background:#111827; border:1px solid #374151; border-radius:10px; padding:10px; margin-top:10px; }
+  .dl-sec h4 { margin:0 0 8px; font-size:16px; }
+  .dl-kv { font-size:13px; line-height:1.5; margin:2px 0; }
+  .dl-img-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+  .dl-img-card { border:1px solid #334155; border-radius:8px; padding:8px; background:#0b1220; }
+  .dl-img-card img { width:100%; max-height:160px; object-fit:cover; border-radius:6px; display:block; margin-bottom:6px; }
+  .dl-mono { background:#0b1220; border:1px solid #334155; border-radius:8px; padding:8px; white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+  .dl-ok { color:#10b981; }
+  .dl-fail { color:#f87171; }
+  .dl-wrap a { color:#93c5fd; }
+  .dl-wrap .tools-data-table { font-size:13px; }
+  .dl-wrap details > summary { cursor:pointer; color:#cbd5e1; }
+  .dl-edit-form textarea { width:100%; min-height:260px; background:#0b1220; color:#e2e8f0; border:1px solid #334155; border-radius:8px; padding:10px; }
+  .dl-edit-form .btn-ghost { margin-top:8px; }
+</style>
+<article class="tool-card tool-card--enabled" style="margin-top:0.8rem;">
+  <div class="dl-wrap">
+  <div class="dl-title">
+  <header class="tool-card-hd">
+    <code class="tool-card-name">Dream Lite Inspector · a8fb0d0e-361f-44f3-9aa6-f9af1def1231</code>
+    <span class="badge badge-cat">user=0</span>
+    <span class="badge badge-async">status=completed</span>
+  </header>
+  </div>
+  <p class="muted small">Текущий этап: <code>completed</code></p>
+  <p class="muted small">Вариант пайплайна: <code>pair_i2v_between_keyframes</code></p>
+  <details class="dl-sec" style="margin-top:8px;">
+    <summary>run_config</summary>
+    <pre class="dl-mono">{}</pre>
+  </details>
+
+  <div class="dl-grid">
+    <div class="dl-sec">
+      <p class="tool-spec-kv"><strong>Прогресс генерации</strong></p>
+      <ul class="tool-spec-list">
+        <li>env: <code>1</code> / <code>1</code></li>
+        <li>char: <code>1</code> / <code>1</code></li>
+        <li>frame: <code>5</code> / <code>5</code></li>
+        <li>anim: <code>3</code> / <code>3</code></li>
+      </ul>
+      <p class="tool-spec-kv"><strong>Сборка</strong></p>
+      <ul class="tool-spec-list">
+        <li>final_video_url: <a href="https://smartagentplatform.ru/content/dev/static/dream_lite_final/0_a8fb0d0e-361f-44f3-9aa6-f9af1def1231.mp4" target="_blank" rel="noopener"><code>/dev/static/dream_lite_final/0_a8fb0d0e-361f-44f3-9aa6-f9af1def1231.mp4</code></a></li>
+        <li>final_assembly_error: <code>—</code></li>
+      </ul>
+      <p class="tool-spec-kv"><strong>Последняя ошибка</strong></p>
+      <pre class="mono tool-copy-block">—</pre>
+    </div>
+    <div class="dl-sec">
+      <p class="tool-spec-kv"><strong>Timeline стадий</strong></p>
+      <table class="tools-data-table">
+        <thead><tr><th>stage</th><th>state</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>text_step1</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>text_step2</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>gen_env</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>gen_char</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>gen_frame</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>transition_plan</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>anim_i2v</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>finalize_clips</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+          <tr>
+            <td><code>completed</code></td>
+            <td><span class="exec-status exec-status--completed">completed</span></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Журнал выполнения (модели / fallback / ошибки)</h4>
+  <table class="tools-data-table">
+    <thead><tr><th>ts</th><th>event</th><th>phase</th><th>model</th><th>provider</th><th>status</th><th>job</th><th>fallback</th><th>error</th></tr></thead>
+    <tbody>
+      
+      <tr><td colspan="9" class="muted">Событий пока нет.</td></tr>
+      
+    </tbody>
+  </table>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 1: Окружения и персонажи (карточки)</h4>
+  <details>
+    <summary>Окружения (1)</summary>
+    <pre class="dl-mono">[
+  {
+    &#34;title&#34;: &#34;penguin_flock&#34;,
+    &#34;body&#34;: &#34;Глубокая снежная равнина, усеянная множеством пингвинов, двигающихся в разные стороны. Мягкий свет тусклого зимнего солнца освещает пейзаж, создавая холодные тени. Пингвины находятся как в центре, так и по краям, образуя полупрозрачный живой поток. Атмосфера спокойная, каждая фигура выглядит одушевлённой, создавая ощущение движения и жизни в этой заснеженной среде. Масштаб — уровень глаз, средний план, передний план — видны крупные пингвины и мягкий снег под ногами.&#34;
+  }
+]</pre>
+  </details>
+  <details>
+    <summary>Персонажи (1)</summary>
+    <pre class="dl-mono">[
+  {
+    &#34;title&#34;: &#34;dreamer&#34;,
+    &#34;body&#34;: &#34;роль: сновидец  \nвизуальный якорь: женщина средних лет, светлые длинные волосы, обычное лицо с мягкими чертами, тёплый зимний свитер нежно-голубого цвета, спокойная поза, руки расслаблены.&#34;
+  }
+]</pre>
+  </details>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 2: Раскадровка</h4>
+  <details open>
+    <summary>Кадры (5)</summary>
+    <pre class="dl-mono">[
+  {
+    &#34;title&#34;: &#34;Кадр 1&#34;,
+    &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец идёт через стаю пингвинов.  \n**frame_text:** Женщина (сновидец) идёт по глубокой снежной равнине, окружённая множеством пингвинов. Мягкий свет зимнего солнца придаёт сцене спокойствие. Пингвины двигаются вокруг, создавая ощущение жизни.&#34;,
+    &#34;is_preamble&#34;: false,
+    &#34;opora&#34;: &#34;&#34;,
+    &#34;izmenenie&#34;: &#34;сновидец идёт через стаю пингвинов.&#34;,
+    &#34;kad&#34;: &#34;Женщина (сновидец) идёт по глубокой снежной равнине, окружённая множеством пингвинов. Мягкий свет зимнего солнца придаёт сцене спокойствие. Пингвины двигаются вокруг, создавая ощущение жизни.&#34;,
+    &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+    &#34;character_references&#34;: [
+      &#34;dreamer&#34;
+    ],
+    &#34;use_previous_frame&#34;: false,
+    &#34;use_previous_frame_resolved&#34;: false,
+    &#34;forced_prev_chain_break&#34;: false,
+    &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+    &#34;ui_prev_line&#34;: &#34;—&#34;,
+    &#34;ui_env_line&#34;: &#34;** penguin_flock&#34;,
+    &#34;opora_display&#34;: &#34;** penguin_flock&#34;
+  },
+  {
+    &#34;title&#34;: &#34;Кадр 2&#34;,
+    &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** один пингвин схватил сновидца за пятку.  \n**frame_text:** Женщина (сновидец) продолжает идти, когда один пингвин хватает её за пятку. Она выглядит удивлённой, но не напуганной. Снег вокруг искрится на свету, а пингвины продолжают двигаться, создавая живой фон.&#34;,
+    &#34;is_preamble&#34;: false,
+    &#34;opora&#34;: &#34;&#34;,
+    &#34;izmenenie&#34;: &#34;один пингвин схватил сновидца за пятку.&#34;,
+    &#34;kad&#34;: &#34;Женщина (сновидец) продолжает идти, когда один пингвин хватает её за пятку. Она выглядит удивлённой, но не напуганной. Снег вокруг искрится на свету, а пингвины продолжают двигаться, создавая живой фон.&#34;,
+    &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+    &#34;character_references&#34;: [
+      &#34;dreamer&#34;
+    ],
+    &#34;use_previous_frame&#34;: true,
+    &#34;use_previous_frame_resolved&#34;: true,
+    &#34;forced_prev_chain_break&#34;: false,
+    &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+    &#34;ui_prev_line&#34;: &#34;да (prev уходит в image API)&#34;,
+    &#34;ui_env_line&#34;: &#34;—&#34;,
+    &#34;opora_display&#34;: &#34;—&#34;
+  },
+  {
+    &#34;title&#34;: &#34;Кадр 3&#34;,
+    &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец схватывает пингвина за клюв.  \n**frame_text:** Женщина (сновидец) схватывает пингвина за клюв с решительным выражением лица. Мягкая шерстка пингвина хорошо заметна на фоне снежной равнины. Атмосфера сохраняет ощущение спокойствия, несмотря на напряжение момента.&#34;,
+    &#34;is_preamble&#34;: false,
+    &#34;opora&#34;: &#34;&#34;,
+    &#34;izmenenie&#34;: &#34;сновидец схватывает пингвина за клюв.&#34;,
+    &#34;kad&#34;: &#34;Женщина (сновидец) схватывает пингвина за клюв с решительным выражением лица. Мягкая шерстка пингвина хорошо заметна на фоне снежной равнины. Атмосфера сохраняет ощущение спокойствия, несмотря на напряжение момента.&#34;,
+    &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+    &#34;character_references&#34;: [
+      &#34;dreamer&#34;
+    ],
+    &#34;use_previous_frame&#34;: true,
+    &#34;use_previous_frame_resolved&#34;: true,
+    &#34;forced_prev_chain_break&#34;: false,
+    &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+    &#34;ui_prev_line&#34;: &#34;да (prev уходит в image API)&#34;,
+    &#34;ui_env_line&#34;: &#34;—&#34;,
+    &#34;opora_display&#34;: &#34;—&#34;
+  },
+  {
+    &#34;title&#34;: &#34;Кадр 4&#34;,
+    &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец разжимает хватку, и пингвин отпущен.  \n**frame_text:** Женщина (сновидец) разжимает хватку, пингвин освобождается и отходит. Она смотрит на него с лёгким облегчением, снежная равнина продолжает быть окружённой пингвинами.&#34;,
+    &#34;is_preamble&#34;: false,
+    &#34;opora&#34;: &#34;&#34;,
+    &#34;izmenenie&#34;: &#34;сновидец разжимает хватку, и пингвин отпущен.&#34;,
+    &#34;kad&#34;: &#34;Женщина (сновидец) разжимает хватку, пингвин освобождается и отходит. Она смотрит на него с лёгким облегчением, снежная равнина продолжает быть окружённой пингвинами.&#34;,
+    &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+    &#34;character_references&#34;: [
+      &#34;dreamer&#34;
+    ],
+    &#34;use_previous_frame&#34;: true,
+    &#34;use_previous_frame_resolved&#34;: true,
+    &#34;forced_prev_chain_break&#34;: false,
+    &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+    &#34;ui_prev_line&#34;: &#34;да (prev уходит в image API)&#34;,
+    &#34;ui_env_line&#34;: &#34;—&#34;,
+    &#34;opora_display&#34;: &#34;—&#34;
+  },
+  {
+    &#34;title&#34;: &#34;Кадр 5&#34;,
+    &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец трогает пингвинов.  \n**frame_text:** Женщина (сновидец) проходит мимо группки пингвинов, нежно трогая их. Она улыбается, ощущая мягкость их шерстки. Свет зимнего солнца продолжает освещать сцену, создавая атмосферу уюта и спокойствия.&#34;,
+    &#34;is_preamble&#34;: false,
+    &#34;opora&#34;: &#34;&#34;,
+    &#34;izmenenie&#34;: &#34;сновидец трогает пингвинов.&#34;,
+    &#34;kad&#34;: &#34;Женщина (сновидец) проходит мимо группки пингвинов, нежно трогая их. Она улыбается, ощущая мягкость их шерстки. Свет зимнего солнца продолжает освещать сцену, создавая атмосферу уюта и спокойствия.&#34;,
+    &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+    &#34;character_references&#34;: [
+      &#34;dreamer&#34;
+    ],
+    &#34;use_previous_frame&#34;: true,
+    &#34;use_previous_frame_resolved&#34;: false,
+    &#34;forced_prev_chain_break&#34;: true,
+    &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+    &#34;ui_prev_line&#34;: &#34;нет — сброс цепочки (макс. 3 prev подряд)&#34;,
+    &#34;ui_env_line&#34;: &#34;** penguin_flock&#34;,
+    &#34;opora_display&#34;: &#34;** penguin_flock&#34;
+  }
+]</pre>
+  </details>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 3: Сгенерированные изображения</h4>
+  <p class="dl-kv"><strong>Окружения:</strong></p>
+  <div class="dl-img-grid">
+    
+    <div class="dl-img-card">
+      <img src="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/env_0_penguin_flock_0_d85aef3a45.png" alt="penguin_flock">
+      <div class="dl-kv"><strong>penguin_flock</strong></div>
+      <div class="dl-kv dl-ok">ok</div>
+      
+    </div>
+    
+  </div>
+  <p class="dl-kv" style="margin-top:8px;"><strong>Персонажи:</strong></p>
+  <div class="dl-img-grid">
+    
+    <div class="dl-img-card">
+      <img src="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/char_0_dreamer_0_fcab716d02.png" alt="dreamer">
+      <div class="dl-kv"><strong>dreamer</strong></div>
+      <div class="dl-kv dl-ok">ok</div>
+      
+    </div>
+    
+  </div>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 4: Кадры (images)</h4>
+  <table class="tools-data-table">
+    <thead><tr><th>idx</th><th>title</th><th>status</th><th>preview</th><th>error</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td><code>0</code></td>
+        <td class="muted">Кадр 1</td>
+        <td>
+          
+          <span class="exec-status exec-status--completed">ok</span>
+          
+        </td>
+        <td class="muted"><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/out_frame_0_0_60f95d292c.png" target="_blank" rel="noopener">image</a></td>
+        <td class="muted">—</td>
+      </tr>
+      
+      <tr>
+        <td><code>1</code></td>
+        <td class="muted">Кадр 2</td>
+        <td>
+          
+          <span class="exec-status exec-status--completed">ok</span>
+          
+        </td>
+        <td class="muted"><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/out_frame_1_0_1f60b79780.png" target="_blank" rel="noopener">image</a></td>
+        <td class="muted">—</td>
+      </tr>
+      
+      <tr>
+        <td><code>2</code></td>
+        <td class="muted">Кадр 3</td>
+        <td>
+          
+          <span class="exec-status exec-status--completed">ok</span>
+          
+        </td>
+        <td class="muted"><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/out_frame_2_0_57f48a30fc.png" target="_blank" rel="noopener">image</a></td>
+        <td class="muted">—</td>
+      </tr>
+      
+      <tr>
+        <td><code>3</code></td>
+        <td class="muted">Кадр 4</td>
+        <td>
+          
+          <span class="exec-status exec-status--completed">ok</span>
+          
+        </td>
+        <td class="muted"><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/out_frame_3_0_be6833d85f.png" target="_blank" rel="noopener">image</a></td>
+        <td class="muted">—</td>
+      </tr>
+      
+      <tr>
+        <td><code>4</code></td>
+        <td class="muted">Кадр 5</td>
+        <td>
+          
+          <span class="exec-status exec-status--completed">ok</span>
+          
+        </td>
+        <td class="muted"><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/out_frame_4_0_c1f19ee75b.png" target="_blank" rel="noopener">image</a></td>
+        <td class="muted">—</td>
+      </tr>
+      
+    </tbody>
+  </table>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 5: План монтажа (структура)</h4>
+  <p class="tool-spec-kv"><strong>Scenes</strong></p>
+  <table class="tools-data-table">
+    <thead><tr><th>scene</th><th>from</th><th>to</th><th>type</th><th>note</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td><code>0</code></td>
+        <td><code>0</code></td>
+        <td><code>3</code></td>
+        <td><code>—</code></td>
+        <td class="muted">—</td>
+      </tr>
+      
+      <tr>
+        <td><code>1</code></td>
+        <td><code>4</code></td>
+        <td><code>4</code></td>
+        <td><code>—</code></td>
+        <td class="muted">—</td>
+      </tr>
+      
+    </tbody>
+  </table>
+  <p class="tool-spec-kv"><strong>Transitions</strong></p>
+  <table class="tools-data-table">
+    <thead><tr><th>from</th><th>to</th><th>type</th><th>motion_prompt / cut_reason</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td><code>0</code></td>
+        <td><code>1</code></td>
+        <td><code>animate_transition</code></td>
+        <td class="muted">Женщина продолжает свой путь, уверенно шагая среди пингвинов, когда один из них неожиданно хватает её за пятку. В её реакции видно удивление, но не страх, она чувствует мягкость снега под ногами и весёлое движение пингвинов вокруг. Свет зимнего солнца мягко освещает её лицо и фигуры пингвинов, создавая атмосферу спокойствия и безмятежности.</td>
+      </tr>
+      
+      <tr>
+        <td><code>1</code></td>
+        <td><code>2</code></td>
+        <td><code>animate_transition</code></td>
+        <td class="muted">Сновидец крепко схватывает пингвина за клюв, выражение её лица становится решительным, но в то же время сохраняет спокойствие. Пингвин явно реагирует на её хватку, подчеркивая текстуру его мягкой шерстки на фоне снежной равнины. Нежный свет зимнего солнца продолжает создавать гармонию между её действиями и окружающими пингвинами.</td>
+      </tr>
+      
+      <tr>
+        <td><code>2</code></td>
+        <td><code>3</code></td>
+        <td><code>animate_transition</code></td>
+        <td class="muted">Сновидец освобождает пингвина, её движение мягкое и деликатное. Она смотрит на него с лёгким облегчением, так как он отходит назад. Сцена остаётся спокойной, несмотря на напряжение мгновения перед этим, а окружающие пингвины продолжают двигаться по снежной равнине.</td>
+      </tr>
+      
+      <tr>
+        <td><code>3</code></td>
+        <td><code>4</code></td>
+        <td><code>hard_cut</code></td>
+        <td class="muted">смена действия и фокуса на взаимодействие с пингвинами.</td>
+      </tr>
+      
+    </tbody>
+  </table>
+  <details style="margin-top:8px;">
+    <summary>План монтажа (JSON)</summary>
+    <pre class="dl-mono">{
+  &#34;scenes&#34;: [
+    {
+      &#34;scene_index&#34;: 0,
+      &#34;from_frame_index&#34;: 0,
+      &#34;to_frame_index&#34;: 3
+    },
+    {
+      &#34;scene_index&#34;: 1,
+      &#34;from_frame_index&#34;: 4,
+      &#34;to_frame_index&#34;: 4
+    }
+  ],
+  &#34;transitions&#34;: [
+    {
+      &#34;from_frame_index&#34;: 0,
+      &#34;to_frame_index&#34;: 1,
+      &#34;transition_type&#34;: &#34;animate_transition&#34;,
+      &#34;motion_prompt&#34;: &#34;Женщина продолжает свой путь, уверенно шагая среди пингвинов, когда один из них неожиданно хватает её за пятку. В её реакции видно удивление, но не страх, она чувствует мягкость снега под ногами и весёлое движение пингвинов вокруг. Свет зимнего солнца мягко освещает её лицо и фигуры пингвинов, создавая атмосферу спокойствия и безмятежности.&#34;
+    },
+    {
+      &#34;from_frame_index&#34;: 1,
+      &#34;to_frame_index&#34;: 2,
+      &#34;transition_type&#34;: &#34;animate_transition&#34;,
+      &#34;motion_prompt&#34;: &#34;Сновидец крепко схватывает пингвина за клюв, выражение её лица становится решительным, но в то же время сохраняет спокойствие. Пингвин явно реагирует на её хватку, подчеркивая текстуру его мягкой шерстки на фоне снежной равнины. Нежный свет зимнего солнца продолжает создавать гармонию между её действиями и окружающими пингвинами.&#34;
+    },
+    {
+      &#34;from_frame_index&#34;: 2,
+      &#34;to_frame_index&#34;: 3,
+      &#34;transition_type&#34;: &#34;animate_transition&#34;,
+      &#34;motion_prompt&#34;: &#34;Сновидец освобождает пингвина, её движение мягкое и деликатное. Она смотрит на него с лёгким облегчением, так как он отходит назад. Сцена остаётся спокойной, несмотря на напряжение мгновения перед этим, а окружающие пингвины продолжают двигаться по снежной равнине.&#34;
+    },
+    {
+      &#34;from_frame_index&#34;: 3,
+      &#34;to_frame_index&#34;: 4,
+      &#34;transition_type&#34;: &#34;hard_cut&#34;,
+      &#34;cut_reason&#34;: &#34;смена действия и фокуса на взаимодействие с пингвинами.&#34;
+    }
+  ]
+}</pre>
+  </details>
+  </div>
+
+  <div class="dl-sec">
+  <h4>Шаг 6: Transition / clips</h4>
+  <p class="tool-spec-kv"><strong>Transition / clips</strong></p>
+  <table class="tools-data-table">
+    <thead><tr><th>segment</th><th>from→to</th><th>status</th><th>url</th><th>error</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td><code>0</code></td>
+        <td><code>0</code>→<code>1</code></td>
+        <td><span class="exec-status exec-status--completed">succeeded</span></td>
+        <td class="muted"><a href="https://dashscope-463f.oss-accelerate.aliyuncs.com/1d/1e/20260429/95ab037f/13169115-metadata_user_e1716e1c9ab1b9a5.mp4?Expires=1777499548&amp;OSSAccessKeyId=LTAI5t6ybWkD6u9sDryNkdo6&amp;Signature=pL5tGFly06q1j3jWCMEE0CZllZ0%3D" target="_blank" rel="noopener">clip</a></td>
+        <td class="muted"></td>
+      </tr>
+      
+      <tr>
+        <td><code>1</code></td>
+        <td><code>1</code>→<code>2</code></td>
+        <td><span class="exec-status exec-status--completed">succeeded</span></td>
+        <td class="muted"><a href="https://dashscope-463f.oss-accelerate.aliyuncs.com/1d/b2/20260429/95ab037f/52632174-metadata_user_19cc2f08aed17d1f.mp4?Expires=1777499553&amp;OSSAccessKeyId=LTAI5t6ybWkD6u9sDryNkdo6&amp;Signature=yFwAW5P2WZCat6PS8uk1siJ8abA%3D" target="_blank" rel="noopener">clip</a></td>
+        <td class="muted"></td>
+      </tr>
+      
+      <tr>
+        <td><code>2</code></td>
+        <td><code>2</code>→<code>3</code></td>
+        <td><span class="exec-status exec-status--completed">succeeded</span></td>
+        <td class="muted"><a href="https://dashscope-463f.oss-accelerate.aliyuncs.com/1d/b2/20260429/95ab037f/85109260-metadata_user_802743ff400a60b1.mp4?Expires=1777499554&amp;OSSAccessKeyId=LTAI5t6ybWkD6u9sDryNkdo6&amp;Signature=oJAoi78omo452FMwj4o%2FGtAMm%2BM%3D" target="_blank" rel="noopener">clip</a></td>
+        <td class="muted"></td>
+      </tr>
+      
+    </tbody>
+  </table>
+  </div>
+
+  
+
+  <div class="dl-sec">
+  <p class="tool-spec-kv"><strong>Редактирование run-описаний</strong></p>
+  
+  <form
+    class="dream-lite-form dl-edit-form"
+    hx-post="/dev/api/dream/lite/run_patch"
+    hx-target="#dream-lite-run-detail"
+    hx-swap="innerHTML">
+    <input type="hidden" name="user_id" value="0"/>
+    <input type="hidden" name="lite_run_id" value="a8fb0d0e-361f-44f3-9aa6-f9af1def1231"/>
+    <label class="dream-lite-label">JSON patch (разрешены: dream_text, step1_raw, step2_raw, step2_prev_link_raw, transition_plan_raw)</label>
+    <textarea name="patch_json" rows="14" class="dream-lite-textarea dream-lite-textarea--mono">{
+  &#34;dream_text&#34;: &#34;Мне снилось, что я иду через стаю пингвинов, они идут на меня, а я сквозь них. И один схватил меня за пятку, было больно, но не страшно. Я схватила его за клюв, разжала его и он меня отпустил. Пока я шла, я их трогала, у них такая мягкая шерстка, они очень приятные.&#34;,
+  &#34;step1_raw&#34;: &#34;## Окружения\n\n### penguin_flock\nГлубокая снежная равнина, усеянная множеством пингвинов, двигающихся в разные стороны. Мягкий свет тусклого зимнего солнца освещает пейзаж, создавая холодные тени. Пингвины находятся как в центре, так и по краям, образуя полупрозрачный живой поток. Атмосфера спокойная, каждая фигура выглядит одушевлённой, создавая ощущение движения и жизни в этой заснеженной среде. Масштаб — уровень глаз, средний план, передний план — видны крупные пингвины и мягкий снег под ногами.\n\n## Персонажи\n\n### dreamer\nроль: сновидец  \nвизуальный якорь: женщина средних лет, светлые длинные волосы, обычное лицо с мягкими чертами, тёплый зимний свитер нежно-голубого цвета, спокойная поза, руки расслаблены.&#34;,
+  &#34;step2_raw&#34;: &#34;### Кадр 1\n**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец идёт через стаю пингвинов.  \n**frame_text:** Женщина (сновидец) идёт по глубокой снежной равнине, окружённая множеством пингвинов. Мягкий свет зимнего солнца придаёт сцене спокойствие. Пингвины двигаются вокруг, создавая ощущение жизни.  \n\n### Кадр 2\n**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** один пингвин схватил сновидца за пятку.  \n**frame_text:** Женщина (сновидец) продолжает идти, когда один пингвин хватает её за пятку. Она выглядит удивлённой, но не напуганной. Снег вокруг искрится на свету, а пингвины продолжают двигаться, создавая живой фон.  \n\n### Кадр 3\n**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец схватывает пингвина за клюв.  \n**frame_text:** Женщина (сновидец) схватывает пингвина за клюв с решительным выражением лица. Мягкая шерстка пингвина хорошо заметна на фоне снежной равнины. Атмосфера сохраняет ощущение спокойствия, несмотря на напряжение момента.  \n\n### Кадр 4\n**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец разжимает хватку, и пингвин отпущен.  \n**frame_text:** Женщина (сновидец) разжимает хватку, пингвин освобождается и отходит. Она смотрит на него с лёгким облегчением, снежная равнина продолжает быть окружённой пингвинами.  \n\n### Кадр 5\n**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец трогает пингвинов.  \n**frame_text:** Женщина (сновидец) проходит мимо группки пингвинов, нежно трогая их. Она улыбается, ощущая мягкость их шерстки. Свет зимнего солнца продолжает освещать сцену, создавая атмосферу уюта и спокойствия.&#34;,
+  &#34;step2_prev_link_raw&#34;: &#34;test patch ok&#34;,
+  &#34;transition_plan_raw&#34;: &#34;{\n  \&#34;scenes\&#34;: [\n    { \&#34;scene_index\&#34;: 0, \&#34;from_frame_index\&#34;: 0, \&#34;to_frame_index\&#34;: 4 }\n  ],\n  \&#34;transitions\&#34;: [\n    {\n      \&#34;from_frame_index\&#34;: 0,\n      \&#34;to_frame_index\&#34;: 1,\n      \&#34;transition_type\&#34;: \&#34;animate_transition\&#34;,\n      \&#34;motion_prompt\&#34;: \&#34;Женщина продолжает свой путь, уверенно шагая среди пингвинов, когда один из них неожиданно хватает её за пятку. В её реакции видно удивление, но не страх, она чувствует мягкость снега под ногами и весёлое движение пингвинов вокруг. Свет зимнего солнца мягко освещает её лицо и фигуры пингвинов, создавая атмосферу спокойствия и безмятежности.\&#34;\n    },\n    {\n      \&#34;from_frame_index\&#34;: 1,\n      \&#34;to_frame_index\&#34;: 2,\n      \&#34;transition_type\&#34;: \&#34;animate_transition\&#34;,\n      \&#34;motion_prompt\&#34;: \&#34;Сновидец крепко схватывает пингвина за клюв, выражение её лица становится решительным, но в то же время сохраняет спокойствие. Пингвин явно реагирует на её хватку, подчеркивая текстуру его мягкой шерстки на фоне снежной равнины. Нежный свет зимнего солнца продолжает создавать гармонию между её действиями и окружающими пингвинами.\&#34;\n    },\n    {\n      \&#34;from_frame_index\&#34;: 2,\n      \&#34;to_frame_index\&#34;: 3,\n      \&#34;transition_type\&#34;: \&#34;animate_transition\&#34;,\n      \&#34;motion_prompt\&#34;: \&#34;Сновидец освобождает пингвина, её движение мягкое и деликатное. Она смотрит на него с лёгким облегчением, так как он отходит назад. Сцена остаётся спокойной, несмотря на напряжение мгновения перед этим, а окружающие пингвины продолжают двигаться по снежной равнине.\&#34;\n    },\n    {\n      \&#34;from_frame_index\&#34;: 3,\n      \&#34;to_frame_index\&#34;: 4,\n      \&#34;transition_type\&#34;: \&#34;hard_cut\&#34;,\n      \&#34;cut_reason\&#34;: \&#34;смена действия и фокуса на взаимодействие с пингвинами.\&#34;\n    }\n  ]\n}&#34;
+}</textarea>
+    <button type="submit" class="btn-ghost">Сохранить изменения в Mongo</button>
+  </form>
+  </div>
+
+  <div class="dl-sec">
+  <p class="tool-spec-kv"><strong>Полные данные стадий (read-only)</strong></p>
+  <details class="pipe-json-details">
+    <summary class="pipe-json-details-summary">Открыть JSON детализацию run</summary>
+    <pre class="mono tool-copy-block">{
+  &#34;env_cards&#34;: [
+    {
+      &#34;title&#34;: &#34;penguin_flock&#34;,
+      &#34;body&#34;: &#34;Глубокая снежная равнина, усеянная множеством пингвинов, двигающихся в разные стороны. Мягкий свет тусклого зимнего солнца освещает пейзаж, создавая холодные тени. Пингвины находятся как в центре, так и по краям, образуя полупрозрачный живой поток. Атмосфера спокойная, каждая фигура выглядит одушевлённой, создавая ощущение движения и жизни в этой заснеженной среде. Масштаб — уровень глаз, средний план, передний план — видны крупные пингвины и мягкий снег под ногами.&#34;
+    }
+  ],
+  &#34;char_cards&#34;: [
+    {
+      &#34;title&#34;: &#34;dreamer&#34;,
+      &#34;body&#34;: &#34;роль: сновидец  \nвизуальный якорь: женщина средних лет, светлые длинные волосы, обычное лицо с мягкими чертами, тёплый зимний свитер нежно-голубого цвета, спокойная поза, руки расслаблены.&#34;
+    }
+  ],
+  &#34;frame_cards&#34;: [
+    {
+      &#34;title&#34;: &#34;Кадр 1&#34;,
+      &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец идёт через стаю пингвинов.  \n**frame_text:** Женщина (сновидец) идёт по глубокой снежной равнине, окружённая множеством пингвинов. Мягкий свет зимнего солнца придаёт сцене спокойствие. Пингвины двигаются вокруг, создавая ощущение жизни.&#34;,
+      &#34;is_preamble&#34;: false,
+      &#34;opora&#34;: &#34;&#34;,
+      &#34;izmenenie&#34;: &#34;сновидец идёт через стаю пингвинов.&#34;,
+      &#34;kad&#34;: &#34;Женщина (сновидец) идёт по глубокой снежной равнине, окружённая множеством пингвинов. Мягкий свет зимнего солнца придаёт сцене спокойствие. Пингвины двигаются вокруг, создавая ощущение жизни.&#34;,
+      &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+      &#34;character_references&#34;: [
+        &#34;dreamer&#34;
+      ],
+      &#34;use_previous_frame&#34;: false,
+      &#34;use_previous_frame_resolved&#34;: false,
+      &#34;forced_prev_chain_break&#34;: false,
+      &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+      &#34;ui_prev_line&#34;: &#34;—&#34;,
+      &#34;ui_env_line&#34;: &#34;** penguin_flock&#34;,
+      &#34;opora_display&#34;: &#34;** penguin_flock&#34;
+    },
+    {
+      &#34;title&#34;: &#34;Кадр 2&#34;,
+      &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** один пингвин схватил сновидца за пятку.  \n**frame_text:** Женщина (сновидец) продолжает идти, когда один пингвин хватает её за пятку. Она выглядит удивлённой, но не напуганной. Снег вокруг искрится на свету, а пингвины продолжают двигаться, создавая живой фон.&#34;,
+      &#34;is_preamble&#34;: false,
+      &#34;opora&#34;: &#34;&#34;,
+      &#34;izmenenie&#34;: &#34;один пингвин схватил сновидца за пятку.&#34;,
+      &#34;kad&#34;: &#34;Женщина (сновидец) продолжает идти, когда один пингвин хватает её за пятку. Она выглядит удивлённой, но не напуганной. Снег вокруг искрится на свету, а пингвины продолжают двигаться, создавая живой фон.&#34;,
+      &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+      &#34;character_references&#34;: [
+        &#34;dreamer&#34;
+      ],
+      &#34;use_previous_frame&#34;: true,
+      &#34;use_previous_frame_resolved&#34;: true,
+      &#34;forced_prev_chain_break&#34;: false,
+      &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+      &#34;ui_prev_line&#34;: &#34;да (prev уходит в image API)&#34;,
+      &#34;ui_env_line&#34;: &#34;—&#34;,
+      &#34;opora_display&#34;: &#34;—&#34;
+    },
+    {
+      &#34;title&#34;: &#34;Кадр 3&#34;,
+      &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец схватывает пингвина за клюв.  \n**frame_text:** Женщина (сновидец) схватывает пингвина за клюв с решительным выражением лица. Мягкая шерстка пингвина хорошо заметна на фоне снежной равнины. Атмосфера сохраняет ощущение спокойствия, несмотря на напряжение момента.&#34;,
+      &#34;is_preamble&#34;: false,
+      &#34;opora&#34;: &#34;&#34;,
+      &#34;izmenenie&#34;: &#34;сновидец схватывает пингвина за клюв.&#34;,
+      &#34;kad&#34;: &#34;Женщина (сновидец) схватывает пингвина за клюв с решительным выражением лица. Мягкая шерстка пингвина хорошо заметна на фоне снежной равнины. Атмосфера сохраняет ощущение спокойствия, несмотря на напряжение момента.&#34;,
+      &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+      &#34;character_references&#34;: [
+        &#34;dreamer&#34;
+      ],
+      &#34;use_previous_frame&#34;: true,
+      &#34;use_previous_frame_resolved&#34;: true,
+      &#34;forced_prev_chain_break&#34;: false,
+      &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+      &#34;ui_prev_line&#34;: &#34;да (prev уходит в image API)&#34;,
+      &#34;ui_env_line&#34;: &#34;—&#34;,
+      &#34;opora_display&#34;: &#34;—&#34;
+    },
+    {
+      &#34;title&#34;: &#34;Кадр 4&#34;,
+      &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец разжимает хватку, и пингвин отпущен.  \n**frame_text:** Женщина (сновидец) разжимает хватку, пингвин освобождается и отходит. Она смотрит на него с лёгким облегчением, снежная равнина продолжает быть окружённой пингвинами.&#34;,
+      &#34;is_preamble&#34;: false,
+      &#34;opora&#34;: &#34;&#34;,
+      &#34;izmenenie&#34;: &#34;сновидец разжимает хватку, и пингвин отпущен.&#34;,
+      &#34;kad&#34;: &#34;Женщина (сновидец) разжимает хватку, пингвин освобождается и отходит. Она смотрит на него с лёгким облегчением, снежная равнина продолжает быть окружённой пингвинами.&#34;,
+      &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+      &#34;character_references&#34;: [
+        &#34;dreamer&#34;
+      ],
+      &#34;use_previous_frame&#34;: true,
+      &#34;use_previous_frame_resolved&#34;: true,
+      &#34;forced_prev_chain_break&#34;: false,
+      &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+      &#34;ui_prev_line&#34;: &#34;да (prev уходит в image API)&#34;,
+      &#34;ui_env_line&#34;: &#34;—&#34;,
+      &#34;opora_display&#34;: &#34;—&#34;
+    },
+    {
+      &#34;title&#34;: &#34;Кадр 5&#34;,
+      &#34;body&#34;: &#34;**base_reference:** penguin_flock  \n**character_references:** [dreamer]  \n**delta:** сновидец трогает пингвинов.  \n**frame_text:** Женщина (сновидец) проходит мимо группки пингвинов, нежно трогая их. Она улыбается, ощущая мягкость их шерстки. Свет зимнего солнца продолжает освещать сцену, создавая атмосферу уюта и спокойствия.&#34;,
+      &#34;is_preamble&#34;: false,
+      &#34;opora&#34;: &#34;&#34;,
+      &#34;izmenenie&#34;: &#34;сновидец трогает пингвинов.&#34;,
+      &#34;kad&#34;: &#34;Женщина (сновидец) проходит мимо группки пингвинов, нежно трогая их. Она улыбается, ощущая мягкость их шерстки. Свет зимнего солнца продолжает освещать сцену, создавая атмосферу уюта и спокойствия.&#34;,
+      &#34;base_reference&#34;: &#34;** penguin_flock&#34;,
+      &#34;character_references&#34;: [
+        &#34;dreamer&#34;
+      ],
+      &#34;use_previous_frame&#34;: true,
+      &#34;use_previous_frame_resolved&#34;: false,
+      &#34;forced_prev_chain_break&#34;: true,
+      &#34;ui_chars_line&#34;: &#34;dreamer&#34;,
+      &#34;ui_prev_line&#34;: &#34;нет — сброс цепочки (макс. 3 prev подряд)&#34;,
+      &#34;ui_env_line&#34;: &#34;** penguin_flock&#34;,
+      &#34;opora_display&#34;: &#34;** penguin_flock&#34;
+    }
+  ],
+  &#34;generated_env&#34;: {
+    &#34;penguin_flock&#34;: {
+      &#34;ok&#34;: true,
+      &#34;urls&#34;: [
+        &#34;/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/env_0_penguin_flock_0_d85aef3a45.png&#34;
+      ],
+      &#34;error&#34;: null
+    }
+  },
+  &#34;generated_char&#34;: {
+    &#34;dreamer&#34;: {
+      &#34;ok&#34;: true,
+      &#34;urls&#34;: [
+        &#34;/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/char_0_dreamer_0_fcab716d02.png&#34;
+      ],
+      &#34;error&#34;: null
+    }
+  },
+  &#34;transition_plan&#34;: {
+    &#34;scenes&#34;: [
+      {
+        &#34;scene_index&#34;: 0,
+        &#34;from_frame_index&#34;: 0,
+        &#34;to_frame_index&#34;: 3
+      },
+      {
+        &#34;scene_index&#34;: 1,
+        &#34;from_frame_index&#34;: 4,
+        &#34;to_frame_index&#34;: 4
+      }
+    ],
+    &#34;transitions&#34;: [
+      {
+        &#34;from_frame_index&#34;: 0,
+        &#34;to_frame_index&#34;: 1,
+        &#34;transition_type&#34;: &#34;animate_transition&#34;,
+        &#34;motion_prompt&#34;: &#34;Женщина продолжает свой путь, уверенно шагая среди пингвинов, когда один из них неожиданно хватает её за пятку. В её реакции видно удивление, но не страх, она чувствует мягкость снега под ногами и весёлое движение пингвинов вокруг. Свет зимнего солнца мягко освещает её лицо и фигуры пингвинов, создавая атмосферу спокойствия и безмятежности.&#34;
+      },
+      {
+        &#34;from_frame_index&#34;: 1,
+        &#34;to_frame_index&#34;: 2,
+        &#34;transition_type&#34;: &#34;animate_transition&#34;,
+        &#34;motion_prompt&#34;: &#34;Сновидец крепко схватывает пингвина за клюв, выражение её лица становится решительным, но в то же время сохраняет спокойствие. Пингвин явно реагирует на её хватку, подчеркивая текстуру его мягкой шерстки на фоне снежной равнины. Нежный свет зимнего солнца продолжает создавать гармонию между её действиями и окружающими пингвинами.&#34;
+      },
+      {
+        &#34;from_frame_index&#34;: 2,
+        &#34;to_frame_index&#34;: 3,
+        &#34;transition_type&#34;: &#34;animate_transition&#34;,
+        &#34;motion_prompt&#34;: &#34;Сновидец освобождает пингвина, её движение мягкое и деликатное. Она смотрит на него с лёгким облегчением, так как он отходит назад. Сцена остаётся спокойной, несмотря на напряжение мгновения перед этим, а окружающие пингвины продолжают двигаться по снежной равнине.&#34;
+      },
+      {
+        &#34;from_frame_index&#34;: 3,
+        &#34;to_frame_index&#34;: 4,
+        &#34;transition_type&#34;: &#34;hard_cut&#34;,
+        &#34;cut_reason&#34;: &#34;смена действия и фокуса на взаимодействие с пингвинами.&#34;
+      }
+    ]
+  },
+  &#34;failed_transitions&#34;: []
+}</pre>
+  </details>
+  </div>
+  </div>
+</article>

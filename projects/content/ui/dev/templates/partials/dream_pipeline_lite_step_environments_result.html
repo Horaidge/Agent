@@ -1,0 +1,43 @@
+<div class="dream-lite-step-res dream-lite-step-res--env">
+  {% if error %}
+  <p class="error" role="alert">{{ error | e }}</p>
+  {% else %}
+  <article class="pipe-stage-card dream-lite-pipe-card">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Шаг 1 · Окружения и персонажи</h4>
+    <p class="dream-lite-secondary pipe-model-hint">Текстовый ответ модели (без JSON). Секции <code class="mono dream-lite-code">## Окружения</code> и <code class="mono dream-lite-code">## Персонажи</code>, карточки — <code class="mono dream-lite-code">### id</code>.</p>
+
+    <h5 class="dream-lite-subhead">Окружения</h5>
+    <div class="dream-lite-env-grid" aria-label="Окружения">
+      {% for c in env_cards %}
+      <div class="pipe-s0-scene-card dream-lite-env-card">
+        <div class="pipe-s0-scene-head dream-lite-card-head">{{ c.title | e }}</div>
+        <div class="dream-lite-card-body">{{ c.body | e }}</div>
+      </div>
+      {% else %}
+      <p class="dream-lite-secondary">Нет карточек окружений — проверьте формат ответа или повторите запрос.</p>
+      {% endfor %}
+    </div>
+
+    <h5 class="dream-lite-subhead">Персонажи</h5>
+    <div class="dream-lite-env-grid dream-lite-char-grid" aria-label="Персонажи">
+      {% for c in char_cards %}
+      <div class="pipe-s0-scene-card dream-lite-env-card dream-lite-char-card">
+        <div class="pipe-s0-scene-head dream-lite-card-head">{{ c.title | e }}</div>
+        <div class="dream-lite-card-body">{{ c.body | e }}</div>
+      </div>
+      {% else %}
+      <p class="dream-lite-secondary">Список персонажей пуст (для старых ответов без <code class="mono dream-lite-code">## Персонажи</code> это ожидаемо).</p>
+      {% endfor %}
+    </div>
+
+    <details class="pipe-json-details dream-lite-raw-details">
+      <summary class="pipe-json-details-summary dream-lite-secondary">Сырой текст ответа</summary>
+      <pre class="pipe-json-full dream-lite-raw-pre">{{ raw_text | e }}</pre>
+    </details>
+  </article>
+  {% endif %}
+</div>
+
+{% if not error and raw_text is defined %}
+<textarea id="dream-lite-env-store" name="environments_text" class="visually-hidden" aria-hidden="true" hx-swap-oob="true">{{ raw_text | e }}</textarea>
+{% endif %}

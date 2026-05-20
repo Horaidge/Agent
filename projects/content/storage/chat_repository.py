@@ -140,6 +140,9 @@ class ChatStoreRepository:
             int(getattr(r3, "deleted_count", 0) or 0),
         )
 
+    async def count_conversation_for_internal_user(self, internal_user_id: str) -> int:
+        return await self._conv_a.count_documents({"internal_user_id": internal_user_id})
+
     def aggregate_tool_stats_global_sync(
         self,
         *,
@@ -180,6 +183,51 @@ class ChatStoreRepository:
                 }
             )
         return out
+
+    def aggregate_model_token_usage_global_sync(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Сумма токенов по model_calls (поле usage.*), глобально за период."""
+        m: dict[str, Any] = {}
+        if since is not None or until is not None:
+            r: dict[str, Any] = {}
+            if since is not None:
+                r["$gte"] = since
+            if until is not None:
+                r["$lte"] = until
+            m["created_at"] = r
+        pipeline: list[dict[str, Any]] = [
+            {"$match": m},
+            {
+                "$group": {
+                    "_id": None,
+                    "calls": {"$sum": 1},
+                    "prompt_tokens": {"$sum": {"$ifNull": ["$usage.prompt_tokens", 0]}},
+                    "completion_tokens": {
+                        "$sum": {"$ifNull": ["$usage.completion_tokens", 0]}
+                    },
+                    "total_tokens": {"$sum": {"$ifNull": ["$usage.total_tokens", 0]}},
+                }
+            },
+        ]
+        rows = list(self._model_s.aggregate(pipeline))
+        if not rows:
+            return {
+                "calls": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            }
+        row = rows[0]
+        return {
+            "calls": int(row.get("calls") or 0),
+            "prompt_tokens": int(row.get("prompt_tokens") or 0),
+            "completion_tokens": int(row.get("completion_tokens") or 0),
+            "total_tokens": int(row.get("total_tokens") or 0),
+        }
 
     def list_tool_calls_global_sync(
         self,

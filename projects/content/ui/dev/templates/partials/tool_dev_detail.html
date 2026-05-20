@@ -1,0 +1,70 @@
+{% if dev_detail %}
+<details class="tool-internals">
+  <summary>Внутренняя структура (из кода)</summary>
+  <div class="tool-internals-body">
+    {% if dev_detail.module_summary %}
+    <p class="muted small" style="margin:0 0 0.5rem">{{ dev_detail.module_summary }}</p>
+    {% endif %}
+    {% if dev_detail.openai and dev_detail.openai.function_description %}
+    <p class="muted small" style="margin:0 0 0.35rem"><strong>OpenAI function</strong> — {{ dev_detail.openai.function_description }}</p>
+    {% endif %}
+    {% if dev_detail.openai and dev_detail.openai.parameters %}
+    <div class="tool-spec-table-wrap">
+      <table class="tool-spec-table">
+        <thead>
+          <tr><th>Параметр</th><th>Тип / ограничения</th><th>Обяз.</th></tr>
+        </thead>
+        <tbody>
+          {% for p in dev_detail.openai.parameters %}
+          <tr>
+            <td><code>{{ p.name }}</code></td>
+            <td>
+              {{ p.type or '—' }}
+              {% if p.enum %}<br/><span class="muted">enum:</span> {% for e in p.enum %}<code>{{ e }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+              {% if p.minimum is not none or p.maximum is not none %}
+              <br/><span class="muted">min/max:</span> {{ p.minimum if p.minimum is not none else '—' }} … {{ p.maximum if p.maximum is not none else '—' }}
+              {% endif %}
+              {% if p.description %}<br/><span class="muted">{{ p.description }}</span>{% endif %}
+            </td>
+            <td>{% if p.required %}да{% else %}нет{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if dev_detail.python_defaults %}
+    <p class="tool-spec-kv"><strong>Дефолты (Python)</strong></p>
+    <ul class="tool-spec-list">
+      {% for k, v in dev_detail.python_defaults.items() %}
+      <li><code>{{ k }}</code> = {% if v is none %}null{% else %}{{ v }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if dev_detail.internal_stages %}
+    <p class="tool-spec-kv"><strong>Внутренние этапы</strong></p>
+    <ol class="tool-spec-list">
+      {% for st in dev_detail.internal_stages %}
+      <li>{{ st.title }} <span class="muted">({{ st.id }})</span></li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+    {% if dev_detail.pipeline %}
+    <p class="tool-spec-kv"><strong>Цепочка</strong></p>
+    <ol class="tool-spec-list">
+      {% for line in dev_detail.pipeline %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+    {% if dev_detail.notes %}
+    <p class="tool-spec-kv"><strong>Заметки</strong></p>
+    <ul class="tool-spec-list">
+      {% for n in dev_detail.notes %}
+      <li>{{ n }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</details>
+{% endif %}

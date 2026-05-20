@@ -1,0 +1,13 @@
+.env
+ENV
+env
+.venv/
+__pycache__/
+*.pyc
+data/chat_history/
+data/backups/
+data/bot.log
+data/bot.pid
+data/bot_run.lock
+data/system_override.txt
+data/audit/

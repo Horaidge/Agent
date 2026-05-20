@@ -1,4 +1,6 @@
 fastapi>=0.110
+# Starlette 1.x ломает subpath mount Gradio (GET /ui/ → 404); см. Mount.matches для /ui без слэша.
+starlette>=0.40,<1.0
 jinja2>=3.1
 uvicorn[standard]>=0.27
 aiogram>=3.4

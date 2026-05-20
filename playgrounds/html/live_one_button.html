@@ -1,0 +1,407 @@
+<style>
+  .dl-live-wrap { background:#0b1220; color:#e2e8f0; border:1px solid #334155; border-radius:12px; padding:12px; }
+  .dl-live-wrap a { color:#93c5fd; }
+  .dl-live-wrap .muted { color:#94a3b8; }
+  .dl-live-wrap .tools-data-table { font-size:13px; }
+</style>
+<article class="pipe-stage-card dream-lite-input-card dl-live-wrap" style="margin:0.8rem 0;">
+  <h4 class="pipe-stage-card-title">Dream Lite · Live Runs</h4>
+  <p class="dream-lite-secondary">Последние запуски и текущие стадии по пользователям. <code>UI rev: 2026-04-29-0135</code></p>
+
+  <form
+    class="dream-lite-form"
+    hx-post="/dev/api/dream/lite/runs/fail_stale"
+    hx-target="#dream-lite-live-runs"
+    hx-swap="innerHTML">
+    <label class="dream-lite-label" for="dream-lite-stale-user-id">User ID (опционально, для точечной очистки)</label>
+    <input id="dream-lite-stale-user-id" type="text" name="user_id" class="dream-lite-model-select" placeholder="например 355777834"/>
+    <button type="submit" class="btn-ghost">Сбросить зависшие active run</button>
+  </form>
+
+  
+
+  <div class="table-wrap tools-table-wrap" style="margin-top:0.6rem;">
+    <table class="tools-data-table">
+      <thead>
+        <tr>
+          <th>updated_at</th>
+          <th>user_id</th>
+          <th>lite_run_id</th>
+          <th>status</th>
+          <th>phase</th>
+          <th>worker</th>
+          <th>progress</th>
+          <th>assets</th>
+          <th>error</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td class="muted">2026-04-28T21:57:41.935000</td>
+          <td>0</td>
+          <td><code>a8fb0d0e-361f-44f3-9aa6-f9af1def1231</code></td>
+          <td><span class="exec-status exec-status--completed">completed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=0&lite_run_id=a8fb0d0e-361f-44f3-9aa6-f9af1def1231" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 3/3
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_final/0_a8fb0d0e-361f-44f3-9aa6-f9af1def1231.mp4" target="_blank" rel="noopener">final video</a>
+            
+          </td>
+          <td class="muted">
+            img 5, vid 3
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/0/a8fb0d0e-361f-44f3-9aa6-f9af1def1231/out_frame_0_0_60f95d292c.png" target="_blank" rel="noopener">first image</a>
+            
+            
+            <br/><a href="https://dashscope-463f.oss-accelerate.aliyuncs.com/1d/1e/20260429/95ab037f/13169115-metadata_user_e1716e1c9ab1b9a5.mp4?Expires=1777499548&amp;OSSAccessKeyId=LTAI5t6ybWkD6u9sDryNkdo6&amp;Signature=pL5tGFly06q1j3jWCMEE0CZllZ0%3D" target="_blank" rel="noopener">first clip</a>
+            
+          </td>
+          <td class="muted"></td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T21:39:42.354000</td>
+          <td>355777834</td>
+          <td><code>053eebc1-f70b-4dd1-9fd2-9075962a7871</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=053eebc1-f70b-4dd1-9fd2-9075962a7871" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 6/6,
+            anim 3/3
+            
+          </td>
+          <td class="muted">
+            img 6, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/053eebc1-f70b-4dd1-9fd2-9075962a7871/out_frame_0_0_49a2997c1b.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T21:29:36.670000</td>
+          <td>355777834</td>
+          <td><code>85112fcd-49d8-43c3-859c-292925bd06fa</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=85112fcd-49d8-43c3-859c-292925bd06fa" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 3/3
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/85112fcd-49d8-43c3-859c-292925bd06fa/out_frame_0_0_1b9c808b31.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T21:12:17.935000</td>
+          <td>1</td>
+          <td><code>94080ab2-7675-45b1-ad6f-e017ef2d890e</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>failed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=1&lite_run_id=94080ab2-7675-45b1-ad6f-e017ef2d890e" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 2/2,
+            char 2/2,
+            frame 0/10,
+            anim 0/0
+            
+          </td>
+          <td class="muted">
+            img 0, vid 0
+            
+            
+          </td>
+          <td class="muted">manual_fail_stale_active_run_from_dev_ui</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T21:12:17.911000</td>
+          <td>355777834</td>
+          <td><code>a3498555-a317-4675-8c3a-8f733cea1940</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>failed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=a3498555-a317-4675-8c3a-8f733cea1940" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 1/5,
+            anim 0/0
+            
+          </td>
+          <td class="muted">
+            img 1, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/a3498555-a317-4675-8c3a-8f733cea1940/out_frame_0_0_b419a0e5bc.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">manual_fail_stale_active_run_from_dev_ui</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T21:12:17.911000</td>
+          <td>355777834</td>
+          <td><code>cdd6dace-faee-4740-af7b-ad87474bbdce</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>failed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=cdd6dace-faee-4740-af7b-ad87474bbdce" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 4/5,
+            anim 0/0
+            
+          </td>
+          <td class="muted">
+            img 4, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/cdd6dace-faee-4740-af7b-ad87474bbdce/out_frame_0_0_16fe35ebbc.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">manual_fail_stale_active_run_from_dev_ui</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T21:12:17.911000</td>
+          <td>355777834</td>
+          <td><code>0204b3ca-3c0b-448f-ac1b-848ae9dfa520</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>failed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=0204b3ca-3c0b-448f-ac1b-848ae9dfa520" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 0/6,
+            anim 0/0
+            
+          </td>
+          <td class="muted">
+            img 0, vid 0
+            
+            
+          </td>
+          <td class="muted">manual_fail_stale_active_run_from_dev_ui</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T20:20:13.089000</td>
+          <td>355777834</td>
+          <td><code>c90ed25a-46ea-40da-837e-a46a09dce324</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=c90ed25a-46ea-40da-837e-a46a09dce324" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 3/3
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/c90ed25a-46ea-40da-837e-a46a09dce324/out_frame_0_0_36a8303469.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T20:19:01.796000</td>
+          <td>355777834</td>
+          <td><code>d8406cbe-6f1e-4bed-833d-0081d9ea233f</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=d8406cbe-6f1e-4bed-833d-0081d9ea233f" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 2/2
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/d8406cbe-6f1e-4bed-833d-0081d9ea233f/out_frame_0_0_8837086e65.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T20:17:57.035000</td>
+          <td>355777834</td>
+          <td><code>4b7d48d0-08b8-4aef-8b03-73b2a5e64766</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=4b7d48d0-08b8-4aef-8b03-73b2a5e64766" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 3/3
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/4b7d48d0-08b8-4aef-8b03-73b2a5e64766/out_frame_0_0_c7b96e14df.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T20:17:10.257000</td>
+          <td>355777834</td>
+          <td><code>a5932d6a-104f-473f-8f12-e469bebd63a6</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>failed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=a5932d6a-104f-473f-8f12-e469bebd63a6" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/6,
+            anim 0/0
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/a5932d6a-104f-473f-8f12-e469bebd63a6/out_frame_0_0_bc52f5aeb2.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">&#39;update&#39; command document too large</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T20:16:07.546000</td>
+          <td>355777834</td>
+          <td><code>d5cfaccb-573f-4fff-bb49-881c7315fb06</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=d5cfaccb-573f-4fff-bb49-881c7315fb06" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 2/2
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/d5cfaccb-573f-4fff-bb49-881c7315fb06/out_frame_0_0_f56d9e5ff1.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T20:15:47.563000</td>
+          <td>355777834</td>
+          <td><code>4887c5ef-69d9-4c71-8066-f48d1426c35f</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=4887c5ef-69d9-4c71-8066-f48d1426c35f" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 3/3
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/4887c5ef-69d9-4c71-8066-f48d1426c35f/out_frame_0_0_40c174a7a9.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+        <tr>
+          <td class="muted">2026-04-28T19:55:46.602000</td>
+          <td>355777834</td>
+          <td><code>93a9ae13-bf79-4391-8ef6-8a9342dd9ef3</code></td>
+          <td><span class="exec-status exec-status--failed">failed</span></td>
+          <td><code>completed</code></td>
+          <td class="muted">
+            <a class="btn-ghost btn-sm" href="/dev/dream/lite/run_inspector?user_id=355777834&lite_run_id=93a9ae13-bf79-4391-8ef6-8a9342dd9ef3" target="_blank" rel="noopener">Открыть</a>
+          </td>
+          <td class="muted">
+            env 1/1,
+            char 1/1,
+            frame 5/5,
+            anim 3/3
+            
+          </td>
+          <td class="muted">
+            img 5, vid 0
+            
+            <br/><a href="https://smartagentplatform.ru/content/dev/static/dream_lite_runs/355777834/93a9ae13-bf79-4391-8ef6-8a9342dd9ef3/out_frame_0_0_5302211bdb.png" target="_blank" rel="noopener">first image</a>
+            
+            
+          </td>
+          <td class="muted">Нет готовых видео URL для сборки финального ролика.</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+</article>

@@ -24,7 +24,23 @@
       <div><dt>Обновлено</dt><dd class="mono">{{ a.updated_at or "—" }}</dd></div>
       <div><dt>telegram_file_id</dt><dd class="mono dream-ellipsis">{{ a.telegram_file_id }}</dd></div>
       <div><dt>source_message_id</dt><dd class="mono">{{ a.source_message_id }}</dd></div>
+      {% if a.actor_name %}
+      <div><dt>actor_name</dt><dd>{{ a.actor_name }}</dd></div>
+      {% endif %}
+      {% if a.is_base_character %}
+      <div><dt>base_character</dt><dd>да</dd></div>
+      {% endif %}
+      {% if a.prompt_used %}
+      <div><dt>prompt_used</dt><dd class="dream-card-prompt">{{ a.prompt_used }}</dd></div>
+      {% endif %}
     </dl>
+    {% if a.source_image_url %}
+    <div class="dream-card-preview">
+      <a href="{{ a.source_image_url }}" target="_blank" rel="noopener" class="dream-card-preview-link">
+        <img src="{{ a.source_image_url }}" alt="Preview asset {{ a._id }}" class="dream-card-preview-img" loading="lazy"/>
+      </a>
+    </div>
+    {% endif %}
   </article>
   {% endfor %}
 </div>

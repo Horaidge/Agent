@@ -1,0 +1,9 @@
+# В образ не кладём .env и данные — только при сборке кода.
+.venv
+__pycache__
+*.pyc
+.env
+ENV
+env
+.git
+data/*.log

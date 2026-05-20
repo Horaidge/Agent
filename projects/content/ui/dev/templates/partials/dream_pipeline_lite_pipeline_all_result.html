@@ -1,0 +1,68 @@
+<section class="dream-lite-pipeline-all-res" aria-label="Пайплайн 1–4 + видео">
+  <article class="pipe-stage-card dream-lite-pipe-card">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Полный run</h4>
+    <p class="dream-lite-secondary">
+      run: <code class="mono">{{ lite_run_id | e }}</code> · user: <code class="mono">{{ user_id | e }}</code>
+      · status: <strong>{{ run_status | e }}</strong>
+      {% if step_phase %}· phase: <code class="mono">{{ step_phase | e }}</code>{% endif %}
+      {% if step_count is defined %}· шагов: {{ step_count }}{% endif %}
+    </p>
+  </article>
+
+  {% if pipeline_error %}
+  <p class="error" role="alert">{{ pipeline_error | e }}</p>
+  {% endif %}
+
+  {% if not pipeline_error %}
+  {% if final_video_url %}
+  <article class="pipe-stage-card dream-lite-pipe-card dream-lite-final-cut-card">
+    <h4 class="pipe-stage-card-title dream-lite-step-title">Готовое видео (i2v + ffmpeg)</h4>
+    <p class="dream-lite-secondary">Сегменты <code class="mono">animate_transition</code> отданы в image-to-video (Wan / OpenRouter Video по настройкам), затем клипы склеены в один файл.</p>
+    <div class="dream-lite-final-video-wrap">
+      <video class="dream-lite-final-video" controls preload="metadata" src="{{ final_video_url | e }}" playsinline>
+        Ваш браузер не показывает video — откройте <a href="{{ final_video_url | e }}">прямую ссылку</a>.
+      </video>
+    </div>
+    <p class="dream-lite-secondary"><a href="{{ final_video_url | e }}" download>Скачать mp4</a> · {{ final_video_url | e }}</p>
+  </article>
+  {% elif final_video_error %}
+  <p class="err dream-lite-visual-err" role="alert"><strong>Видео не собрано:</strong> {{ final_video_error | e }}</p>
+  {% endif %}
+
+  {% if i2v_clips_meta is defined and i2v_clips_meta %}
+  <details class="pipe-json-details dream-lite-raw-details">
+    <summary class="pipe-json-details-summary dream-lite-secondary">Клипы i2v (отладка)</summary>
+    <pre class="pipe-json-full dream-lite-raw-pre">{{ i2v_clips_meta | tojson(indent=2) }}</pre>
+  </details>
+  {% endif %}
+  {% if failed_transitions is defined and failed_transitions %}
+  <details class="pipe-json-details dream-lite-raw-details" open>
+    <summary class="pipe-json-details-summary dream-lite-secondary">Проблемные transition (i2v/finalize)</summary>
+    <pre class="pipe-json-full dream-lite-raw-pre">{{ failed_transitions | tojson(indent=2) }}</pre>
+  </details>
+  {% endif %}
+  {% endif %}
+
+  {% if step1_raw is defined and step1_raw %}
+  {% with error=step1_error, env_cards=step1_env_cards, char_cards=step1_char_cards, raw_text=step1_raw %}
+  {% include "partials/dream_pipeline_lite_step_environments_result.html" %}
+  {% endwith %}
+  {% endif %}
+
+  {% if step2_cards is defined and step2_cards %}
+  {% with error=step2_error, cards=step2_cards, raw_text=step2_raw, prev_link_raw=step2_prev_link_raw|default('') %}
+  {% include "partials/dream_pipeline_lite_step_frames_result.html" %}
+  {% endwith %}
+  {% endif %}
+
+  {% if not pipeline_error and env_results is defined %}
+  {% include "partials/dream_pipeline_lite_generate_visual_result.html" %}
+  {% endif %}
+
+  {% if not pipeline_error and (transition_plan is defined or animation_markup is defined) %}
+  <details class="dream-lite-montage-plan-details pipe-stage-card dream-lite-pipe-card" open>
+    <summary class="pipe-json-details-summary dream-lite-secondary">Шаг 4 · разметка анимации и план монтажа</summary>
+    {% include "partials/dream_pipeline_lite_step4_montage_result.html" %}
+  </details>
+  {% endif %}
+</section>

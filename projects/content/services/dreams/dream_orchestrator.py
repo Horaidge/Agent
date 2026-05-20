@@ -6,26 +6,31 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from aiogram.types import FSInputFile, Message
+from pydantic import ValidationError
 
 from core.config.settings import Settings
 from core.observability.context import current_trace_id
 from core.observability.service import ObservabilityService
+from services.assets.asset_source_service import resolve_dream_asset_image_ref_for_qwen
+from services.assets.dream_asset_service import ASSET_TYPE_CHARACTER, STATUS_GENERATED
 from services.dreams.character_gate import (
     create_base_character_and_profile,
     user_declines_own_face,
 )
 from services.dreams.dream_scene_planner import (
-    build_animation_prompts_for_scenes,
     build_visual_prompts_for_scenes,
     decompose_dream_scenes,
     merge_scene_plan,
 )
 from services.dreams.models import (
     DreamSceneItem,
+    DreamSceneOutline,
     DreamScenePlan,
     DreamStage,
     DreamStageProgress,
@@ -34,7 +39,12 @@ from services.dreams.models import (
 from services.dreams.user_asset_context_service import UserAssetContextService
 from services.telegram_reply_keyboards import main_reply_keyboard
 from services.llm.openai_chat_service import OpenAIChatService
-from services.tools.image_tools import tool_generate_image
+from services.llm.system_prompt_loader import read_dream_intent_routing_raw
+from services.tools.image_tools import (
+    tool_edit_image,
+    tool_generate_base_character,
+    tool_generate_image,
+)
 from services.video.final_video_assembler import (
     FinalVideoAssemblerError,
     assemble_remote_mp4s,
@@ -46,12 +56,72 @@ from storage.dream_scene_repository import DreamSceneRepository
 from storage.generated_frame_repository import GeneratedFrameRepository
 from storage.scene_video_repository import SceneVideoRepository
 from storage.story_video_repository import StoryVideoRepository
+from storage.generated_image_repository import GeneratedImageRepository
 from storage.user_profile_repository import UserProfileRepository
 
 logger = logging.getLogger(__name__)
 
 _VIDEO_MODEL = "wan2.7-i2v"
 _IMG_SIZE = "1024*1536"
+_START_FRAME_PREFIX = (
+    "First frame only — opening beat, start of the action, not the final frozen pose. "
+)
+_DEFAULT_STYLE_PRESET = "dream_cinematic"
+_MAX_SECONDARY_ACTORS = 3
+
+# Если `prompts/dream_intent_routing.md` пуст — только для аварийного fallback.
+_FALLBACK_DREAM_INTENT_SYSTEM = (
+    "Ты классификатор интентов. Верни ТОЛЬКО JSON-объект с полями: "
+    "intent (dream|chat|text_generation|other), confidence (0..1), reason (кратко, по-русски)."
+)
+
+# Строки «я» в actors Stage 0 — не второстепенные ассеты (сопоставление без отдельного LLM).
+_PRIMARY_ACTOR_EXCLUDE = frozenset(
+    {"я", "пользователь", "главный герой", "сновидец", "рассказчик"}
+)
+
+
+def _dream_intent_system_prompt() -> str:
+    raw = (read_dream_intent_routing_raw() or "").strip()
+    return raw if raw else _FALLBACK_DREAM_INTENT_SYSTEM
+
+
+def _asset_id_for_actor_name(
+    ctx: dict[str, Any],
+    actor_bindings: dict[str, str],
+    name: str,
+) -> str | None:
+    k = _actor_key(name)
+    if actor_bindings.get(k):
+        return str(actor_bindings[k])
+    if actor_bindings.get(name):
+        return str(actor_bindings[name])
+    for a in ctx.get("secondary_actors") or []:
+        if _actor_key(str(a.get("actor_name") or "")) == k:
+            aid = a.get("_id")
+            return str(aid) if aid else None
+    return None
+
+
+def _secondary_actor_names_from_outlines(outlines: list[DreamSceneOutline]) -> list[str]:
+    """Кого просим описать как secondary: только из Stage 0, порядок — первое появление."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for o in outlines:
+        for raw in o.actors or []:
+            n = str(raw or "").strip()
+            if not n:
+                continue
+            key = _actor_key(n)
+            if key in _PRIMARY_ACTOR_EXCLUDE:
+                continue
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(n)
+            if len(out) >= _MAX_SECONDARY_ACTORS:
+                return out
+    return out
 
 
 def _character_prompt_suffix(ctx: dict[str, Any]) -> str:
@@ -73,10 +143,40 @@ def _norm_scene_reference_pref(raw: str) -> str:
     return ""
 
 
+def _actor_key(name: str) -> str:
+    return re.sub(r"\s+", " ", (name or "").strip().lower())
+
+
+def _parse_style_input(raw: str) -> dict[str, str]:
+    t = (raw or "").strip()
+    if not t:
+        return {"preset": _DEFAULT_STYLE_PRESET, "custom_prompt": ""}
+    low = t.lower()
+    known = {"dream_cinematic", "anime", "noir", "realistic", "surreal"}
+    if low in known:
+        return {"preset": low, "custom_prompt": ""}
+    if low.startswith("preset:"):
+        p = low.replace("preset:", "", 1).strip() or _DEFAULT_STYLE_PRESET
+        return {"preset": p, "custom_prompt": ""}
+    return {"preset": _DEFAULT_STYLE_PRESET, "custom_prompt": t}
+
+
+def _build_style_block(style: dict[str, Any] | None) -> str:
+    s = style or {}
+    preset = str(s.get("preset") or _DEFAULT_STYLE_PRESET)
+    custom = str(s.get("custom_prompt") or "").strip()
+    out = f"style preset: {preset}"
+    if custom:
+        out += f"; style custom: {custom}"
+    return out
+
+
 async def resolve_image_reference(
     ctx: dict[str, Any],
     dream_repo: DreamAssetRepository,
     scene: DreamSceneItem,
+    *,
+    bot_token: str = "",
 ) -> tuple[str, str | None, str | None, str]:
     """
     Тип reference для UI: base_character | face_asset | environment_asset | none.
@@ -96,15 +196,28 @@ async def resolve_image_reference(
         if not base_id:
             return None
         asset = await dream_repo.find_by_id(base_id)
-        url = (asset or {}).get("source_image_url")
-        return ("base_character", base_id, url, "base_character · dream_assets")
+        if not asset:
+            return None
+        url = resolve_dream_asset_image_ref_for_qwen(asset, bot_token=bot_token)
+        if not url:
+            return None
+        return ("base_character", str(base_id), url, "base_character · dream_assets")
 
-    def _face() -> tuple[str, str | None, str | None, str] | None:
+    async def _face() -> tuple[str, str | None, str | None, str] | None:
         if not faces:
             return None
-        fa = faces[0]
-        fid = fa.get("_id")
-        return ("face_asset", str(fid) if fid else None, None, "face_asset · Telegram upload")
+        for fa in faces:
+            furl = resolve_dream_asset_image_ref_for_qwen(fa, bot_token=bot_token)
+            if not furl:
+                continue
+            fid = fa.get("_id")
+            return (
+                "face_asset",
+                str(fid) if fid else None,
+                furl,
+                "face_asset · dream_assets (URL или data URI из Telegram)",
+            )
+        return None
 
     def _env() -> tuple[str, str | None, str | None, str] | None:
         if not envs or not (scene.environment_requirement or "").strip():
@@ -118,15 +231,28 @@ async def resolve_image_reference(
             "environment_asset · опора на окружение (без URL кадра)",
         )
 
+    cr = (scene.character_requirement or "").strip().lower()
+    # Сцена только с окружением / без людей — не навязываем эталон лица.
+    scene_is_env_only = cr in ("none",)
+
     # Явное намерение из шага 2
     if pref == "none":
+        # Модель часто ставит reference_type=none при том, что в сцене есть герой:
+        # если есть база/лицо — принудительно цепляемся к эталону для консистентности.
+        if not scene_is_env_only:
+            b = await _base()
+            if b:
+                return b
+            f = await _face()
+            if f:
+                return f
         e = _env()
         if e:
             return e
         return ("none", None, None, "none · только текстовый промпт")
 
     if pref == "face":
-        f = _face()
+        f = await _face()
         if f:
             return f
         b = await _base()
@@ -141,7 +267,7 @@ async def resolve_image_reference(
         b = await _base()
         if b:
             return b
-        f = _face()
+        f = await _face()
         if f:
             return f
         e = _env()
@@ -153,7 +279,7 @@ async def resolve_image_reference(
     b = await _base()
     if b:
         return b
-    f = _face()
+    f = await _face()
     if f:
         return f
     e = _env()
@@ -178,6 +304,7 @@ class DreamPipelineService:
         video_jobs: VideoJobService,
         openai: OpenAIChatService,
         observability: ObservabilityService | None = None,
+        generated_image_repo: GeneratedImageRepository | None = None,
     ) -> None:
         self._settings = settings
         self._runs = dream_run_repo
@@ -191,6 +318,7 @@ class DreamPipelineService:
         self._video = video_jobs
         self._openai = openai
         self._obs = observability
+        self._generated_images = generated_image_repo
 
     async def detect_intent_and_maybe_start(self, message: Message) -> bool:
         """
@@ -238,10 +366,7 @@ class DreamPipelineService:
         if not self._openai.configured:
             return {"intent": "dream" if heuristic else "chat", "confidence": 0.6 if heuristic else 0.2}
 
-        system = (
-            "Ты классификатор интентов. Верни ТОЛЬКО JSON-объект с полями: "
-            "intent (dream|chat|text_generation|other), confidence (0..1), reason (кратко, по-русски)."
-        )
+        system = _dream_intent_system_prompt()
         user = (
             "Определи интент сообщения пользователя.\n"
             f"Сообщение:\n{text}\n"
@@ -281,13 +406,105 @@ class DreamPipelineService:
         if not text:
             return False
 
-        pending = await self._runs.find_awaiting_character(uid)
+        pending = await self._runs.find_pending_input(uid)
         if not pending:
             return False
 
         trace_id = current_trace_id.get() or "unknown"
-        run_id = pending["_id"]
-        dream_text = pending.get("dream_text") or ""
+        run_id = str(pending["_id"])
+        dream_text = str(pending.get("dream_text") or "")
+        status = str(pending.get("status") or "")
+
+        if status == "awaiting_style":
+            style = _parse_style_input(text)
+            await self._runs.update(
+                run_id,
+                {
+                    "style": style,
+                    "status": "started",
+                    "current_stage": "resolve_style_complete",
+                    "pending_input": None,
+                },
+            )
+            await message.answer(
+                "Стиль сохранен. Продолжаю подготовку пайплайна.",
+                reply_markup=main_reply_keyboard(),
+            )
+            await self._maybe_wait_for_avatar_or_actors(
+                message=message,
+                run_id=run_id,
+                trace_id=trace_id,
+                dream_text=dream_text,
+            )
+            return True
+
+        if status == "awaiting_actors":
+            pending_input = pending.get("pending_input") or {}
+            missing = list(pending_input.get("missing_actor_names") or [])
+            resolved = dict(pending_input.get("resolved_actor_ids") or {})
+            if not missing:
+                await self._runs.update(
+                    run_id,
+                    {
+                        "status": "started",
+                        "pending_input": None,
+                    },
+                )
+                await self._maybe_wait_for_avatar_or_actors(
+                    message=message,
+                    run_id=run_id,
+                    trace_id=trace_id,
+                    dream_text=dream_text,
+                )
+                return True
+            actor_name = str(missing[0])
+            appearance = None if text.lower() in ("анон", "anon", "аноним", "анонимно") else text
+            actor_id = await self._create_secondary_actor(
+                user_id=uid,
+                chat_id=message.chat.id,
+                source_message_id=message.message_id,
+                actor_name=actor_name,
+                appearance=appearance,
+            )
+            resolved[_actor_key(actor_name)] = actor_id
+            remaining = missing[1:]
+            if remaining:
+                await self._runs.update(
+                    run_id,
+                    {
+                        "pending_input": {
+                            "kind": "actors",
+                            "missing_actor_names": remaining,
+                            "resolved_actor_ids": resolved,
+                        }
+                    },
+                )
+                await message.answer(
+                    f"Сохранён актёр `{actor_name}`. Опиши теперь `{remaining[0]}` (или отправь `анон`).",
+                    parse_mode="Markdown",
+                    reply_markup=main_reply_keyboard(),
+                )
+                return True
+            await self._runs.update(
+                run_id,
+                {
+                    "status": "started",
+                    "pending_input": None,
+                    "actor_bindings": resolved,
+                    "current_stage": "resolve_actors_complete",
+                },
+            )
+            await message.answer(
+                "Актёры сохранены. Запускаю визуализацию сна.",
+                reply_markup=main_reply_keyboard(),
+            )
+            await self._maybe_wait_for_avatar_or_actors(
+                message=message,
+                run_id=run_id,
+                trace_id=trace_id,
+                dream_text=dream_text,
+            )
+            return True
 
         low = text.lower()
         appearance: str | None
@@ -296,6 +513,7 @@ class DreamPipelineService:
         else:
             appearance = text
 
+        # awaiting_character fallback
         try:
             await create_base_character_and_profile(
                 user_id=uid,
@@ -335,21 +553,18 @@ class DreamPipelineService:
             run_id,
             {
                 "status": "started",
+                "current_stage": "resolve_avatar_complete",
                 "asset_context_snapshot": snap,
                 "selected_character_asset_id": snap.get("selected_character_asset_id"),
                 "error": None,
+                "pending_input": None,
             },
         )
-        try:
-            await message.answer(
-                "Персонаж сохранён. Запускаю визуализацию сна — это займёт несколько минут.",
-                reply_markup=main_reply_keyboard(),
-            )
-        except Exception:
-            pass
-
-        asyncio.create_task(
-            self._execute_pipeline_safe(message, dream_text, run_id, trace_id)
+        await self._maybe_wait_for_avatar_or_actors(
+            message=message,
+            run_id=run_id,
+            trace_id=trace_id,
+            dream_text=dream_text,
         )
         return True
 
@@ -371,20 +586,337 @@ class DreamPipelineService:
 
         await self._start_dream_from_text(message, dream_text, trace_id)
 
+    async def run_from_dev(
+        self,
+        *,
+        user_id: int,
+        dream_text: str,
+        chat_id: int | None = None,
+        decompose_model: str | None = None,
+    ) -> str:
+        """Dev-only запуск pipeline без Telegram update (для UI inspector).
+
+        decompose_model — опционально: модель Stage 0 из allowlist (см. Settings).
+        """
+        uid = int(user_id)
+        cid = int(chat_id or user_id)
+        trace_id = f"dev-{uuid.uuid4().hex}"
+
+        class _DevBot:
+            async def send_video(self, *args: Any, **kwargs: Any) -> None:
+                return None
+
+        class _DevFromUser:
+            def __init__(self, x: int) -> None:
+                self.id = x
+
+        class _DevChat:
+            def __init__(self, x: int) -> None:
+                self.id = x
+
+        class _DevMessage:
+            def __init__(self, u: int, c: int, text: str) -> None:
+                self.from_user = _DevFromUser(u)
+                self.chat = _DevChat(c)
+                self.text = text
+                self.message_id = 0
+                self.bot = _DevBot()
+
+            async def answer(self, *args: Any, **kwargs: Any) -> None:
+                return None
+
+        msg = _DevMessage(uid, cid, dream_text.strip())
+        await self._start_dream_from_text(
+            msg,
+            dream_text.strip(),
+            trace_id,
+            decompose_model_override=decompose_model,
+        )
+
+        pending = await self._runs.find_by_trace(trace_id)
+        if pending and str(pending.get("status")) == "awaiting_style":
+            run_id = str(pending.get("_id") or "")
+            await self._runs.update(
+                run_id,
+                {
+                    "style": {"preset": _DEFAULT_STYLE_PRESET, "custom_prompt": ""},
+                    "status": "started",
+                    "current_stage": "resolve_style_complete",
+                    "pending_input": None,
+                },
+            )
+            await self._maybe_wait_for_avatar_or_actors(
+                message=msg,
+                run_id=run_id,
+                trace_id=trace_id,
+                dream_text=dream_text.strip(),
+            )
+
+        run_id = ""
+        for _ in range(20):
+            await asyncio.sleep(0.15)
+            got = await self._runs.find_by_trace(trace_id)
+            if got and got.get("_id"):
+                run_id = str(got["_id"])
+                break
+        return run_id
+
+    async def start_from_tool_call(
+        self,
+        *,
+        message: Message,
+        dream_text: str,
+        trace_id: str,
+        style_hint: str | None = None,
+    ) -> dict[str, Any]:
+        """Запуск dream pipeline из model tool-call в основном chat-потоке."""
+        await self._start_dream_from_text(
+            message,
+            dream_text.strip(),
+            trace_id,
+            style_hint=style_hint,
+        )
+        run = await self._runs.find_by_trace(trace_id)
+        if not run:
+            return {
+                "ok": True,
+                "run_id": None,
+                "status": "started",
+            }
+        return {
+            "ok": True,
+            "run_id": str(run.get("_id") or ""),
+            "status": str(run.get("status") or "started"),
+            "trace_id": trace_id,
+        }
+
+    async def _load_or_run_stage0_decompose(
+        self,
+        *,
+        run_id: str,
+        trace_id: str,
+        dream_text: str,
+        ctx: dict[str, Any],
+        clear_precomputed_after_cache_hit: bool = False,
+    ) -> tuple[str, list[DreamSceneOutline]]:
+        """
+        Единственный вызов декомпозиции (prompts/dream_scene_motion_decompose.md): либо из кэша run,
+        либо json_completion. Кэш нужен между «собрать второстепенных» и полным pipeline.
+        """
+        run_doc = await self._runs.find_by_id(run_id) or {}
+        snap_data = run_doc.get("decomposition_snapshot") or {}
+        scenes_raw = snap_data.get("scenes")
+        if (
+            run_doc.get("stage0_precomputed")
+            and isinstance(scenes_raw, list)
+            and scenes_raw
+        ):
+            dream_summary = str(snap_data.get("dream_summary") or "")
+            outlines: list[DreamSceneOutline] = []
+            for s in scenes_raw:
+                if not isinstance(s, dict):
+                    continue
+                try:
+                    outlines.append(DreamSceneOutline.model_validate(dict(s)))
+                except ValidationError:
+                    logger.warning("dream: кэш Stage 0 невалиден, повторная декомпозиция")
+                    outlines = []
+                    break
+            if outlines:
+                if clear_precomputed_after_cache_hit:
+                    await self._runs.update(run_id, {"stage0_precomputed": False})
+                logger.info(
+                    "dream: Stage 0 из кэша run_id=%s scenes=%d",
+                    run_id,
+                    len(outlines),
+                )
+                return dream_summary, outlines
+
+        run_doc = await self._runs.find_by_id(run_id) or {}
+        override = run_doc.get("dream_decompose_model_override")
+        decompose_model = self._settings.resolve_dream_decompose_model(override)
+        if not self._openai.configured:
+            raise RuntimeError("OPENAI_API_KEY не задан — нельзя разобрать сон")
+        dream_summary, outlines = await decompose_dream_scenes(
+            openai=self._openai,
+            dream_text=dream_text,
+            asset_context=ctx,
+            model=decompose_model,
+        )
+        await self._runs.update(
+            run_id,
+            {
+                "dream_summary": dream_summary,
+                "dream_decompose_model": decompose_model,
+                "decomposition_snapshot": {
+                    "dream_summary": dream_summary,
+                    "scenes": [o.model_dump() for o in outlines],
+                },
+                "stage0_precomputed": True,
+            },
+        )
+        await self._emit(
+            trace_id,
+            "dream.scenes.decomposed",
+            {
+                "run_id": run_id,
+                "scene_count": len(outlines),
+                "decompose_model": decompose_model,
+                "from_cache": False,
+            },
+        )
+        if clear_precomputed_after_cache_hit:
+            await self._runs.update(run_id, {"stage0_precomputed": False})
+        return dream_summary, outlines
+
+    async def _create_secondary_actor(
+        self,
+        *,
+        user_id: int,
+        chat_id: int,
+        source_message_id: int,
+        actor_name: str,
+        appearance: str | None,
+    ) -> str:
+        bc = tool_generate_base_character(appearance)
+        if not bc.ok or not bc.image_url:
+            raise RuntimeError(bc.error or "secondary_actor_generation_failed")
+        doc: dict[str, Any] = {
+            "owner_user_id": user_id,
+            "telegram_user_id": user_id,
+            "chat_id": chat_id,
+            "source_message_id": source_message_id,
+            "asset_type": ASSET_TYPE_CHARACTER,
+            "status": STATUS_GENERATED,
+            "is_secondary_actor": True,
+            "actor_name": actor_name,
+            "actor_name_key": _actor_key(actor_name),
+            "source_image_url": bc.image_url,
+            "prompt_used": bc.prompt_used,
+            "character_uuid": bc.character_id,
+        }
+        return await self._dream_assets.insert_one(doc)
+
+    async def _maybe_wait_for_avatar_or_actors(
+        self,
+        *,
+        message: Message,
+        run_id: str,
+        trace_id: str,
+        dream_text: str,
+    ) -> None:
+        uid = message.from_user.id if message.from_user else 0
+        ctx = await self._user_ctx.build(uid)
+        snap = await self._user_ctx.build_storage_snapshot(uid)
+        ctx["_snapshot"] = snap
+        has_id = bool(ctx.get("has_face")) or bool(ctx.get("has_base_character"))
+        if not has_id:
+            # Legacy flow removed: не ждём ручного описания внешности.
+            # Если у пользователя нет базового персонажа, создаём анонимный профиль автоматически.
+            await create_base_character_and_profile(
+                user_id=uid,
+                chat_id=message.chat.id,
+                source_message_id=message.message_id,
+                appearance=None,
+                dream_repo=self._dream_assets,
+                user_profile_repo=self._profiles,
+            )
+            snap = await self._user_ctx.build_storage_snapshot(uid)
+
+        run_doc_pre = await self._runs.find_by_id(run_id) or {}
+        merged_bindings: dict[str, str] = dict(run_doc_pre.get("actor_bindings") or {})
+        for a in ctx.get("secondary_actors") or []:
+            an = str(a.get("actor_name") or "").strip()
+            aid = a.get("_id")
+            if an and aid:
+                merged_bindings[_actor_key(an)] = str(aid)
+
+        try:
+            _, outlines = await self._load_or_run_stage0_decompose(
+                run_id=run_id,
+                trace_id=trace_id,
+                dream_text=dream_text,
+                ctx=ctx,
+                clear_precomputed_after_cache_hit=False,
+            )
+        except Exception as e:
+            logger.exception("dream: Stage 0 до запуска pipeline не удался")
+            await self._runs.update(
+                run_id,
+                {"status": "failed", "error": str(e)},
+            )
+            await self._emit(
+                trace_id,
+                "dream.pipeline.failed",
+                {"stage": "stage0_pre_gate", "error": str(e)},
+            )
+            try:
+                await message.answer(
+                    f"Не удалось разобрать сон: {e!s}"[:4000],
+                    reply_markup=main_reply_keyboard(),
+                )
+            except Exception:
+                logger.warning("dream: error reply failed", exc_info=True)
+            return
+
+        ctx = await self._user_ctx.build(uid)
+        snap = await self._user_ctx.build_storage_snapshot(uid)
+        ctx["_snapshot"] = snap
+        for a in ctx.get("secondary_actors") or []:
+            an = str(a.get("actor_name") or "").strip()
+            aid = a.get("_id")
+            if an and aid:
+                merged_bindings[_actor_key(an)] = str(aid)
+        run_doc_pre = await self._runs.find_by_id(run_id) or {}
+        merged_bindings = {**merged_bindings, **dict(run_doc_pre.get("actor_bindings") or {})}
+
+        needed = _secondary_actor_names_from_outlines(outlines)
+        missing: list[str] = []
+        for n in needed:
+            if not _asset_id_for_actor_name(ctx, merged_bindings, n):
+                missing.append(n)
+        missing = missing[:_MAX_SECONDARY_ACTORS]
+        if missing:
+            # Legacy flow removed: не останавливаем pipeline на ручном вводе второстепенных актёров.
+            logger.info(
+                "dream: продолжаем без ручного ввода secondary actors run_id=%s missing=%s",
+                run_id,
+                missing,
+            )
+
+        await self._runs.update(
+            run_id,
+            {
+                "status": "started",
+                "current_stage": "decomposition",
+                "pending_input": None,
+                "actor_bindings": merged_bindings,
+                "asset_context_snapshot": snap,
+                "selected_character_asset_id": snap.get("selected_character_asset_id"),
+            },
+        )
+        await message.answer(
+            "Понял, запускаю визуализацию сна. Это может занять несколько минут.",
+            reply_markup=main_reply_keyboard(),
+        )
+        asyncio.create_task(self._execute_pipeline_safe(message, dream_text, run_id, trace_id))
+
     async def _start_dream_from_text(
         self,
         message: Message,
         dream_text: str,
         trace_id: str,
+        style_hint: str | None = None,
+        decompose_model_override: str | None = None,
     ) -> None:
         user = message.from_user
         uid = user.id if user else 0
 
-        pending = await self._runs.find_awaiting_character(uid)
+        pending = await self._runs.find_pending_input(uid)
         if pending:
             await message.answer(
-                "Уже ждём описание внешности для предыдущего запроса. "
-                "Ответь одним сообщением или отправь **анон**.",
+                "Есть незавершённый run (ожидается ввод по персонажам). "
+                "Заверши его одним сообщением.",
                 parse_mode="Markdown",
                 reply_markup=main_reply_keyboard(),
             )
@@ -392,90 +924,33 @@ class DreamPipelineService:
 
         await self._emit(trace_id, "dream.pipeline.started", {"user_id": uid, "dream_len": len(dream_text)})
 
-        ctx = await self._user_ctx.build(uid)
-        snap = await self._user_ctx.build_storage_snapshot(uid)
-        ctx["_snapshot"] = snap
-
-        has_id = bool(ctx.get("has_face")) or bool(ctx.get("has_base_character"))
-
-        if not has_id:
-            if user_declines_own_face(dream_text):
-                try:
-                    await create_base_character_and_profile(
-                        user_id=uid,
-                        chat_id=message.chat.id,
-                        source_message_id=message.message_id,
-                        appearance=None,
-                        dream_repo=self._dream_assets,
-                        user_profile_repo=self._profiles,
-                    )
-                    await self._emit(trace_id, "dream.base_character.generated", {"anon": True})
-                    ctx = await self._user_ctx.build(uid)
-                    snap = await self._user_ctx.build_storage_snapshot(uid)
-                    ctx["_snapshot"] = snap
-                except Exception as e:
-                    logger.exception("dream: auto anon character")
-                    await self._emit(
-                        trace_id,
-                        "dream.pipeline.failed",
-                        {"stage": "base_character", "error": str(e)},
-                    )
-                    await message.answer(
-                        f"Ошибка создания персонажа: {e!s}"[:4000],
-                        reply_markup=main_reply_keyboard(),
-                    )
-                    return
-            else:
-                await self._runs.insert_one(
-                    {
-                        "user_id": uid,
-                        "telegram_user_id": uid,
-                        "chat_id": message.chat.id,
-                        "trace_id": trace_id,
-                        "dream_text": dream_text,
-                        "status": "awaiting_character",
-                        "scene_count": 0,
-                        "asset_context_snapshot": snap,
-                        "selected_character_asset_id": None,
-                    }
-                )
-                await self._emit(
-                    trace_id,
-                    "dream.pipeline.waiting_character",
-                    {},
-                )
-                await message.answer(
-                    "Вижу intent на визуализацию сна. Чтобы персонаж был одинаковым во всех кадрах, "
-                    "опиши коротко, как ты выглядишь (одним сообщением). "
-                    "Либо отправь **анон** — тогда будет нейтральный герой без твоего лица.",
-                    parse_mode="Markdown",
-                    reply_markup=main_reply_keyboard(),
-                )
-                return
-
-        rid = await self._runs.insert_one(
-            {
-                "user_id": uid,
-                "telegram_user_id": uid,
-                "chat_id": message.chat.id,
-                "trace_id": trace_id,
-                "dream_text": dream_text,
-                "status": "started",
-                "scene_count": 0,
-                "asset_context_snapshot": snap,
-                "selected_character_asset_id": snap.get("selected_character_asset_id"),
-            }
-        )
-
-        try:
-            await message.answer(
-                "Понял, это похоже на сон. Запускаю визуализацию… Это может занять несколько минут.",
-                reply_markup=main_reply_keyboard(),
+        # dream_text — канонический сырой ввод пользователя; не перезаписывать summary/декомпозицией.
+        run_doc: dict[str, Any] = {
+            "user_id": uid,
+            "telegram_user_id": uid,
+            "chat_id": message.chat.id,
+            "trace_id": trace_id,
+            "dream_text": dream_text,
+            "status": "started",
+            "scene_count": 0,
+            "style": _parse_style_input(style_hint or ""),
+            "asset_context_snapshot": {},
+            "selected_character_asset_id": None,
+            "pending_input": None,
+            "actor_bindings": {},
+            "current_stage": "load_user_context",
+        }
+        if decompose_model_override is not None and str(decompose_model_override).strip():
+            run_doc["dream_decompose_model_override"] = (
+                self._settings.resolve_dream_decompose_model(decompose_model_override)
             )
-        except Exception:
-            pass
-
-        asyncio.create_task(self._execute_pipeline_safe(message, dream_text, rid, trace_id))
+        rid = await self._runs.insert_one(run_doc)
+        await self._maybe_wait_for_avatar_or_actors(
+            message=message,
+            run_id=rid,
+            trace_id=trace_id,
+            dream_text=dream_text,
+        )
 
     async def _execute_pipeline_safe(
         self,
@@ -546,10 +1021,18 @@ class DreamPipelineService:
     ) -> None:
         uid = message.from_user.id if message.from_user else 0
         chat_id = message.chat.id
+        run_doc = await self._runs.find_by_id(run_id)
+        style = (run_doc or {}).get("style") or {
+            "preset": _DEFAULT_STYLE_PRESET,
+            "custom_prompt": "",
+        }
+        actor_bindings = dict((run_doc or {}).get("actor_bindings") or {})
 
         ctx = await self._user_ctx.build(uid)
         snap = await self._user_ctx.build_storage_snapshot(uid)
         ctx["_snapshot"] = snap
+        ctx["style"] = style
+        ctx["actor_bindings"] = actor_bindings
 
         progress = DreamStageProgress()
 
@@ -560,6 +1043,8 @@ class DreamPipelineService:
                 "selected_character_asset_id": snap.get(
                     "selected_character_asset_id"
                 ),
+                "style": style,
+                "actor_bindings": actor_bindings,
                 "current_stage": progress.current_stage,
                 "stage_progress": progress.model_dump()["stages"],
             },
@@ -572,6 +1057,7 @@ class DreamPipelineService:
             trace_id=trace_id,
             ctx=ctx,
             snap=snap,
+            actor_bindings=actor_bindings,
             progress=progress,
         )
         n = len(plan.scenes)
@@ -638,21 +1124,26 @@ class DreamPipelineService:
         trace_id: str,
         ctx: dict[str, Any],
         snap: dict[str, Any],
+        actor_bindings: dict[str, str],
         progress: DreamStageProgress,
     ) -> tuple[DreamScenePlan, dict[int, str]]:
         progress.begin("stage_1", DreamStage.DECOMPOSING)
         await self._save_progress(run_id, progress, {"status": DreamStage.DECOMPOSING})
 
-        # 1a) Декомпозиция на смысловые сцены
-        dream_summary, outlines = await decompose_dream_scenes(
-            openai=self._openai,
+        # 1a) Декомпозиция — тот же результат, что после гейта персонажей (кэш или один вызов)
+        dream_summary, outlines = await self._load_or_run_stage0_decompose(
+            run_id=run_id,
+            trace_id=trace_id,
             dream_text=dream_text,
-            asset_context=ctx,
+            ctx=ctx,
+            clear_precomputed_after_cache_hit=True,
         )
-        await self._emit(
-            trace_id,
-            "dream.scenes.decomposed",
-            {"run_id": run_id, "scene_count": len(outlines)},
+        run_doc_pre = await self._runs.find_by_id(run_id)
+        decompose_model = str((run_doc_pre or {}).get("dream_decompose_model") or "")
+        logger.info(
+            "dream pipeline Stage 0: model=%s (chat/image default=%s)",
+            decompose_model or "(unknown)",
+            self._settings.openai_model,
         )
 
         scene_id_by_index: dict[int, str] = {}
@@ -671,6 +1162,12 @@ class DreamPipelineService:
                     "duration_sec": o.duration_sec,
                     "environment_requirement": o.environment_requirement,
                     "character_requirement": o.character_requirement,
+                    "actors": list(o.actors or []),
+                    "actor_ids": [
+                        actor_bindings.get(a) or actor_bindings.get(_actor_key(a))
+                        for a in (o.actors or [])
+                        if (actor_bindings.get(a) or actor_bindings.get(_actor_key(a)))
+                    ],
                     "planning_payload": {
                         "pipeline_stage": "decomposed",
                         "outline": o.model_dump(),
@@ -711,22 +1208,10 @@ class DreamPipelineService:
                 },
             )
 
-        # 1c) Промпты анимации
-        ap_map = await build_animation_prompts_for_scenes(
-            openai=self._openai,
-            dream_text=dream_text,
-            outlines=outlines,
-            visual_prompts_by_index=vp_map,
-            asset_context=ctx,
-        )
-        await self._emit(
-            trace_id,
-            "dream.animation_prompts.ready",
-            {"run_id": run_id, "scene_indices": sorted(ap_map.keys())},
-        )
+        # 1c) Анимация задаётся только полем motion в декомпозиции (отдельный LLM не вызываем)
 
         # 1d) Мерж в финальный план
-        plan = merge_scene_plan(dream_summary, outlines, vp_map, ap_map)
+        plan = merge_scene_plan(dream_summary, outlines, vp_map)
 
         for sc in plan.scenes:
             await self._scenes.update_by_run_and_index(
@@ -742,6 +1227,12 @@ class DreamPipelineService:
                     "duration_sec": sc.duration_sec,
                     "environment_requirement": sc.environment_requirement,
                     "character_requirement": sc.character_requirement,
+                    "actors": list(sc.actors or []),
+                    "actor_ids": [
+                        actor_bindings.get(a) or actor_bindings.get(_actor_key(a))
+                        for a in (sc.actors or [])
+                        if (actor_bindings.get(a) or actor_bindings.get(_actor_key(a)))
+                    ],
                     "planning_payload": {
                         "pipeline_stage": "complete",
                         "scene": sc.model_dump(),
@@ -797,32 +1288,65 @@ class DreamPipelineService:
         suffix = _character_prompt_suffix(ctx)
         prof = ctx.get("user_profile") or {}
         char_id = prof.get("base_character_asset_id")
+        style_block = _build_style_block(ctx.get("style"))
+        actor_bindings = dict(ctx.get("actor_bindings") or {})
 
         frames: list[SceneFrameData] = []
 
         for sc in plan.scenes:
             dream_scene_id = scene_id_by_index.get(sc.scene_index, "")
             ref_type, ref_aid, ref_url, ref_label = await resolve_image_reference(
-                ctx, self._dream_assets, sc
+                ctx,
+                self._dream_assets,
+                sc,
+                bot_token=self._settings.telegram_bot_token or "",
             )
 
             visual_raw = sc.visual_prompt
-            full_prompt = f"{visual_raw}{suffix}".strip()
+            actor_names = list(sc.actors or [])
+            actor_ids = [
+                actor_bindings.get(a) or actor_bindings.get(_actor_key(a))
+                for a in actor_names
+                if (actor_bindings.get(a) or actor_bindings.get(_actor_key(a)))
+            ]
+            actor_block = ""
+            if actor_names:
+                actor_block = f" secondary actors: {', '.join(actor_names)}."
+            full_prompt = (
+                f"{_START_FRAME_PREFIX}{visual_raw}{suffix}. "
+                "main character must remain consistent across all scenes."
+                f"{actor_block} {style_block}"
+            ).strip()
             if sc.environment_requirement:
                 full_prompt += f" Setting: {sc.environment_requirement}."
             if sc.mood:
                 full_prompt += f" Mood: {sc.mood}."
 
+            ref_url_dbg = ref_url
             prompt_inputs: dict[str, Any] = {
                 "dream_text_fragment": dream_text[:4000],
                 "visual_prompt_raw": visual_raw,
                 "reference_type_intent": sc.reference_type or None,
                 "character_prompt_suffix": suffix or None,
+                "style_block": style_block,
+                "scene_actor_names": actor_names,
+                "scene_actor_ids": actor_ids,
                 "image_prompt_final": full_prompt,
+                "image_role": "start_frame_for_video",
+                "motion": sc.motion.model_dump(),
                 "mood": sc.mood,
                 "environment_requirement": sc.environment_requirement,
                 "character_requirement": sc.character_requirement,
                 "reference_resolution": ref_label,
+                "reference_resolved_url": (
+                    None
+                    if not ref_url_dbg
+                    else (
+                        "[data URI, см. reference_image_url в кадре]"
+                        if str(ref_url_dbg).startswith("data:")
+                        else ref_url_dbg
+                    )
+                ),
                 "snapshot_at_generation": {
                     "has_face": snap.get("has_face"),
                     "has_base_character": snap.get("has_base_character"),
@@ -830,16 +1354,33 @@ class DreamPipelineService:
             }
 
             _prompt_for_gen = full_prompt  # capture for closure
+            _ref_type = ref_type
+            _ref_url = ref_url
 
-            def _gen(_p: str = _prompt_for_gen) -> str:
+            def _gen(_p: str = _prompt_for_gen, _rt: str = _ref_type, _ru: str | None = _ref_url) -> str:
                 last_err = ""
+                _ru_s = str(_ru or "").strip()
+                _has_ref_url = bool(
+                    _ru_s.startswith(("http://", "https://", "data:"))
+                )
                 for _ in range(2):
-                    r = tool_generate_image(
-                        prompt=_p,
-                        size=_IMG_SIZE,
-                        model="qwen-image-2.0",
-                        n=1,
-                    )
+                    if _has_ref_url and _rt in ("base_character", "face_asset"):
+                        # Если есть эталонный image reference, используем image-edit,
+                        # чтобы удерживать идентичность лица между сценами.
+                        r = tool_edit_image(
+                            image_source=_ru_s,
+                            instruction=_p,
+                            size=_IMG_SIZE,
+                            model="qwen-image-2.0",
+                            n=1,
+                        )
+                    else:
+                        r = tool_generate_image(
+                            prompt=_p,
+                            size=_IMG_SIZE,
+                            model="qwen-image-2.0",
+                            n=1,
+                        )
                     if r.ok and r.image_urls:
                         return r.image_urls[0]
                     last_err = r.error or "image generation failed"
@@ -848,6 +1389,23 @@ class DreamPipelineService:
             t0 = datetime.now(timezone.utc)
             image_url = await asyncio.to_thread(_gen)
             t1 = datetime.now(timezone.utc)
+
+            _ru_s = str(ref_url or "").strip()
+            uses_edit = bool(
+                _ru_s.startswith(("http://", "https://", "data:"))
+                and ref_type in ("base_character", "face_asset")
+            )
+            image_api_preview: dict[str, Any] = {
+                "provider": "DashScope multimodal-generation/generation",
+                "model": "qwen-image-2.0",
+                "parameters": {"size": _IMG_SIZE, "n": 1, "watermark": False},
+                "intent": "start_frame_for_video",
+                "call": (
+                    "edit_image — в input одно изображение-референс + текстовая инструкция"
+                    if uses_edit
+                    else "generate_image — только текстовый промпт в input"
+                ),
+            }
 
             await self._emit(
                 trace_id,
@@ -870,9 +1428,13 @@ class DreamPipelineService:
                     "reference_asset_id": ref_aid,
                     "reference_image_url": ref_url,
                     "reference_label": ref_label,
+                    "image_generation_mode": "edit_image" if uses_edit else "generate_image",
+                    "image_api_request_preview": image_api_preview,
                     "image_url": image_url,
                     "related_character_id": char_id,
                     "related_environment": sc.environment_requirement,
+                    "actor_ids": actor_ids,
+                    "actor_names": actor_names,
                     "status": "generated",
                     "generation_started_at": t0,
                     "generation_completed_at": t1,
@@ -888,6 +1450,20 @@ class DreamPipelineService:
                     image_url=image_url,
                 )
             )
+
+            if self._generated_images:
+                try:
+                    await self._generated_images.insert_one(
+                        user_id=uid,
+                        image_url=image_url,
+                        prompt=full_prompt,
+                        related_character_id=char_id,
+                    )
+                except Exception:
+                    logger.warning(
+                        "dream: generated_images mirror insert failed",
+                        exc_info=True,
+                    )
 
             progress.tick("stage_2")
             await self._save_progress(run_id, progress)
@@ -935,7 +1511,9 @@ class DreamPipelineService:
             anim_inputs: dict[str, Any] = {
                 "source_frame_id": fd.frame_id,
                 "source_image_url": fd.image_url,
-                "animation_prompt_raw": sc.animation_prompt,
+                "motion": sc.motion.model_dump(),
+                "motion_source": "stage_0_decomposition",
+                "animation_prompt_text": sc.animation_prompt,
                 "animation_prompt_final": anim_prompt,
                 "scene_excerpt": sc.scene_description[:1500],
             }

@@ -1,0 +1,15 @@
+<div class="dream-runtime-layout dream-lite-layout">
+  <p class="dream-lite-lead dream-lite-lead--main">
+    <strong>Dream Lite Workers</strong> — список запусков и детализация выбранного worker-run.
+  </p>
+
+  <div
+    id="dream-lite-workers-runs"
+    hx-get="/dev/partials/dream/lite/runs_live"
+    hx-trigger="load, every 4s"
+    hx-swap="innerHTML"></div>
+
+  <div id="dream-lite-worker-detail" class="dream-lite-out dream-lite-out--pipeline-all" style="margin-top:0.8rem;">
+    <p class="muted">Нажмите «Открыть воркер» в строке таблицы, чтобы увидеть детали run.</p>
+  </div>
+</div>
